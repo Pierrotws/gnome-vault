@@ -101,180 +101,8 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                     <property name="vexpand">true</property>
                     <property name="hexpand">true</property>
                     <property name="child">
-                      <object class="GtkListBox" id="tree_list">
-                        <property name="selection-mode">1</property>
-                        <property name="css-classes">navigation-sidebar</property>
-                        <child>
-                          <object class="GtkListBoxRow">
-                            <property name="child">
-                              <object class="GtkBox">
-                                <property name="orientation">0</property>
-                                <property name="spacing">8</property>
-                                <property name="margin-top">8</property>
-                                <property name="margin-bottom">8</property>
-                                <property name="margin-start">8</property>
-                                <property name="margin-end">8</property>
-                                <child>
-                                  <object class="GtkImage">
-                                    <property name="icon-name">pan-down-symbolic</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkImage">
-                                    <property name="icon-name">folder-symbolic</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel">
-                                    <property name="label">Personal</property>
-                                    <property name="xalign">0</property>
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkListBoxRow">
-                            <property name="child">
-                              <object class="GtkBox">
-                                <property name="orientation">0</property>
-                                <property name="spacing">8</property>
-                                <property name="margin-top">8</property>
-                                <property name="margin-bottom">8</property>
-                                <property name="margin-start">28</property>
-                                <property name="margin-end">8</property>
-                                <child>
-                                  <object class="GtkImage">
-                                    <property name="icon-name">dialog-password-symbolic</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel">
-                                    <property name="label">GitHub</property>
-                                    <property name="xalign">0</property>
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkListBoxRow">
-                            <property name="child">
-                              <object class="GtkBox">
-                                <property name="orientation">0</property>
-                                <property name="spacing">8</property>
-                                <property name="margin-top">8</property>
-                                <property name="margin-bottom">8</property>
-                                <property name="margin-start">28</property>
-                                <property name="margin-end">8</property>
-                                <child>
-                                  <object class="GtkImage">
-                                    <property name="icon-name">dialog-password-symbolic</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel">
-                                    <property name="label">Mail</property>
-                                    <property name="xalign">0</property>
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkListBoxRow">
-                            <property name="child">
-                              <object class="GtkBox">
-                                <property name="orientation">0</property>
-                                <property name="spacing">8</property>
-                                <property name="margin-top">8</property>
-                                <property name="margin-bottom">8</property>
-                                <property name="margin-start">8</property>
-                                <property name="margin-end">8</property>
-                                <child>
-                                  <object class="GtkImage">
-                                    <property name="icon-name">pan-end-symbolic</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkImage">
-                                    <property name="icon-name">folder-symbolic</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel">
-                                    <property name="label">Work</property>
-                                    <property name="xalign">0</property>
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkListBoxRow">
-                            <property name="child">
-                              <object class="GtkBox">
-                                <property name="orientation">0</property>
-                                <property name="spacing">8</property>
-                                <property name="margin-top">8</property>
-                                <property name="margin-bottom">8</property>
-                                <property name="margin-start">8</property>
-                                <property name="margin-end">8</property>
-                                <child>
-                                  <object class="GtkImage">
-                                    <property name="icon-name">pan-down-symbolic</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkImage">
-                                    <property name="icon-name">folder-symbolic</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel">
-                                    <property name="label">Servers</property>
-                                    <property name="xalign">0</property>
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkListBoxRow">
-                            <property name="child">
-                              <object class="GtkBox">
-                                <property name="orientation">0</property>
-                                <property name="spacing">8</property>
-                                <property name="margin-top">8</property>
-                                <property name="margin-bottom">8</property>
-                                <property name="margin-start">28</property>
-                                <property name="margin-end">8</property>
-                                <child>
-                                  <object class="GtkImage">
-                                    <property name="icon-name">dialog-password-symbolic</property>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="GtkLabel">
-                                    <property name="label">AWS Production</property>
-                                    <property name="xalign">0</property>
-                                    <property name="hexpand">true</property>
-                                  </object>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
+                      <object class="GtkListView" id="tree_view">
+                        <property name="single-click-activate">true</property>
                       </object>
                     </property>
                   </object>
@@ -391,6 +219,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                           <object class="GtkBox">
                             <property name="orientation">1</property>
                             <property name="spacing">8</property>
+                            <property name="vexpand">true</property>
                             <child>
                               <object class="GtkScrolledWindow">
                                 <property name="min-content-height">0</property>
@@ -544,19 +373,42 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                       </object>
                     </child>
                     <child>
-                      <object class="GtkBox">
+                      <object class="GtkBox" id="footer_actions">
                         <property name="orientation">0</property>
                         <property name="spacing">12</property>
+                        <property name="margin-top">12</property>
+                        <property name="margin-bottom">6</property>
+                        <property name="hexpand">true</property>
                         <child>
-                          <object class="GtkButton" id="delete_button">
-                            <property name="label">Delete Entry</property>
-                            <property name="css-classes">destructive-action</property>
+                          <object class="GtkBox">
+                            <property name="orientation">0</property>
+                            <property name="spacing">12</property>
+                            <property name="halign">1</property>
+                            <property name="hexpand">true</property>
+                            <child>
+                              <object class="GtkButton" id="save_button">
+                                <property name="label">Save</property>
+                                <property name="css-classes">suggested-action</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="cancel_button">
+                                <property name="label">Cancel</property>
+                              </object>
+                            </child>
                           </object>
                         </child>
                         <child>
-                          <object class="GtkButton" id="save_button">
-                            <property name="label">Save</property>
-                            <property name="css-classes">suggested-action</property>
+                          <object class="GtkBox">
+                            <property name="orientation">0</property>
+                            <property name="spacing">12</property>
+                            <property name="halign">2</property>
+                            <child>
+                              <object class="GtkButton" id="delete_button">
+                                <property name="label">Delete Entry</property>
+                                <property name="css-classes">destructive-action</property>
+                              </object>
+                            </child>
                           </object>
                         </child>
                       </object>
