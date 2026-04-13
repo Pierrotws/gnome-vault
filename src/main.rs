@@ -1,3 +1,4 @@
+mod pass_entry;
 mod pass_store;
 mod window;
 

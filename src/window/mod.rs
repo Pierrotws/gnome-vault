@@ -1,7 +1,9 @@
 mod imp;
 
+use crate::pass_entry::{entry_path_to_gpg_file, load_entry_from_gpg_file};
 use crate::pass_store::{load_password_store, PassNode, PassNodeKind};
 
+use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::prelude::*;
 use gtk::{gio, glib};
@@ -39,12 +41,10 @@ impl MainWindow {
         let nodes = match load_password_store() {
             Ok(nodes) => nodes,
             Err(err) => {
-                eprintln!("Failed to load ~/.password-store: {err}");
+                eprintln!("Failed to load password store: {err}");
                 Vec::new()
             }
         };
-
-        eprintln!("Loaded {} root nodes", nodes.len());
 
         let root_store = build_store_from_nodes(&nodes);
 
@@ -65,6 +65,8 @@ impl MainWindow {
 
         imp.tree_view.set_model(Some(&selection));
         imp.tree_view.set_factory(Some(&factory));
+
+        let win = self.clone();
 
         imp.tree_view
             .connect_activate(move |list_view: &gtk::ListView, position: u32| {
@@ -99,11 +101,97 @@ impl MainWindow {
                         row.set_expanded(!row.is_expanded());
                     }
                     PassNodeKind::Entry => {
-                        println!("Selected entry: {}", node.path.display());
+                        let full_path = entry_path_to_gpg_file(&node.path);
+
+                        match load_entry_from_gpg_file(&full_path) {
+                            Ok(entry) => {
+                                win.display_entry(&entry.password, &entry.fields);
+                            }
+                            Err(err) => {
+                                eprintln!("{err}");
+                            }
+                        }
                     }
                 }
             });
     }
+
+    pub fn display_entry(&self, password: &str, fields: &[(String, String)]) {
+        let imp = self.imp();
+
+        imp.password_row.set_text(password);
+
+        clear_listbox(&imp.custom_fields_list);
+
+        for (key, value) in fields {
+            let row = build_custom_field_row(key, value);
+            imp.custom_fields_list.append(&row);
+        }
+    }
+}
+
+fn build_custom_field_row(key: &str, value: &str) -> gtk::ListBoxRow {
+    let row = gtk::ListBoxRow::new();
+
+    let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    hbox.set_margin_top(8);
+    hbox.set_margin_bottom(8);
+    hbox.set_margin_start(8);
+    hbox.set_margin_end(8);
+
+    let key_label = gtk::Label::new(Some(key));
+    key_label.set_xalign(0.0);
+    key_label.set_width_chars(14);
+    key_label.set_halign(gtk::Align::Start);
+    key_label.set_valign(gtk::Align::Center);
+    key_label.set_hexpand(true);
+
+    let value_entry = gtk::Entry::new();
+    value_entry.set_hexpand(true);
+    value_entry.set_width_chars(24);
+    value_entry.set_text(value);
+    value_entry.set_placeholder_text(Some("Value"));
+
+    let copy_button = gtk::Button::builder()
+        .icon_name("edit-copy-symbolic")
+        .tooltip_text("Copy value")
+        .valign(gtk::Align::Center)
+        .build();
+
+    let delete_button = gtk::Button::builder()
+        .icon_name("user-trash-symbolic")
+        .tooltip_text("Delete field")
+        .valign(gtk::Align::Center)
+        .build();
+
+    copy_button.connect_clicked({
+        let value_entry = value_entry.clone();
+        move |_| {
+            if let Some(display) = gtk::gdk::Display::default() {
+                let clipboard = display.clipboard();
+                clipboard.set_text(&value_entry.text());
+            }
+        }
+    });
+
+    delete_button.connect_clicked({
+        let row = row.clone();
+        move |_| {
+            if let Some(parent) = row.parent() {
+                if let Ok(listbox) = parent.downcast::<gtk::ListBox>() {
+                    listbox.remove(&row);
+                }
+            }
+        }
+    });
+
+    hbox.append(&key_label);
+    hbox.append(&value_entry);
+    hbox.append(&copy_button);
+    hbox.append(&delete_button);
+
+    row.set_child(Some(&hbox));
+    row
 }
 
 fn build_store_from_nodes(nodes: &[PassNode]) -> gio::ListStore {
@@ -185,7 +273,6 @@ fn build_tree_factory() -> gtk::SignalListItemFactory {
             .expect("Second row child must be a Label");
 
         label.set_label(&node.name);
-        label.set_tooltip_text(Some(&node.path.to_string_lossy()));
 
         match node.kind {
             PassNodeKind::Group => {
@@ -201,4 +288,10 @@ fn build_tree_factory() -> gtk::SignalListItemFactory {
     });
 
     factory
+}
+
+fn clear_listbox(list: &gtk::ListBox) {
+    while let Some(child) = list.first_child() {
+        list.remove(&child);
+    }
 }
