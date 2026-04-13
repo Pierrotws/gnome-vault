@@ -90,264 +90,147 @@ template $MainWindow : Adw.ApplicationWindow {
         }
       };
 
-      end-child: ScrolledWindow {
+      end-child: Stack content_stack {
         vexpand: true;
-        hexpand: true;
 
-        child: Box {
-          orientation: vertical;
-          spacing: 18;
-          margin-top: 18;
-          margin-bottom: 18;
-          margin-start: 18;
-          margin-end: 18;
-
-          Box {
-                orientation: horizontal;
-                valign: center;
-                halign: center;
-                spacing: 8;
-                margin-top: 8;
-                margin-bottom: 8;
-                margin-start: 28;
-                margin-end: 8;
-
-                Image {
-                  icon-name: "dialog-password-symbolic";
-                }
-
-                Label {
-                  label: "GitHub";
-                  xalign: 0;
-                  css-classes: ["heading"];
-                }
-              }
-
-          Adw.PreferencesGroup {
-            title: "Entry";
-
-            Adw.PasswordEntryRow password_row {
-              text: "super-secret-password";
-            }
-
-            Adw.ActionRow {
-
-              [suffix]
-              Box {
-                orientation: horizontal;
-                spacing: 6;
-
-                Button copy_password_button {
-                  icon-name: "edit-copy-symbolic";
-                  tooltip-text: "Copy password";
-                  valign: center;
-                }
-
-                Button generate_password_button {
-                  icon-name: "view-refresh-symbolic";
-                  tooltip-text: "Generate password";
-                  valign: center;
-                }
-
-                MenuButton password_tools_button {
-                  icon-name: "open-menu-symbolic";
-                  tooltip-text: "Password tools";
-                  valign: center;
-
-                  popover: Popover {
-                    child: Box {
-                      orientation: vertical;
-                      spacing: 6;
-                      margin-top: 6;
-                      margin-bottom: 6;
-                      margin-start: 6;
-                      margin-end: 6;
-
-                      Button {
-                        label: "Password History";
-                        halign: fill;
-                      }
-
-                      Button {
-                        label: "Check Strength";
-                        halign: fill;
-                      }
-                    };
-                  };
-                }
-              }
-            }
-          }
-
-          Adw.PreferencesGroup {
-            title: "Custom Fields";
-
-            Box {
-              orientation: vertical;
-              spacing: 8;
+        StackPage {
+            name: "empty";
+            child: Box {
               vexpand: true;
+              valign: center;
+              halign: center;
+              orientation: vertical;
+              spacing: 12;
 
-              ScrolledWindow {
-                min-content-height: 0;
-                max-content-height: 320;
-                propagate-natural-height: true;
-                vexpand: false;
-
-                child: ListBox custom_fields_list {
-                  selection-mode: none;
-                  css-classes: ["boxed-list"];
-
-                  ListBoxRow {
-                    child: Box {
-                      orientation: horizontal;
-                      spacing: 8;
-                      margin-top: 8;
-                      margin-bottom: 8;
-                      margin-start: 8;
-                      margin-end: 8;
-
-                      Entry {
-                        hexpand: true;
-                        width-request: 140;
-                        text: "username";
-                        placeholder-text: "Field name";
-                      }
-
-                      Entry {
-                        hexpand: true;
-                        width-request: 220;
-                        text: "alice@example.com";
-                        placeholder-text: "Value";
-                      }
-
-                      Button {
-                        icon-name: "edit-copy-symbolic";
-                        tooltip-text: "Copy value";
-                      }
-
-                      Button {
-                        icon-name: "user-trash-symbolic";
-                        tooltip-text: "Delete field";
-                      }
-                    };
-                  }
-
-                  ListBoxRow {
-                    child: Box {
-                      orientation: horizontal;
-                      spacing: 8;
-                      margin-top: 8;
-                      margin-bottom: 8;
-                      margin-start: 8;
-                      margin-end: 8;
-
-                      Entry {
-                        hexpand: true;
-                        width-request: 140;
-                        text: "email";
-                        placeholder-text: "Field name";
-                      }
-
-                      Entry {
-                        hexpand: true;
-                        width-request: 220;
-                        text: "alice@example.com";
-                        placeholder-text: "Value";
-                      }
-
-                      Button {
-                        icon-name: "edit-copy-symbolic";
-                        tooltip-text: "Copy value";
-                      }
-
-                      Button {
-                        icon-name: "user-trash-symbolic";
-                        tooltip-text: "Delete field";
-                      }
-                    };
-                  }
-
-                  ListBoxRow {
-                    child: Box {
-                      orientation: horizontal;
-                      spacing: 8;
-                      margin-top: 8;
-                      margin-bottom: 8;
-                      margin-start: 8;
-                      margin-end: 8;
-
-                      Entry {
-                        hexpand: true;
-                        width-request: 140;
-                        text: "totp";
-                        placeholder-text: "Field name";
-                      }
-
-                      PasswordEntry {
-                        hexpand: true;
-                        width-request: 220;
-                        text: "otpauth://totp/example";
-                        placeholder-text: "Value";
-                        show-peek-icon: true;
-                      }
-
-                      Button {
-                        icon-name: "edit-copy-symbolic";
-                        tooltip-text: "Copy value";
-                      }
-
-                      Button {
-                        icon-name: "user-trash-symbolic";
-                        tooltip-text: "Delete field";
-                      }
-                    };
-                  }
-                };
+              Label {
+                label: "No entry selected";
+                css-classes: ["title-3"];
               }
 
-              Button add_field_button {
-                label: "Add Field";
-                icon-name: "list-add-symbolic";
-                halign: start;
+              Label {
+                label: "Select an item from the tree";
+                css-classes: ["dim-label"];
               }
-            }
+            };
           }
 
-          Box footer_actions {
-            orientation: horizontal;
-            spacing: 12;
-            margin-top: 12;
-            margin-bottom: 6;
+        StackPage {
+          name: "content";
+          child: ScrolledWindow {
+            vexpand: true;
             hexpand: true;
 
-            Box {
-              orientation: horizontal;
-              spacing: 12;
-              halign: start;
-              hexpand: true;
+            child: Box {
+              vexpand: true;
+              orientation: vertical;
+              spacing: 18;
+              margin-top: 18;
+              margin-bottom: 18;
+              margin-start: 18;
+              margin-end: 18;
 
-              Button save_button {
-                label: "Save";
-                css-classes: ["suggested-action"];
+              Label title_label {
+                label: "";
+                xalign: 0;
+                halign: center;
+                css-classes: ["title-2"];
               }
 
-              Button cancel_button {
-                label: "Cancel";
-              }
-            }
+              Adw.PreferencesGroup {
+                margin-top: 12;
+                margin-bottom: 12;
 
-            Box {
-              orientation: horizontal;
-              spacing: 12;
-              halign: end;
+                Adw.PasswordEntryRow password_row {
+                  text: "";
 
-              Button delete_button {
-                label: "Delete Entry";
-                css-classes: ["destructive-action"];
+                  [suffix]
+                  Button copy_password_button {
+                    icon-name: "edit-copy-symbolic";
+                    tooltip-text: "Copy password";
+                    valign: center;
+                  }
+
+                  [suffix]
+                  Button generate_password_button {
+                    icon-name: "view-refresh-symbolic";
+                    tooltip-text: "Generate password";
+                    valign: center;
+                    margin-start: 6;
+                  }
+                }
               }
-            }
-          }
-        };
+
+              Adw.PreferencesGroup {
+                title: "Custom Fields";
+                margin-top: 24;
+                vexpand: true;
+
+                Box {
+                  orientation: vertical;
+                  spacing: 8;
+                  vexpand: true;
+
+                  ScrolledWindow {
+                    min-content-height: 0;
+                    max-content-height: 320;
+                    propagate-natural-height: true;
+                    vexpand: false;
+
+                    child: ListBox custom_fields_list {
+                      selection-mode: none;
+                      css-classes: ["boxed-list"];
+                    };
+                  }
+
+                  Adw.ActionRow {
+                    [suffix]
+                    Button add_field_button {
+                      label: "Add Field";
+                      icon-name: "list-add-symbolic";
+                      valign: center;
+                    }
+                  }
+                }
+              }
+
+              Box footer_actions {
+                orientation: horizontal;
+                spacing: 12;
+                margin-top: 12;
+                margin-bottom: 6;
+                vexpand: false;
+                hexpand: true;
+
+                Box {
+                  orientation: horizontal;
+                  spacing: 12;
+                  halign: start;
+                  hexpand: true;
+
+                  Button delete_button {
+                    label: "Delete Entry";
+                    css-classes: ["destructive-action"];
+                  }
+                }
+
+                Box {
+                  orientation: horizontal;
+                  spacing: 12;
+                  halign: end;
+
+                  Button cancel_button {
+                    label: "Cancel";
+                  }
+
+                  Button save_button {
+                    label: "Save";
+                    css-classes: ["suggested-action"];
+                  }
+                }
+              }
+            };
+          };
+        }
       };
     };
   };

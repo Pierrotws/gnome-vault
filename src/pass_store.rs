@@ -43,8 +43,6 @@ pub fn load_password_store() -> io::Result<Vec<PassNode>> {
 fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
     let mut nodes = Vec::new();
 
-    eprintln!("Scanning dir: {}", dir.display());
-
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
@@ -58,7 +56,6 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
 
         if file_type.is_dir() {
             let children = load_dir(root, &path)?;
-            eprintln!("DIR  {} (children: {})", path.display(), children.len());
 
             nodes.push(PassNode {
                 name: entry.file_name().to_string_lossy().into_owned(),
@@ -73,8 +70,6 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
                     .and_then(|s| s.to_str())
                     .unwrap_or_default()
                     .to_string();
-
-                eprintln!("FILE {}", path.display());
 
                 nodes.push(PassNode {
                     name: stem,
