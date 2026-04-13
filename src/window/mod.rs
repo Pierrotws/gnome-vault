@@ -25,6 +25,24 @@ impl MainWindow {
     pub fn setup_callbacks(&self) {
         let imp = self.imp();
 
+        imp.copy_password_button.connect_clicked({
+            let password_row = imp.password_row.clone();
+            move |_| {
+                if let Some(display) = gtk::gdk::Display::default() {
+                    display.clipboard().set_text(&password_row.text());
+                }
+            }
+        });
+
+        imp.generate_password_button.connect_clicked({
+            //let password_row = imp.password_row.clone();
+            move |_| {
+                //TODO:
+                //let new_password = generate_password();
+                //password_row.set_text(&new_password);
+            }
+        });
+
         imp.add_field_button.connect_clicked(|_| {
             println!("Add field clicked");
         });
@@ -102,10 +120,13 @@ impl MainWindow {
                     }
                     PassNodeKind::Entry => {
                         let full_path = entry_path_to_gpg_file(&node.path);
-
+                        let Some(title) = node.path.to_str() else {
+                            eprintln!("Invalid path: {}", node.path.display());
+                            return;
+                        };
                         match load_entry_from_gpg_file(&full_path) {
                             Ok(entry) => {
-                                win.display_entry(&entry.password, &entry.fields);
+                                win.display_entry(&title, &entry.password, &entry.fields);
                             }
                             Err(err) => {
                                 eprintln!("{err}");
@@ -116,9 +137,12 @@ impl MainWindow {
             });
     }
 
-    pub fn display_entry(&self, password: &str, fields: &[(String, String)]) {
+    pub fn display_entry(&self, title: &str, password: &str, fields: &[(String, String)]) {
         let imp = self.imp();
 
+        imp.content_stack.set_visible_child_name("content");
+
+        imp.title_label.set_text(title);
         imp.password_row.set_text(password);
 
         clear_listbox(&imp.custom_fields_list);
@@ -139,12 +163,13 @@ fn build_custom_field_row(key: &str, value: &str) -> gtk::ListBoxRow {
     hbox.set_margin_start(8);
     hbox.set_margin_end(8);
 
-    let key_label = gtk::Label::new(Some(key));
-    key_label.set_xalign(0.0);
-    key_label.set_width_chars(14);
-    key_label.set_halign(gtk::Align::Start);
-    key_label.set_valign(gtk::Align::Center);
+    let key_label = gtk::Entry::new();
     key_label.set_hexpand(true);
+    key_label.set_width_chars(14);
+    key_label.set_text(key);
+    //key_label.set_xalign(0.0);
+    //key_label.set_halign(gtk::Align::Start);
+    //key_label.set_valign(gtk::Align::Center);
 
     let value_entry = gtk::Entry::new();
     value_entry.set_hexpand(true);

@@ -12,7 +12,19 @@ pub struct MainWindow {
     pub tree_view: TemplateChild<gtk::ListView>,
 
     #[template_child]
+    pub content_stack: TemplateChild<gtk::Stack>,
+
+    #[template_child]
+    pub title_label: TemplateChild<gtk::Label>,
+
+    #[template_child]
     pub password_row: TemplateChild<adw::PasswordEntryRow>,
+
+    #[template_child]
+    pub copy_password_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub generate_password_button: TemplateChild<gtk::Button>,
 
     #[template_child]
     pub custom_fields_list: TemplateChild<gtk::ListBox>,
