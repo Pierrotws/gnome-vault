@@ -1,0 +1,473 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $MainWindow : Adw.ApplicationWindow {
+  title: "Vault";
+  default-width: 1200;
+  default-height: 720;
+
+  content: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      title-widget: Adw.WindowTitle {
+        title: "Gnome Vault";
+        subtitle: "Unlocked";
+      };
+
+      [start]
+      Button new_entry_button {
+        icon-name: "list-add-symbolic";
+        tooltip-text: "New Entry";
+      }
+
+      [end]
+      MenuButton security_menu_button {
+        icon-name: "system-lock-screen-symbolic";
+        tooltip-text: "Security";
+
+        popover: Popover {
+          child: Box {
+            orientation: vertical;
+            spacing: 6;
+            margin-top: 6;
+            margin-bottom: 6;
+            margin-start: 6;
+            margin-end: 6;
+
+            Button lock_vault_button {
+              label: "Lock Vault";
+              halign: fill;
+            }
+
+            Button lock_timeout_button {
+              label: "Lock After Timeout";
+              halign: fill;
+            }
+
+            Button clear_clipboard_button {
+              label: "Clear Clipboard";
+              halign: fill;
+            }
+
+            Separator {}
+
+            Button vault_settings_button {
+              label: "Vault Settings";
+              halign: fill;
+            }
+          };
+        };
+      }
+    }
+
+    content: Paned {
+      orientation: horizontal;
+      wide-handle: true;
+      position: 400;
+      shrink-start-child: false;
+      shrink-end-child: false;
+
+      start-child: Box {
+        orientation: vertical;
+        spacing: 8;
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+        width-request: 360;
+
+        SearchEntry tree_search_entry {
+          placeholder-text: "Search entries and groups";
+        }
+
+        ScrolledWindow {
+          vexpand: true;
+          hexpand: true;
+
+          child: ListBox tree_list {
+            selection-mode: single;
+            css-classes: ["navigation-sidebar"];
+
+            ListBoxRow {
+              child: Box {
+                orientation: horizontal;
+                spacing: 8;
+                margin-top: 8;
+                margin-bottom: 8;
+                margin-start: 8;
+                margin-end: 8;
+
+                Image {
+                  icon-name: "pan-down-symbolic";
+                }
+
+                Image {
+                  icon-name: "folder-symbolic";
+                }
+
+                Label {
+                  label: "Personal";
+                  xalign: 0;
+                  hexpand: true;
+                }
+              };
+            }
+
+            ListBoxRow {
+              child: Box {
+                orientation: horizontal;
+                spacing: 8;
+                margin-top: 8;
+                margin-bottom: 8;
+                margin-start: 28;
+                margin-end: 8;
+
+                Image {
+                  icon-name: "dialog-password-symbolic";
+                }
+
+                Label {
+                  label: "GitHub";
+                  xalign: 0;
+                  hexpand: true;
+                }
+              };
+            }
+
+            ListBoxRow {
+              child: Box {
+                orientation: horizontal;
+                spacing: 8;
+                margin-top: 8;
+                margin-bottom: 8;
+                margin-start: 28;
+                margin-end: 8;
+
+                Image {
+                  icon-name: "dialog-password-symbolic";
+                }
+
+                Label {
+                  label: "Mail";
+                  xalign: 0;
+                  hexpand: true;
+                }
+              };
+            }
+
+            ListBoxRow {
+              child: Box {
+                orientation: horizontal;
+                spacing: 8;
+                margin-top: 8;
+                margin-bottom: 8;
+                margin-start: 8;
+                margin-end: 8;
+
+                Image {
+                  icon-name: "pan-end-symbolic";
+                }
+
+                Image {
+                  icon-name: "folder-symbolic";
+                }
+
+                Label {
+                  label: "Work";
+                  xalign: 0;
+                  hexpand: true;
+                }
+              };
+            }
+
+            ListBoxRow {
+              child: Box {
+                orientation: horizontal;
+                spacing: 8;
+                margin-top: 8;
+                margin-bottom: 8;
+                margin-start: 8;
+                margin-end: 8;
+
+                Image {
+                  icon-name: "pan-down-symbolic";
+                }
+
+                Image {
+                  icon-name: "folder-symbolic";
+                }
+
+                Label {
+                  label: "Servers";
+                  xalign: 0;
+                  hexpand: true;
+                }
+              };
+            }
+
+            ListBoxRow {
+              child: Box {
+                orientation: horizontal;
+                spacing: 8;
+                margin-top: 8;
+                margin-bottom: 8;
+                margin-start: 28;
+                margin-end: 8;
+
+                Image {
+                  icon-name: "dialog-password-symbolic";
+                }
+
+                Label {
+                  label: "AWS Production";
+                  xalign: 0;
+                  hexpand: true;
+                }
+              };
+            }
+          };
+        }
+      };
+
+      end-child: ScrolledWindow {
+        vexpand: true;
+        hexpand: true;
+
+        child: Box {
+          orientation: vertical;
+          spacing: 18;
+          margin-top: 18;
+          margin-bottom: 18;
+          margin-start: 18;
+          margin-end: 18;
+
+          Box {
+                orientation: horizontal;
+                valign: center;
+                halign: center;
+                spacing: 8;
+                margin-top: 8;
+                margin-bottom: 8;
+                margin-start: 28;
+                margin-end: 8;
+
+                Image {
+                  icon-name: "dialog-password-symbolic";
+                }
+
+                Label {
+                  label: "GitHub";
+                  xalign: 0;
+                  css-classes: ["heading"];
+                }
+              }
+
+          Adw.PreferencesGroup {
+            title: "Entry";
+
+            Adw.PasswordEntryRow password_row {
+              text: "super-secret-password";
+            }
+
+            Adw.ActionRow {
+
+              [suffix]
+              Box {
+                orientation: horizontal;
+                spacing: 6;
+
+                Button copy_password_button {
+                  icon-name: "edit-copy-symbolic";
+                  tooltip-text: "Copy password";
+                  valign: center;
+                }
+
+                Button generate_password_button {
+                  icon-name: "view-refresh-symbolic";
+                  tooltip-text: "Generate password";
+                  valign: center;
+                }
+
+                MenuButton password_tools_button {
+                  icon-name: "open-menu-symbolic";
+                  tooltip-text: "Password tools";
+                  valign: center;
+
+                  popover: Popover {
+                    child: Box {
+                      orientation: vertical;
+                      spacing: 6;
+                      margin-top: 6;
+                      margin-bottom: 6;
+                      margin-start: 6;
+                      margin-end: 6;
+
+                      Button {
+                        label: "Password History";
+                        halign: fill;
+                      }
+
+                      Button {
+                        label: "Check Strength";
+                        halign: fill;
+                      }
+                    };
+                  };
+                }
+              }
+            }
+          }
+
+          Adw.PreferencesGroup {
+            title: "Custom Fields";
+
+            Box {
+              orientation: vertical;
+              spacing: 8;
+
+              ScrolledWindow {
+                min-content-height: 0;
+                max-content-height: 320;
+                propagate-natural-height: true;
+                vexpand: false;
+
+                child: ListBox custom_fields_list {
+                  selection-mode: none;
+                  css-classes: ["boxed-list"];
+
+                  ListBoxRow {
+                    child: Box {
+                      orientation: horizontal;
+                      spacing: 8;
+                      margin-top: 8;
+                      margin-bottom: 8;
+                      margin-start: 8;
+                      margin-end: 8;
+
+                      Entry {
+                        hexpand: true;
+                        width-request: 140;
+                        text: "username";
+                        placeholder-text: "Field name";
+                      }
+
+                      Entry {
+                        hexpand: true;
+                        width-request: 220;
+                        text: "alice@example.com";
+                        placeholder-text: "Value";
+                      }
+
+                      Button {
+                        icon-name: "edit-copy-symbolic";
+                        tooltip-text: "Copy value";
+                      }
+
+                      Button {
+                        icon-name: "user-trash-symbolic";
+                        tooltip-text: "Delete field";
+                      }
+                    };
+                  }
+
+                  ListBoxRow {
+                    child: Box {
+                      orientation: horizontal;
+                      spacing: 8;
+                      margin-top: 8;
+                      margin-bottom: 8;
+                      margin-start: 8;
+                      margin-end: 8;
+
+                      Entry {
+                        hexpand: true;
+                        width-request: 140;
+                        text: "email";
+                        placeholder-text: "Field name";
+                      }
+
+                      Entry {
+                        hexpand: true;
+                        width-request: 220;
+                        text: "alice@example.com";
+                        placeholder-text: "Value";
+                      }
+
+                      Button {
+                        icon-name: "edit-copy-symbolic";
+                        tooltip-text: "Copy value";
+                      }
+
+                      Button {
+                        icon-name: "user-trash-symbolic";
+                        tooltip-text: "Delete field";
+                      }
+                    };
+                  }
+
+                  ListBoxRow {
+                    child: Box {
+                      orientation: horizontal;
+                      spacing: 8;
+                      margin-top: 8;
+                      margin-bottom: 8;
+                      margin-start: 8;
+                      margin-end: 8;
+
+                      Entry {
+                        hexpand: true;
+                        width-request: 140;
+                        text: "totp";
+                        placeholder-text: "Field name";
+                      }
+
+                      PasswordEntry {
+                        hexpand: true;
+                        width-request: 220;
+                        text: "otpauth://totp/example";
+                        placeholder-text: "Value";
+                        show-peek-icon: true;
+                      }
+
+                      Button {
+                        icon-name: "edit-copy-symbolic";
+                        tooltip-text: "Copy value";
+                      }
+
+                      Button {
+                        icon-name: "user-trash-symbolic";
+                        tooltip-text: "Delete field";
+                      }
+                    };
+                  }
+                };
+              }
+
+              Button add_field_button {
+                label: "Add Field";
+                icon-name: "list-add-symbolic";
+                halign: start;
+              }
+            }
+          }
+
+          Box {
+            orientation: horizontal;
+            spacing: 12;
+
+            Button delete_button {
+              label: "Delete Entry";
+              css-classes: ["destructive-action"];
+            }
+
+            Button save_button {
+              label: "Save";
+              css-classes: ["suggested-action"];
+            }
+
+          }
+        };
+      };
+    };
+  };
+}
