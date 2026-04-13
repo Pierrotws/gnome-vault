@@ -1,6 +1,5 @@
 use adw::subclass::prelude::*;
 use gtk::glib;
-use gtk::subclass::prelude::*;
 use gtk::{CompositeTemplate, TemplateChild};
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -10,7 +9,7 @@ pub struct MainWindow {
     pub tree_search_entry: TemplateChild<gtk::SearchEntry>,
 
     #[template_child]
-    pub tree_list: TemplateChild<gtk::ListBox>,
+    pub tree_view: TemplateChild<gtk::ListView>,
 
     #[template_child]
     pub password_row: TemplateChild<adw::PasswordEntryRow>,
@@ -40,12 +39,15 @@ impl ObjectSubclass for MainWindow {
 impl ObjectImpl for MainWindow {
     fn constructed(&self) {
         self.parent_constructed();
+
+        eprintln!("MainWindow::constructed");
         let obj = self.obj();
+        obj.setup_tree_view();
         obj.setup_callbacks();
     }
 }
 
-impl WidgetImpl for MainWindow {}
-impl WindowImpl for MainWindow {}
-impl ApplicationWindowImpl for MainWindow {}
-impl AdwApplicationWindowImpl for MainWindow {}
+impl gtk::subclass::widget::WidgetImpl for MainWindow {}
+impl gtk::subclass::window::WindowImpl for MainWindow {}
+impl gtk::subclass::application_window::ApplicationWindowImpl for MainWindow {}
+impl adw::subclass::application_window::AdwApplicationWindowImpl for MainWindow {}

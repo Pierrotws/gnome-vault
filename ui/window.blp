@@ -84,147 +84,8 @@ template $MainWindow : Adw.ApplicationWindow {
           vexpand: true;
           hexpand: true;
 
-          child: ListBox tree_list {
-            selection-mode: single;
-            css-classes: ["navigation-sidebar"];
-
-            ListBoxRow {
-              child: Box {
-                orientation: horizontal;
-                spacing: 8;
-                margin-top: 8;
-                margin-bottom: 8;
-                margin-start: 8;
-                margin-end: 8;
-
-                Image {
-                  icon-name: "pan-down-symbolic";
-                }
-
-                Image {
-                  icon-name: "folder-symbolic";
-                }
-
-                Label {
-                  label: "Personal";
-                  xalign: 0;
-                  hexpand: true;
-                }
-              };
-            }
-
-            ListBoxRow {
-              child: Box {
-                orientation: horizontal;
-                spacing: 8;
-                margin-top: 8;
-                margin-bottom: 8;
-                margin-start: 28;
-                margin-end: 8;
-
-                Image {
-                  icon-name: "dialog-password-symbolic";
-                }
-
-                Label {
-                  label: "GitHub";
-                  xalign: 0;
-                  hexpand: true;
-                }
-              };
-            }
-
-            ListBoxRow {
-              child: Box {
-                orientation: horizontal;
-                spacing: 8;
-                margin-top: 8;
-                margin-bottom: 8;
-                margin-start: 28;
-                margin-end: 8;
-
-                Image {
-                  icon-name: "dialog-password-symbolic";
-                }
-
-                Label {
-                  label: "Mail";
-                  xalign: 0;
-                  hexpand: true;
-                }
-              };
-            }
-
-            ListBoxRow {
-              child: Box {
-                orientation: horizontal;
-                spacing: 8;
-                margin-top: 8;
-                margin-bottom: 8;
-                margin-start: 8;
-                margin-end: 8;
-
-                Image {
-                  icon-name: "pan-end-symbolic";
-                }
-
-                Image {
-                  icon-name: "folder-symbolic";
-                }
-
-                Label {
-                  label: "Work";
-                  xalign: 0;
-                  hexpand: true;
-                }
-              };
-            }
-
-            ListBoxRow {
-              child: Box {
-                orientation: horizontal;
-                spacing: 8;
-                margin-top: 8;
-                margin-bottom: 8;
-                margin-start: 8;
-                margin-end: 8;
-
-                Image {
-                  icon-name: "pan-down-symbolic";
-                }
-
-                Image {
-                  icon-name: "folder-symbolic";
-                }
-
-                Label {
-                  label: "Servers";
-                  xalign: 0;
-                  hexpand: true;
-                }
-              };
-            }
-
-            ListBoxRow {
-              child: Box {
-                orientation: horizontal;
-                spacing: 8;
-                margin-top: 8;
-                margin-bottom: 8;
-                margin-start: 28;
-                margin-end: 8;
-
-                Image {
-                  icon-name: "dialog-password-symbolic";
-                }
-
-                Label {
-                  label: "AWS Production";
-                  xalign: 0;
-                  hexpand: true;
-                }
-              };
-            }
+          child: ListView tree_view {
+            single-click-activate: true;
           };
         }
       };
@@ -324,6 +185,7 @@ template $MainWindow : Adw.ApplicationWindow {
             Box {
               orientation: vertical;
               spacing: 8;
+              vexpand: true;
 
               ScrolledWindow {
                 min-content-height: 0;
@@ -451,20 +313,39 @@ template $MainWindow : Adw.ApplicationWindow {
             }
           }
 
-          Box {
+          Box footer_actions {
             orientation: horizontal;
             spacing: 12;
+            margin-top: 12;
+            margin-bottom: 6;
+            hexpand: true;
 
-            Button delete_button {
-              label: "Delete Entry";
-              css-classes: ["destructive-action"];
+            Box {
+              orientation: horizontal;
+              spacing: 12;
+              halign: start;
+              hexpand: true;
+
+              Button save_button {
+                label: "Save";
+                css-classes: ["suggested-action"];
+              }
+
+              Button cancel_button {
+                label: "Cancel";
+              }
             }
 
-            Button save_button {
-              label: "Save";
-              css-classes: ["suggested-action"];
-            }
+            Box {
+              orientation: horizontal;
+              spacing: 12;
+              halign: end;
 
+              Button delete_button {
+                label: "Delete Entry";
+                css-classes: ["destructive-action"];
+              }
+            }
           }
         };
       };
