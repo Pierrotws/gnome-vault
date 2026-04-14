@@ -169,6 +169,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                 <child>
                                   <object class="AdwPasswordEntryRow" id="password_row">
                                     <property name="text"></property>
+                                    <property name="editable">false</property>
                                     <child type="suffix">
                                       <object class="GtkButton" id="copy_password_button">
                                         <property name="icon-name">edit-copy-symbolic</property>
@@ -182,6 +183,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                         <property name="tooltip-text">Generate password</property>
                                         <property name="valign">3</property>
                                         <property name="margin-start">6</property>
+                                        <property name="visible">false</property>
                                       </object>
                                     </child>
                                   </object>

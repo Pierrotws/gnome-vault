@@ -142,13 +142,7 @@ template $MainWindow : Adw.ApplicationWindow {
 
                 Adw.PasswordEntryRow password_row {
                   text: "";
-
-                  [suffix]
-                  Button copy_password_button {
-                    icon-name: "edit-copy-symbolic";
-                    tooltip-text: "Copy password";
-                    valign: center;
-                  }
+                  editable: false;
 
                   [suffix]
                   Button generate_password_button {
@@ -156,6 +150,14 @@ template $MainWindow : Adw.ApplicationWindow {
                     tooltip-text: "Generate password";
                     valign: center;
                     margin-start: 6;
+                    visible: false;
+                  }
+
+                  [suffix]
+                  Button copy_password_button {
+                    icon-name: "edit-copy-symbolic";
+                    tooltip-text: "Copy password";
+                    valign: center;
                   }
                 }
               }
