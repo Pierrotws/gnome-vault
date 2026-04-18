@@ -1,0 +1,149 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $EntryView : Adw.Bin {
+    child: Stack content_stack {
+        vexpand: true;
+
+        StackPage {
+            name: "empty";
+            child: Box {
+                vexpand: true;
+                valign: center;
+                halign: center;
+                orientation: vertical;
+                spacing: 12;
+
+                Label {
+                    label: "No entry selected";
+                    css-classes: ["title-3"];
+                }
+
+                Label {
+                    label: "Select an item from the tree";
+                    css-classes: ["dim-label"];
+                }
+            };
+        }
+
+        StackPage {
+            name: "content";
+            child: ScrolledWindow {
+                vexpand: true;
+                hexpand: true;
+
+                child: Box {
+                vexpand: true;
+                orientation: vertical;
+                spacing: 18;
+                margin-top: 18;
+                margin-bottom: 18;
+                margin-start: 18;
+                margin-end: 18;
+
+                Label title_label {
+                    label: "";
+                    xalign: 0;
+                    halign: center;
+                    css-classes: [ "title-2"];
+                }
+
+                Adw.PreferencesGroup {
+                    margin-top: 12;
+                    margin-bottom: 12;
+
+                    Adw.PasswordEntryRow password_row {
+                        text: "";
+                        editable: false;
+
+                        [suffix]
+                        Button generate_password_button {
+                            icon-name: "view-refresh-symbolic";
+                            tooltip-text: "Generate password";
+                            valign: center;
+                            margin-start: 6;
+                            visible: false;
+                        }
+
+                        [suffix]
+                        Button copy_password_button {
+                            icon-name: "edit-copy-symbolic";
+                            tooltip-text: "Copy password";
+                            valign: center;
+                        }
+                    }
+                }
+
+                Adw.PreferencesGroup {
+                    title: "Custom Fields";
+                    margin-top: 24;
+                    vexpand: true;
+
+                    Box {
+                        orientation: vertical;
+                        spacing: 8;
+                        vexpand: true;
+
+                        ScrolledWindow {
+                            min-content-height: 0;
+                            max-content-height: 320;
+                            propagate-natural-height: true;
+                            vexpand: false;
+
+                            child: ListBox custom_fields_list {
+                                selection-mode: none;
+                                css-classes: [ "boxed-list"];
+                            };
+                        }
+
+                        Adw.ActionRow {
+                            [suffix]
+                            Button add_field_button {
+                                label: "Add Field";
+                                icon-name: "list-add-symbolic";
+                                valign: center;
+                            }
+                        }
+                    }
+                }
+
+                Box footer_actions {
+                    orientation: horizontal;
+                    spacing: 12;
+                    margin-top: 12;
+                    margin-bottom: 6;
+                    vexpand: false;
+                    hexpand: true;
+
+                    Box {
+                        orientation: horizontal;
+                        spacing: 12;
+                        halign: start;
+                        hexpand: true;
+
+                        Button delete_button {
+                            label: "Delete Entry";
+                            css-classes: [ "destructive-action"];
+                        }
+                    }
+
+                    Box {
+                        orientation: horizontal;
+                        spacing: 12;
+                        halign: end;
+
+                        Button cancel_button {
+                            label: "Cancel";
+                        }
+
+                        Button save_button {
+                            label: "Save";
+                            css-classes: [ "suggested-action"];
+                        }
+                    }
+                }
+            };
+            };
+        }
+    };
+}
