@@ -1,6 +1,10 @@
+use std::cell::{Cell, RefCell};
+
 use adw::subclass::prelude::*;
 use glib::subclass::InitializingObject;
 use gtk::{glib, CompositeTemplate};
+
+use crate::pass::entry::EntryData;
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/entry_view.ui")]
@@ -25,6 +29,16 @@ pub struct EntryView {
 
     #[template_child]
     pub add_field_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub cancel_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub save_button: TemplateChild<gtk::Button>,
+
+    //non graphical
+    pub current_entry: RefCell<Option<EntryData>>,
+    pub modified: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -45,7 +59,7 @@ impl ObjectSubclass for EntryView {
 impl ObjectImpl for EntryView {
     fn constructed(&self) {
         self.parent_constructed();
-
+        self.modified.set(false);
         let obj = self.obj();
         obj.setup_callbacks();
     }
