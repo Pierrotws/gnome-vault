@@ -73,7 +73,7 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
 
                 nodes.push(PassNode {
                     name: stem,
-                    path: relative_path_without_gpg(root, &path),
+                    path: relative_path(root, &path),
                     kind: PassNodeKind::Entry,
                     children: Vec::new(),
                 });
@@ -92,13 +92,4 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
 
 fn relative_path(root: &Path, path: &Path) -> PathBuf {
     path.strip_prefix(root).unwrap_or(path).to_path_buf()
-}
-
-fn relative_path_without_gpg(root: &Path, path: &Path) -> PathBuf {
-    let rel = path.strip_prefix(root).unwrap_or(path);
-    let mut p = rel.to_path_buf();
-    if p.extension().and_then(|e| e.to_str()) == Some("gpg") {
-        p.set_extension("");
-    }
-    p
 }

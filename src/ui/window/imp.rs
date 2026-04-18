@@ -2,6 +2,8 @@ use adw::subclass::prelude::*;
 use gtk::glib;
 use gtk::{CompositeTemplate, TemplateChild};
 
+use crate::ui::entry_view::EntryView;
+
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/window.ui")]
 pub struct MainWindow {
@@ -12,25 +14,7 @@ pub struct MainWindow {
     pub tree_view: TemplateChild<gtk::ListView>,
 
     #[template_child]
-    pub content_stack: TemplateChild<gtk::Stack>,
-
-    #[template_child]
-    pub title_label: TemplateChild<gtk::Label>,
-
-    #[template_child]
-    pub password_row: TemplateChild<adw::PasswordEntryRow>,
-
-    #[template_child]
-    pub copy_password_button: TemplateChild<gtk::Button>,
-
-    #[template_child]
-    pub generate_password_button: TemplateChild<gtk::Button>,
-
-    #[template_child]
-    pub custom_fields_list: TemplateChild<gtk::ListBox>,
-
-    #[template_child]
-    pub add_field_button: TemplateChild<gtk::Button>,
+    pub entry_view: TemplateChild<EntryView>,
 }
 
 #[glib::object_subclass]
