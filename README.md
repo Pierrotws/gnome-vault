@@ -8,16 +8,27 @@ Written in Rust ❤️
 - Gtk-rs
 - blueprint
 
+## Setup
+
+Run only once!
+
+```bash
+meson setup build
+```
+
 ## Compile
 
 ```bash
-cargo build
+cd build;
+meson compile
 ```
 
 ## Run
 
+Dev-only for now:
 ```bash
-cargo run
+cd build;
+./target/debug/gnome-vault
 ```
 
 ## Thanks

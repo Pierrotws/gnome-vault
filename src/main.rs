@@ -13,12 +13,16 @@ const APP_ID: &str = "io.pierrotws.GnomeVault";
 
 fn main() -> glib::ExitCode {
     eprintln!("main() start");
-    gio::resources_register_include!("compiled.gresource")
-        .expect("Failed to register resources");
+    let resource = match gio::Resource::load("resources/resources.gresource") {
+        Ok(res) => res,
+        Err(err) => {
+            eprintln!("Failed to load resources: {err}");
+            return glib::ExitCode::FAILURE;
+        }
+    };
+    gio::resources_register(&resource);
 
-    let app = adw::Application::builder()
-        .application_id(APP_ID)
-        .build();
+    let app = adw::Application::builder().application_id(APP_ID).build();
 
     app.connect_activate(|app| {
         eprintln!("app.activate");

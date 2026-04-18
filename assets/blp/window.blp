@@ -1,0 +1,96 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $MainWindow : Adw.ApplicationWindow {
+  title: "Vault";
+  default-width: 1200;
+  default-height: 720;
+
+  content: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      title-widget: Adw.WindowTitle {
+        title: "Gnome Vault";
+        subtitle: "Unlocked";
+      };
+
+      [start]
+      Button new_entry_button {
+        icon-name: "list-add-symbolic";
+        tooltip-text: "New Entry";
+      }
+
+      [end]
+      MenuButton security_menu_button {
+        icon-name: "system-lock-screen-symbolic";
+        tooltip-text: "Security";
+
+        popover: Popover {
+          child: Box {
+            orientation: vertical;
+            spacing: 6;
+            margin-top: 6;
+            margin-bottom: 6;
+            margin-start: 6;
+            margin-end: 6;
+
+            Button lock_vault_button {
+              label: "Lock Vault";
+              halign: fill;
+            }
+
+            Button lock_timeout_button {
+              label: "Lock After Timeout";
+              halign: fill;
+            }
+
+            Button clear_clipboard_button {
+              label: "Clear Clipboard";
+              halign: fill;
+            }
+
+            Separator {}
+
+            Button vault_settings_button {
+              label: "Vault Settings";
+              halign: fill;
+            }
+          };
+        };
+      }
+    }
+
+    content: Paned {
+      orientation: horizontal;
+      wide-handle: true;
+      position: 400;
+      shrink-start-child: false;
+      shrink-end-child: false;
+
+      start-child: Box {
+        orientation: vertical;
+        spacing: 8;
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+        width-request: 360;
+
+        SearchEntry tree_search_entry {
+          placeholder-text: "Search entries and groups";
+        }
+
+        ScrolledWindow {
+          vexpand: true;
+          hexpand: true;
+
+          child: ListView tree_view {
+            single-click-activate: true;
+          };
+        }
+      };
+
+      end-child: $EntryView entry_view {};
+    };
+  };
+}
