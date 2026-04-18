@@ -7,7 +7,8 @@ pub struct EntryData {
     pub fields: Vec<(String, String)>,
 }
 
-pub fn load_entry_from_gpg_file(path: &Path) -> Result<EntryData, String> {
+pub fn load_entry_from_gpg_file(rel_path: &Path) -> Result<EntryData, String> {
+    let path = password_store_dir().join(rel_path);
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)
         .map_err(|e| format!("Failed to initialize GPGME OpenPGP context: {e}"))?;
 
@@ -23,8 +24,12 @@ pub fn load_entry_from_gpg_file(path: &Path) -> Result<EntryData, String> {
     ctx.decrypt(&mut cipher, &mut plain)
         .map_err(|e| format!("Failed to decrypt {}: {e}", path.display()))?;
 
-    let content = String::from_utf8(plain)
-        .map_err(|e| format!("Decrypted content is not valid UTF-8 for {}: {e}", path.display()))?;
+    let content = String::from_utf8(plain).map_err(|e| {
+        format!(
+            "Decrypted content is not valid UTF-8 for {}: {e}",
+            path.display()
+        )
+    })?;
 
     parse_pass_entry(&content)
 }
@@ -62,10 +67,4 @@ pub fn password_store_dir() -> PathBuf {
         let home = std::env::var("HOME").expect("HOME not set");
         PathBuf::from(home).join(".password-store")
     }
-}
-
-pub fn entry_path_to_gpg_file(rel_path: &Path) -> PathBuf {
-    let mut full = password_store_dir().join(rel_path);
-    full.set_extension("gpg");
-    full
 }

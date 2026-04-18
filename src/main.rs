@@ -1,19 +1,17 @@
-mod pass_entry;
-mod pass_store;
-mod window;
+mod pass;
+mod ui;
 
 use adw::prelude::*;
-use gtk::prelude::*;
 use gtk::gio;
 use gtk::glib;
 
-use window::MainWindow;
+use crate::ui::window::MainWindow;
 
 const APP_ID: &str = "io.pierrotws.GnomeVault";
 
 fn main() -> glib::ExitCode {
     eprintln!("main() start");
-    let resource = match gio::Resource::load("resources/resources.gresource") {
+    let resource = match gio::Resource::load("assets/resources.gresource") {
         Ok(res) => res,
         Err(err) => {
             eprintln!("Failed to load resources: {err}");
