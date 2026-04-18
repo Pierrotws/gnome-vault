@@ -1,9 +1,11 @@
 mod imp;
 
+use adw::prelude::*;
+use gtk::glib;
 use gtk::subclass::prelude::*;
-use gtk::{glib, prelude::*};
 
 use crate::pass::entry::EntryData;
+use crate::ui::generate_password_view::GeneratePasswordView;
 
 glib::wrapper! {
     pub struct EntryView(ObjectSubclass<imp::EntryView>)
@@ -28,13 +30,9 @@ impl EntryView {
             }
         });
 
-        imp.generate_password_button.connect_clicked({
-            //let password_row = imp.password_row.clone();
-            move |_| {
-                //TODO:
-                //let new_password = generate_password();
-                //password_row.set_text(&new_password);
-            }
+        let this = self.clone();
+        imp.generate_password_button.connect_clicked(move |_| {
+            this.show_generate_password_dialog();
         });
 
         imp.add_field_button.connect_clicked(|_| {
@@ -56,6 +54,74 @@ impl EntryView {
             let row = build_custom_field_row(&key, &value);
             imp.custom_fields_list.append(&row);
         }
+    }
+
+    fn show_generate_password_dialog(&self) {
+        let parent = self
+            .root()
+            .and_then(|root| root.downcast::<gtk::Window>().ok());
+
+        let dialog = adw::Window::builder()
+            .title("Generate Password")
+            .modal(true)
+            .resizable(true)
+            .default_width(640)
+            .default_height(320)
+            .build();
+
+        if let Some(parent) = parent.as_ref() {
+            dialog.set_transient_for(Some(parent));
+        }
+
+        let main_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(0)
+            .build();
+
+        let content = GeneratePasswordView::new();
+
+        let actions = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(12)
+            .halign(gtk::Align::End)
+            .margin_top(18)
+            .margin_bottom(18)
+            .margin_start(18)
+            .margin_end(18)
+            .build();
+
+        let cancel_button = gtk::Button::with_label("Cancel");
+        let ok_button = gtk::Button::with_label("OK");
+        ok_button.add_css_class("suggested-action");
+
+        actions.append(&cancel_button);
+        actions.append(&ok_button);
+
+        main_box.append(&content);
+        main_box.append(&actions);
+
+        dialog.set_content(Some(&main_box));
+
+        {
+            let dialog = dialog.clone();
+            cancel_button.connect_clicked(move |_| {
+                dialog.close();
+            });
+        }
+
+        {
+            let this = self.clone();
+            let dialog = dialog.clone();
+            let content = content.clone();
+
+            ok_button.connect_clicked(move |_| {
+                let password = content.password();
+                let imp = this.imp();
+                imp.password_row.set_text(&password);
+                dialog.close();
+            });
+        }
+        dialog.present();
     }
 }
 
