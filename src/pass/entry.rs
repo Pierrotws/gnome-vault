@@ -1,14 +1,17 @@
 use gpgme::{Context, Data, Protocol};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+use crate::pass::store::PassNode;
 
 #[derive(Debug, Clone)]
 pub struct EntryData {
+    pub node: PassNode,
     pub password: String,
     pub fields: Vec<(String, String)>,
 }
 
-pub fn load_entry_from_gpg_file(rel_path: &Path) -> Result<EntryData, String> {
-    let path = password_store_dir().join(rel_path);
+pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
+    let path = password_store_dir().join(&node.path);
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)
         .map_err(|e| format!("Failed to initialize GPGME OpenPGP context: {e}"))?;
 
@@ -31,10 +34,6 @@ pub fn load_entry_from_gpg_file(rel_path: &Path) -> Result<EntryData, String> {
         )
     })?;
 
-    parse_pass_entry(&content)
-}
-
-fn parse_pass_entry(content: &str) -> Result<EntryData, String> {
     let mut lines = content.lines();
 
     let password = lines
@@ -57,7 +56,7 @@ fn parse_pass_entry(content: &str) -> Result<EntryData, String> {
         }
     }
 
-    Ok(EntryData { password, fields })
+    Ok(EntryData { node: node.clone(), password, fields })
 }
 
 pub fn password_store_dir() -> PathBuf {

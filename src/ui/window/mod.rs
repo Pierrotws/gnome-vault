@@ -4,7 +4,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{gio, glib};
 
-use crate::pass::entry::load_entry_from_gpg_file;
+use crate::pass::entry::load_entry_from_node;
 use crate::pass::store::{load_password_store, PassNode, PassNodeKind};
 
 glib::wrapper! {
@@ -91,9 +91,9 @@ impl MainWindow {
                     PassNodeKind::Group => {
                         row.set_expanded(!row.is_expanded());
                     }
-                    PassNodeKind::Entry => match load_entry_from_gpg_file(&node.path) {
+                    PassNodeKind::Entry => match load_entry_from_node(&node) {
                         Ok(entry_data) => {
-                            entry_view.display_entry(&node.name, &entry_data);
+                            entry_view.display_entry(&entry_data);
                         }
                         Err(err) => {
                             eprintln!("{err}");
