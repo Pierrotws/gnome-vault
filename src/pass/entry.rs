@@ -1,7 +1,6 @@
-use gpgme::{Context, Data, Protocol};
 use std::path::PathBuf;
 
-use crate::pass::store::PassNode;
+use crate::{helpers::gpg, pass::store::PassNode};
 
 #[derive(Debug, Clone)]
 pub struct EntryData {
@@ -20,28 +19,7 @@ pub fn save_entry_data(entry: &EntryData) -> Result<(), Box<dyn std::error::Erro
 
 pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
     let path = password_store_dir().join(&node.path);
-    let mut ctx = Context::from_protocol(Protocol::OpenPgp)
-        .map_err(|e| format!("Failed to initialize GPGME OpenPGP context: {e}"))?;
-
-    let path_str = path
-        .to_str()
-        .ok_or_else(|| format!("Non-UTF-8 path: {}", path.display()))?;
-
-    let mut cipher = Data::load(path_str)
-        .map_err(|e| format!("Failed to open encrypted file {}: {e}", path.display()))?;
-
-    let mut plain = Vec::<u8>::new();
-
-    ctx.decrypt(&mut cipher, &mut plain)
-        .map_err(|e| format!("Failed to decrypt {}: {e}", path.display()))?;
-
-    let content = String::from_utf8(plain).map_err(|e| {
-        format!(
-            "Decrypted content is not valid UTF-8 for {}: {e}",
-            path.display()
-        )
-    })?;
-
+    let content = gpg::decrypt(&path)?;
     let mut lines = content.lines();
     let password = lines
         .next()
