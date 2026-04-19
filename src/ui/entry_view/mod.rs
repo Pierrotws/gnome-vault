@@ -5,6 +5,7 @@ use gtk::glib;
 use gtk::subclass::prelude::*;
 
 use crate::pass::entry::{save_entry_data, EntryData};
+use crate::ui::custom_field_row::CustomFieldRow;
 use crate::ui::generate_password_view::GeneratePasswordView;
 
 glib::wrapper! {
@@ -48,8 +49,7 @@ impl EntryView {
 
         let this = self.clone();
         imp.add_field_button.connect_clicked(move |_| {
-            let empty = "".to_string();
-            let row = this.build_custom_field_row(&empty, &empty);
+            let row = CustomFieldRow::new_empty(&this);
             let in_imp = this.imp();
             in_imp.custom_fields_list.append(&row);
         });
@@ -60,8 +60,7 @@ impl EntryView {
         });
         let this = self.clone();
         imp.save_button.connect_clicked(move |_| {
-            let data = this.get_entry_data_from_current_context();
-            if let Err(err) = save_entry_data(&data) {
+            if let Err(err) = save_entry_data(&(&this).into()) {
                 this.show_error(&err.to_string());
             }
         });
@@ -99,17 +98,10 @@ impl EntryView {
 
         clear_listbox(&imp.custom_fields_list);
         for (key, value) in &entry.fields {
-            let row = self.build_custom_field_row(&key, &value);
+            let row = CustomFieldRow::new(&self, &key, &value);
             imp.custom_fields_list.append(&row);
         }
         self.set_modified(false);
-
-        // let model = imp.custom_fields_list.observe_children();
-        // let this = self.clone();
-        // model.connect_items_changed(move |_, _, _, _| {
-        //     println!("Custom fields changed");
-        //     this.set_modified();
-        // });
     }
 
     fn show_generate_password_dialog(&self) {
@@ -181,83 +173,6 @@ impl EntryView {
         dialog.present();
     }
 
-    fn build_custom_field_row(&self, key: &str, value: &str) -> gtk::ListBoxRow {
-        let row = gtk::ListBoxRow::new();
-
-        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        hbox.set_margin_top(8);
-        hbox.set_margin_bottom(8);
-        hbox.set_margin_start(8);
-        hbox.set_margin_end(8);
-
-        let key_entry = gtk::Entry::new();
-        key_entry.set_hexpand(true);
-        key_entry.set_width_chars(14);
-        key_entry.set_text(key);
-        //key_entry.set_xalign(0.0);
-        //key_entry.set_valign(gtk::Align::Center);
-        //key_entry.set_halign(gtk::Align::Start);
-
-        let this = self.clone();
-        key_entry.connect_changed(move |_| {
-            this.set_modified(true);
-        });
-
-        let value_entry = gtk::Entry::new();
-        value_entry.set_hexpand(true);
-        value_entry.set_width_chars(24);
-        value_entry.set_text(value);
-        value_entry.set_placeholder_text(Some("Value"));
-
-        let this = self.clone();
-        value_entry.connect_changed(move |_| {
-            this.set_modified(true);
-        });
-
-        let copy_button = gtk::Button::builder()
-            .icon_name("edit-copy-symbolic")
-            .tooltip_text("Copy value")
-            .valign(gtk::Align::Center)
-            .build();
-
-        let delete_button = gtk::Button::builder()
-            .icon_name("user-trash-symbolic")
-            .tooltip_text("Delete field")
-            .valign(gtk::Align::Center)
-            .build();
-
-        copy_button.connect_clicked({
-            let value_entry = value_entry.clone();
-            move |_| {
-                if let Some(display) = gtk::gdk::Display::default() {
-                    let clipboard = display.clipboard();
-                    clipboard.set_text(&value_entry.text());
-                }
-            }
-        });
-
-        let this = self.clone();
-        delete_button.connect_clicked({
-            let row = row.clone();
-            move |_| {
-                if let Some(parent) = row.parent() {
-                    if let Ok(listbox) = parent.downcast::<gtk::ListBox>() {
-                        listbox.remove(&row);
-                        this.set_modified(true);
-                    }
-                }
-            }
-        });
-
-        hbox.append(&key_entry);
-        hbox.append(&value_entry);
-        hbox.append(&copy_button);
-        hbox.append(&delete_button);
-
-        row.set_child(Some(&hbox));
-        row
-    }
-
     fn read_field_row(widget: &gtk::Widget) -> Option<(String, String)> {
         let row = widget.clone().downcast::<gtk::ListBoxRow>().ok()?;
         let row_child = row.child()?;
@@ -274,9 +189,11 @@ impl EntryView {
         }
         Some((key, value))
     }
+}
 
-    fn get_entry_data_from_current_context(&self) -> EntryData {
-        let imp = self.imp();
+impl From<&EntryView> for EntryData {
+    fn from(view: &EntryView) -> EntryData {
+        let imp = view.imp();
         let password = imp.password_row.text().to_string();
         let node = imp.current_entry.borrow().as_ref().unwrap().node.clone();
         //Fields
@@ -284,7 +201,7 @@ impl EntryView {
         let mut child = imp.custom_fields_list.first_child();
         while let Some(widget) = child {
             child = widget.next_sibling();
-            if let Some((key, value)) = Self::read_field_row(&widget) {
+            if let Some((key, value)) = EntryView::read_field_row(&widget) {
                 if !key.is_empty() || !value.is_empty() {
                     fields.push((key, value));
                 }
