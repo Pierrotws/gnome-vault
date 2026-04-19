@@ -10,6 +10,14 @@ pub struct EntryData {
     pub fields: Vec<(String, String)>,
 }
 
+pub fn save_entry_data(entry: &EntryData) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Saving entry at {}", entry.node.path.display());
+    println!("  password: {}", entry.password);
+    println!("Saved.");
+    //Err("Someting failed".into())
+    Ok(())
+}
+
 pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
     let path = password_store_dir().join(&node.path);
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)
@@ -35,14 +43,12 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
     })?;
 
     let mut lines = content.lines();
-
     let password = lines
         .next()
         .ok_or_else(|| "Empty pass entry".to_string())?
         .to_string();
 
     let mut fields = Vec::new();
-
     for line in lines {
         let trimmed = line.trim();
         if trimmed.is_empty() {
@@ -56,7 +62,11 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
         }
     }
 
-    Ok(EntryData { node: node.clone(), password, fields })
+    Ok(EntryData {
+        node: node.clone(),
+        password,
+        fields,
+    })
 }
 
 pub fn password_store_dir() -> PathBuf {

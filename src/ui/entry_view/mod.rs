@@ -4,7 +4,7 @@ use adw::prelude::*;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 
-use crate::pass::entry::EntryData;
+use crate::pass::entry::{save_entry_data, EntryData};
 use crate::ui::generate_password_view::GeneratePasswordView;
 
 glib::wrapper! {
@@ -46,14 +46,36 @@ impl EntryView {
             this.show_generate_password_dialog();
         });
 
-        imp.add_field_button.connect_clicked(|_| {
-            println!("Add field clicked");
+        let this = self.clone();
+        imp.add_field_button.connect_clicked(move |_| {
+            let empty = "".to_string();
+            let row = this.build_custom_field_row(&empty, &empty);
+            let in_imp = this.imp();
+            in_imp.custom_fields_list.append(&row);
         });
 
         let this = self.clone();
         imp.cancel_button.connect_clicked(move |_| {
             this.reload_from_entry();
         });
+        let this = self.clone();
+        imp.save_button.connect_clicked(move |_| {
+            let data = this.get_entry_data_from_current_context();
+            if let Err(err) = save_entry_data(&data) {
+                this.show_error(&err.to_string());
+            }
+        });
+    }
+
+    pub fn show_error(&self, msg: &str) {
+        let dialog = adw::AlertDialog::builder()
+            .heading("Error")
+            .body(msg)
+            .build();
+        dialog.add_responses(&[("ok", "OK")]);
+        dialog.set_default_response(Some("ok"));
+        dialog.set_close_response("ok");
+        dialog.present(Some(self));
     }
 
     pub fn display_entry(&self, entry: &EntryData) {
@@ -234,6 +256,45 @@ impl EntryView {
 
         row.set_child(Some(&hbox));
         row
+    }
+
+    fn read_field_row(widget: &gtk::Widget) -> Option<(String, String)> {
+        let row = widget.clone().downcast::<gtk::ListBoxRow>().ok()?;
+        let row_child = row.child()?;
+        let container = row_child.downcast::<gtk::Box>().ok()?;
+
+        let first = container.first_child()?;
+        let second = first.next_sibling()?;
+
+        let key = first.downcast::<gtk::Entry>().ok()?.text().to_string();
+        let value = second.downcast::<gtk::Entry>().ok()?.text().to_string();
+
+        if key.is_empty() || value.is_empty() {
+            return None;
+        }
+        Some((key, value))
+    }
+
+    fn get_entry_data_from_current_context(&self) -> EntryData {
+        let imp = self.imp();
+        let password = imp.password_row.text().to_string();
+        let node = imp.current_entry.borrow().as_ref().unwrap().node.clone();
+        //Fields
+        let mut fields = Vec::new();
+        let mut child = imp.custom_fields_list.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            if let Some((key, value)) = Self::read_field_row(&widget) {
+                if !key.is_empty() || !value.is_empty() {
+                    fields.push((key, value));
+                }
+            }
+        }
+        EntryData {
+            node,
+            password,
+            fields,
+        }
     }
 }
 
