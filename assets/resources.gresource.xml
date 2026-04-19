@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <gresources>
     <gresource prefix="/io/pierrotws/GnomeVault">
+    <file
+            compressed="true"
+            preprocess="xml-stripblanks"
+        >custom_field_row.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">entry_view.ui</file>
     <file
             compressed="true"

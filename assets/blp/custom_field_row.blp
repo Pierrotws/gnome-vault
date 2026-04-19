@@ -1,0 +1,36 @@
+using Gtk 4.0;
+
+template $CustomFieldRow : ListBoxRow {
+  child: Box {
+    orientation: horizontal;
+    spacing: 8;
+    margin-top: 8;
+    margin-bottom: 8;
+    margin-start: 8;
+    margin-end: 8;
+
+    Entry key_entry {
+      hexpand: true;
+      width-chars: 14;
+      placeholder-text: _("Key");
+    }
+
+    Entry value_entry {
+      hexpand: true;
+      width-chars: 24;
+      placeholder-text: _("Value");
+    }
+
+    Button copy_button {
+      icon-name: "edit-copy-symbolic";
+      tooltip-text: _("Copy value");
+      valign: center;
+    }
+
+    Button delete_button {
+      icon-name: "user-trash-symbolic";
+      tooltip-text: _("Delete field");
+      valign: center;
+    }
+  };
+}
