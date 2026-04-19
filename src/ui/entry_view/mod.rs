@@ -62,6 +62,8 @@ impl EntryView {
         imp.save_button.connect_clicked(move |_| {
             if let Err(err) = save_entry_data(&(&this).into()) {
                 this.show_error(&err.to_string());
+            } else {
+                this.set_modified(false);
             }
         });
     }
