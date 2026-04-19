@@ -1,6 +1,9 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
-use crate::{helpers::gpg, pass::store::PassNode};
+use crate::{
+    helpers::{git, gpg},
+    pass::store::PassNode,
+};
 
 #[derive(Debug, Clone)]
 pub struct EntryData {
@@ -9,17 +12,96 @@ pub struct EntryData {
     pub fields: Vec<(String, String)>,
 }
 
-pub fn save_entry_data(entry: &EntryData) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Saving entry at {}", entry.node.path.display());
-    println!("  password: {}", entry.password);
-    println!("Saved.");
-    //Err("Someting failed".into())
-    Ok(())
+impl From<&EntryData> for String {
+    fn from(entry: &EntryData) -> Self {
+        let mut out = String::new();
+        out.push_str(&entry.password);
+        out.push('\n');
+        for (key, value) in &entry.fields {
+            if key.trim().is_empty() && value.trim().is_empty() {
+                continue;
+            }
+            out.push_str(key);
+            out.push_str(": ");
+            out.push_str(value);
+            out.push('\n');
+        }
+
+        out
+    }
+}
+
+#[derive(Debug)]
+pub enum SaveEntryError {
+    Io(std::io::Error),
+    Gpg(gpg::GpgError),
+    Git(git::GitError),
+    MissingParent(PathBuf),
+}
+
+impl std::fmt::Display for SaveEntryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SaveEntryError::Io(err) => write!(f, "Io error: {err}"),
+            SaveEntryError::Gpg(err) => write!(f, "Gpg error: {err}"),
+            SaveEntryError::Git(err) => write!(f, "Git error: {err}"),
+            SaveEntryError::MissingParent(path) => {
+                write!(f, "Missing parent directory for path: {}", path.display())
+            }
+        }
+    }
+}
+
+impl std::error::Error for SaveEntryError {}
+
+impl From<std::io::Error> for SaveEntryError {
+    fn from(e: std::io::Error) -> Self {
+        SaveEntryError::Io(e)
+    }
+}
+
+impl From<git::GitError> for SaveEntryError {
+    fn from(e: git::GitError) -> Self {
+        SaveEntryError::Git(e)
+    }
+}
+
+impl From<gpg::GpgError> for SaveEntryError {
+    fn from(e: gpg::GpgError) -> Self {
+        SaveEntryError::Gpg(e)
+    }
+}
+
+pub fn save_entry_data(entry: &EntryData) -> Result<(), SaveEntryError> {
+    let plaintext: String = entry.into();
+
+    let store_dir = password_store_dir();
+
+    let parent = entry
+        .node
+        .path
+        .parent()
+        .ok_or_else(|| SaveEntryError::MissingParent(entry.node.path.clone()))?;
+
+    fs::create_dir_all(parent)?;
+
+    let recipient_ids = gpg::recipient_ids(&store_dir)?;
+    let encrypted = gpg::encrypt(&plaintext, &recipient_ids)?;
+
+    let output_path = store_dir.join(&entry.node.path);
+    fs::write(&output_path, encrypted)?;
+
+    git::add(&store_dir, &output_path)?;
+    let message = format!("Add/update entry {}", entry.node.name);
+
+    git::commit(&store_dir, &message)?;
+
+    git::push(&store_dir).map_err(|e| e.into())
 }
 
 pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
     let path = password_store_dir().join(&node.path);
-    let content = gpg::decrypt(&path)?;
+    let content = gpg::decrypt(&path).map_err(|e| e.to_string())?;
     let mut lines = content.lines();
     let password = lines
         .next()
