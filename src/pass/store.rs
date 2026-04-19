@@ -48,7 +48,7 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
         let path = entry.path();
         let _name = entry.file_name();
         let file_name = _name.to_string_lossy();
-        // 🚫 IGNORER les fichiers/dossiers cachés
+        // IGNORER les fichiers/dossiers cachés
         if file_name.starts_with('.') {
             continue;
         }
