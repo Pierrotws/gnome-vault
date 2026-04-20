@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use crate::{
-    helpers::{git, gpg},
+    helpers::{git, pgp},
     pass::store::PassNode,
 };
 
@@ -34,8 +34,8 @@ impl From<&EntryData> for String {
 #[derive(Debug)]
 pub enum SaveEntryError {
     Io(std::io::Error),
-    Gpg(gpg::GpgError),
     Git(git::GitError),
+    Pgp(pgp::PgpError),
     MissingParent(PathBuf),
 }
 
@@ -43,8 +43,8 @@ impl std::fmt::Display for SaveEntryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SaveEntryError::Io(err) => write!(f, "Io error: {err}"),
-            SaveEntryError::Gpg(err) => write!(f, "Gpg error: {err}"),
             SaveEntryError::Git(err) => write!(f, "Git error: {err}"),
+            SaveEntryError::Pgp(err) => write!(f, "Gpg error: {err}"),
             SaveEntryError::MissingParent(path) => {
                 write!(f, "Missing parent directory for path: {}", path.display())
             }
@@ -66,9 +66,9 @@ impl From<git::GitError> for SaveEntryError {
     }
 }
 
-impl From<gpg::GpgError> for SaveEntryError {
-    fn from(e: gpg::GpgError) -> Self {
-        SaveEntryError::Gpg(e)
+impl From<pgp::PgpError> for SaveEntryError {
+    fn from(e: pgp::PgpError) -> Self {
+        SaveEntryError::Pgp(e)
     }
 }
 
@@ -85,8 +85,8 @@ pub fn save_entry_data(entry: &EntryData) -> Result<(), SaveEntryError> {
 
     fs::create_dir_all(parent)?;
 
-    let recipient_ids = gpg::recipient_ids(&store_dir)?;
-    let encrypted = gpg::encrypt(&plaintext, &recipient_ids)?;
+    let recipient_ids = pgp::recipient_ids(&store_dir)?;
+    let encrypted = pgp::encrypt(&plaintext, &recipient_ids)?;
 
     let output_path = store_dir.join(&entry.node.path);
     fs::write(&output_path, encrypted)?;
@@ -101,7 +101,7 @@ pub fn save_entry_data(entry: &EntryData) -> Result<(), SaveEntryError> {
 
 pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
     let path = password_store_dir().join(&node.path);
-    let content = gpg::decrypt(&path).map_err(|e| e.to_string())?;
+    let content = pgp::decrypt(&path).map_err(|e| e.to_string())?;
     let mut lines = content.lines();
     let password = lines
         .next()
