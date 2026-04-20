@@ -1,11 +1,13 @@
+mod custom_field_row;
 mod imp;
 
 use adw::prelude::*;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 
+use custom_field_row::CustomFieldRow;
+
 use crate::pass::entry::{save_entry_data, EntryData};
-use crate::ui::custom_field_row::CustomFieldRow;
 use crate::ui::generate_password_view::GeneratePasswordView;
 
 glib::wrapper! {
