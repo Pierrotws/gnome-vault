@@ -35,7 +35,6 @@ impl ObjectSubclass for MainWindow {
 impl ObjectImpl for MainWindow {
     fn constructed(&self) {
         self.parent_constructed();
-
         let obj = self.obj();
         obj.setup_tree_view();
         obj.setup_callbacks();
