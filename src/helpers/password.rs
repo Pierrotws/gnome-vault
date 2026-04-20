@@ -58,9 +58,11 @@ pub fn generate_password(length: usize, mode: PasswordMode) -> String {
 
     let mut password: Vec<u8> = Vec::with_capacity(length);
 
+    let mut must_shuffle = true;
     match mode {
         PasswordMode::Numeric => {
             //nothing to do, will be filled with digits only anyway
+            must_shuffle = false;
         }
         PasswordMode::Alphanumeric => {
             assert!(length >= 3, "length must be > 3");
@@ -93,8 +95,10 @@ pub fn generate_password(length: usize, mode: PasswordMode) -> String {
         password.push(charset[idx]);
     }
 
-    // 🔀 Shuffle to avoid predictable positions
-    shuffle(&mut password);
+    //Shuffle to avoid predictable positions
+    if must_shuffle {
+        shuffle(&mut password);
+    }
 
     String::from_utf8(password).unwrap()
 }
