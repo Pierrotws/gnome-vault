@@ -32,7 +32,6 @@ impl EntryView {
 
     pub fn setup_callbacks(&self) {
         let imp = self.imp();
-
         imp.copy_password_button.connect_clicked({
             let password_row = imp.password_row.clone();
             move |_| {
@@ -41,19 +40,16 @@ impl EntryView {
                 }
             }
         });
-
         let this = self.clone();
         imp.generate_password_button.connect_clicked(move |_| {
             this.show_generate_password_dialog();
         });
-
         let this = self.clone();
         imp.add_field_button.connect_clicked(move |_| {
             let row = CustomFieldRow::new_empty(&this);
             let in_imp = this.imp();
             in_imp.custom_fields_list.append(&row);
         });
-
         let this = self.clone();
         imp.cancel_button.connect_clicked(move |_| {
             this.reload_from_entry();
@@ -81,10 +77,8 @@ impl EntryView {
 
     pub fn display_entry(&self, entry: &EntryData) {
         let imp = self.imp();
-
         imp.content_stack.set_visible_child_name("content");
         *imp.current_entry.borrow_mut() = Some(entry.clone());
-
         self.reload_from_entry();
     }
 
@@ -94,10 +88,8 @@ impl EntryView {
         let Some(entry) = entry.as_ref() else {
             return;
         };
-
         imp.title_label.set_text(&entry.node.name);
         imp.password_row.set_text(&entry.password);
-
         clear_listbox(&imp.custom_fields_list);
         for (key, value) in &entry.fields {
             let row = CustomFieldRow::new(&self, &key, &value);
@@ -110,7 +102,6 @@ impl EntryView {
         let parent = self
             .root()
             .and_then(|root| root.downcast::<gtk::Window>().ok());
-
         let dialog = adw::Window::builder()
             .title("Generate Password")
             .modal(true)
@@ -118,18 +109,14 @@ impl EntryView {
             .default_width(640)
             .default_height(320)
             .build();
-
         if let Some(parent) = parent.as_ref() {
             dialog.set_transient_for(Some(parent));
         }
-
         let main_box = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(0)
             .build();
-
         let content = GeneratePasswordView::new();
-
         let actions = gtk::Box::builder()
             .orientation(gtk::Orientation::Horizontal)
             .spacing(12)
@@ -139,31 +126,24 @@ impl EntryView {
             .margin_start(18)
             .margin_end(18)
             .build();
-
         let cancel_button = gtk::Button::with_label("Cancel");
         let ok_button = gtk::Button::with_label("OK");
         ok_button.add_css_class("suggested-action");
-
         actions.append(&cancel_button);
         actions.append(&ok_button);
-
         main_box.append(&content);
         main_box.append(&actions);
-
         dialog.set_content(Some(&main_box));
-
         {
             let dialog = dialog.clone();
             cancel_button.connect_clicked(move |_| {
                 dialog.close();
             });
         }
-
         {
             let this = self.clone();
             let dialog = dialog.clone();
             let content = content.clone();
-
             ok_button.connect_clicked(move |_| {
                 let password = content.password();
                 this.set_modified(true);

@@ -33,16 +33,14 @@ pub fn load_password_store() -> io::Result<Vec<PassNode>> {
 
     let store_dir = home.join(".password-store");
     eprintln!("Loading password store from: {}", store_dir.display());
-
     let nodes = load_dir(&store_dir, &store_dir)?;
     eprintln!("Top-level nodes: {}", nodes.len());
-
+    //Returns
     Ok(nodes)
 }
 
 fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
     let mut nodes = Vec::new();
-
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
@@ -80,13 +78,12 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
             }
         }
     }
-
     nodes.sort_by(|a, b| match (&a.kind, &b.kind) {
         (PassNodeKind::Group, PassNodeKind::Entry) => std::cmp::Ordering::Less,
         (PassNodeKind::Entry, PassNodeKind::Group) => std::cmp::Ordering::Greater,
         _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
-
+    //Returns
     Ok(nodes)
 }
 

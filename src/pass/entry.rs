@@ -74,29 +74,26 @@ impl From<pgp::PgpError> for SaveEntryError {
 
 pub fn save_entry_data(entry: &EntryData) -> Result<(), SaveEntryError> {
     let plaintext: String = entry.into();
-
     let store_dir = password_store_dir();
-
     let parent = entry
         .node
         .path
         .parent()
         .ok_or_else(|| SaveEntryError::MissingParent(entry.node.path.clone()))?;
-
-    fs::create_dir_all(parent)?;
-
+    //encrypt
     let recipient_ids = pgp::recipient_ids(&store_dir)?;
     let encrypted = pgp::encrypt(&plaintext, &recipient_ids)?;
-
+    //save
+    fs::create_dir_all(parent)?;
     let output_path = store_dir.join(&entry.node.path);
     fs::write(&output_path, encrypted)?;
-
+    //git
     git::add(&store_dir, &output_path)?;
     let message = format!("Add/update entry {}", entry.node.name);
-
     git::commit(&store_dir, &message)?;
-
-    git::push(&store_dir).map_err(|e| e.into())
+    git::push(&store_dir)?;
+    //end
+    Ok(())
 }
 
 pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
@@ -107,21 +104,19 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
         .next()
         .ok_or_else(|| "Empty pass entry".to_string())?
         .to_string();
-
     let mut fields = Vec::new();
     for line in lines {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
-
         if let Some((k, v)) = trimmed.split_once(':') {
             fields.push((k.trim().to_string(), v.trim().to_string()));
         } else {
             fields.push(("note".to_string(), trimmed.to_string()));
         }
     }
-
+    //Returns
     Ok(EntryData {
         node: node.clone(),
         password,

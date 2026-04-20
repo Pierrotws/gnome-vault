@@ -31,12 +31,10 @@ pub fn get_charset_for_mode(mode: PasswordMode) -> &'static [u8] {
 fn random_index(max: usize) -> usize {
     let max_u64 = max as u64;
     let zone = u64::MAX - (u64::MAX % max_u64);
-
     loop {
         let mut buf = [0u8; 8];
         getrandom::fill(&mut buf).unwrap();
         let value = u64::from_le_bytes(buf);
-
         if value < zone {
             return (value % max_u64) as usize;
         }
@@ -53,11 +51,8 @@ fn shuffle(bytes: &mut [u8]) {
 
 pub fn generate_password(length: usize, mode: PasswordMode) -> String {
     assert!(length > 0, "length must be > 0");
-
     let charset = get_charset_for_mode(mode);
-
     let mut password: Vec<u8> = Vec::with_capacity(length);
-
     let mut must_shuffle = true;
     match mode {
         PasswordMode::Numeric => {
@@ -88,17 +83,15 @@ pub fn generate_password(length: usize, mode: PasswordMode) -> String {
             password.push(ALL[random_index(ALL.len())]);
         }
     }
-
     // Fill remaining
     for _ in password.len()..length {
         let idx = random_index(charset.len());
         password.push(charset[idx]);
     }
-
     //Shuffle to avoid predictable positions
     if must_shuffle {
         shuffle(&mut password);
     }
-
+    //Returns
     String::from_utf8(password).unwrap()
 }
