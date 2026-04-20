@@ -1,6 +1,6 @@
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
-use crate::ui::entry_view::EntryView;
+use super::EntryView;
 
 mod imp;
 
