@@ -1,0 +1,25 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $VaultView : Gtk.Box {
+  orientation: vertical;
+  spacing: 8;
+  margin-top: 12;
+  margin-bottom: 12;
+  margin-start: 12;
+  margin-end: 12;
+  width-request: 360;
+
+  SearchEntry search_entry {
+    placeholder-text: "Search entries and groups";
+  }
+
+  ScrolledWindow {
+    vexpand: true;
+    hexpand: true;
+
+    child: ListView tree_view {
+      single-click-activate: false;
+    };
+  }
+}

@@ -67,28 +67,7 @@ template $MainWindow : Adw.ApplicationWindow {
       shrink-start-child: false;
       shrink-end-child: false;
 
-      start-child: Box {
-        orientation: vertical;
-        spacing: 8;
-        margin-top: 12;
-        margin-bottom: 12;
-        margin-start: 12;
-        margin-end: 12;
-        width-request: 360;
-
-        SearchEntry tree_search_entry {
-          placeholder-text: "Search entries and groups";
-        }
-
-        ScrolledWindow {
-          vexpand: true;
-          hexpand: true;
-
-          child: ListView tree_view {
-            single-click-activate: false;
-          };
-        }
-      };
+      start-child: $VaultView vault_view {};
 
       end-child: $EntryView entry_view {};
     };
