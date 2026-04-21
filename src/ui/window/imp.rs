@@ -2,16 +2,13 @@ use adw::subclass::prelude::*;
 use gtk::glib;
 use gtk::{CompositeTemplate, TemplateChild};
 
-use crate::ui::entry_view::EntryView;
+use crate::ui::{entry_view::EntryView, vault_view::VaultView};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/window.ui")]
 pub struct MainWindow {
     #[template_child]
-    pub tree_search_entry: TemplateChild<gtk::SearchEntry>,
-
-    #[template_child]
-    pub tree_view: TemplateChild<gtk::ListView>,
+    pub vault_view: TemplateChild<VaultView>,
 
     #[template_child]
     pub entry_view: TemplateChild<EntryView>,
@@ -36,7 +33,6 @@ impl ObjectImpl for MainWindow {
     fn constructed(&self) {
         self.parent_constructed();
         let obj = self.obj();
-        obj.setup_tree_view();
         obj.setup_callbacks();
     }
 }

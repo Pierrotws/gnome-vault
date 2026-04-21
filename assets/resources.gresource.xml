@@ -10,6 +10,7 @@
             compressed="true"
             preprocess="xml-stripblanks"
         >generate_password_view.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">vault_view.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">window.ui</file>
     </gresource>
 </gresources>

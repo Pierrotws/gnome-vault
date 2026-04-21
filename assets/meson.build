@@ -21,6 +21,13 @@ generate_password_view_ui = custom_target(
   command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
 )
 
+vault_view_ui = custom_target(
+  'vault-view-ui',
+  input: 'blp/vault_view.blp',
+  output: 'vault_view.ui',
+  command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
+)
+
 window_ui = custom_target(
   'window-ui',
   input: 'blp/window.blp',
@@ -33,7 +40,7 @@ resources = gnome.compile_resources(
   'resources.gresource.xml',
   gresource_bundle: true,
   source_dir: meson.current_build_dir(),
-  dependencies: [custom_field_row_ui, entry_view_ui, generate_password_view_ui, window_ui],
+  dependencies: [custom_field_row_ui, entry_view_ui, generate_password_view_ui, vault_view_ui, window_ui],
   install: true,
   install_dir: pkgdatadir,
 )
