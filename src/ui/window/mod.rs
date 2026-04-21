@@ -51,41 +51,40 @@ impl MainWindow {
         imp.tree_view.set_model(Some(&selection));
         imp.tree_view.set_factory(Some(&factory));
         let entry_view = imp.entry_view.clone();
-        imp.tree_view
-            .connect_activate(move |list_view: &gtk::ListView, position: u32| {
-                let Some(model): Option<gtk::SelectionModel> = list_view.model() else {
+        selection.connect_selected_notify(glib::clone!(
+            #[weak]
+            entry_view,
+            move |selection| {
+                let position = selection.selected();
+                if position == gtk::INVALID_LIST_POSITION {
+                    return;
+                }
+
+                let Some(selection_item) = selection.item(position) else {
                     return;
                 };
-                let Ok(selection) = model.downcast::<gtk::SingleSelection>() else {
+                let Ok(row) = selection_item.downcast::<gtk::TreeListRow>() else {
                     return;
                 };
-                let Some(item): Option<glib::Object> = selection.item(position) else {
+                let Some(row_item) = row.item() else {
                     return;
                 };
-                let Ok(row) = item.downcast::<gtk::TreeListRow>() else {
+                let Ok(boxed) = row_item.downcast::<glib::BoxedAnyObject>() else {
                     return;
                 };
-                let Some(item): Option<glib::Object> = row.item() else {
-                    return;
-                };
-                let Ok(boxed) = item.downcast::<glib::BoxedAnyObject>() else {
-                    return;
-                };
+
                 let node = boxed.borrow::<PassNode>();
                 match node.kind {
                     PassNodeKind::Group => {
                         row.set_expanded(!row.is_expanded());
                     }
                     PassNodeKind::Entry => match load_entry_from_node(&node) {
-                        Ok(entry_data) => {
-                            entry_view.display_entry(&entry_data);
-                        }
-                        Err(err) => {
-                            eprintln!("{err}");
-                        }
+                        Ok(entry_data) => entry_view.display_entry(&entry_data),
+                        Err(err) => eprintln!("{err}"),
                     },
                 }
-            });
+            }
+        ));
     }
 }
 
