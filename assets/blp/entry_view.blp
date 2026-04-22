@@ -33,117 +33,117 @@ template $EntryView : Adw.Bin {
                 hexpand: true;
 
                 child: Box {
-                vexpand: true;
-                orientation: vertical;
-                spacing: 18;
-                margin-top: 18;
-                margin-bottom: 18;
-                margin-start: 18;
-                margin-end: 18;
-
-                Label title_label {
-                    label: "";
-                    xalign: 0;
-                    halign: center;
-                    css-classes: [ "title-2"];
-                }
-
-                Adw.PreferencesGroup {
-                    margin-top: 12;
-                    margin-bottom: 12;
-
-                    Adw.PasswordEntryRow password_row {
-                        text: "";
-                        editable: false;
-
-                        [suffix]
-                        Button generate_password_button {
-                            icon-name: "view-refresh-symbolic";
-                            tooltip-text: "Generate password";
-                            valign: center;
-                            margin-start: 6;
-                        }
-
-                        [suffix]
-                        Button copy_password_button {
-                            icon-name: "edit-copy-symbolic";
-                            tooltip-text: "Copy password";
-                            valign: center;
-                        }
-                    }
-                }
-
-                Adw.PreferencesGroup {
-                    title: "Custom Fields";
-                    margin-top: 24;
                     vexpand: true;
+                    orientation: vertical;
+                    spacing: 18;
+                    margin-top: 18;
+                    margin-bottom: 18;
+                    margin-start: 18;
+                    margin-end: 18;
 
-                    Box {
-                        orientation: vertical;
-                        spacing: 8;
-                        vexpand: true;
+                    Label title_label {
+                        label: "";
+                        xalign: 0;
+                        halign: center;
+                        css-classes: [ "title-2"];
+                    }
 
-                        ScrolledWindow {
-                            min-content-height: 0;
-                            max-content-height: 320;
-                            propagate-natural-height: true;
-                            vexpand: false;
+                    Adw.PreferencesGroup {
+                        margin-top: 12;
+                        margin-bottom: 12;
 
-                            child: ListBox custom_fields_list {
-                                selection-mode: none;
-                                css-classes: [ "boxed-list"];
-                            };
-                        }
+                        Adw.PasswordEntryRow password_row {
+                            text: "";
+                            editable: false;
 
-                        Adw.ActionRow {
                             [suffix]
-                            Button add_field_button {
-                                label: "Add Field";
-                                icon-name: "list-add-symbolic";
+                            Button generate_password_button {
+                                icon-name: "view-refresh-symbolic";
+                                tooltip-text: "Generate password";
+                                valign: center;
+                                margin-start: 6;
+                            }
+
+                            [suffix]
+                            Button copy_password_button {
+                                icon-name: "edit-copy-symbolic";
+                                tooltip-text: "Copy password";
                                 valign: center;
                             }
                         }
                     }
-                }
 
-                Box footer_actions {
-                    orientation: horizontal;
-                    spacing: 12;
-                    margin-top: 12;
-                    margin-bottom: 6;
-                    vexpand: false;
-                    hexpand: true;
+                    Adw.PreferencesGroup {
+                        title: "Custom Fields";
+                        margin-top: 24;
+                        vexpand: true;
 
-                    Box {
+                        Box {
+                            orientation: vertical;
+                            spacing: 8;
+                            vexpand: true;
+
+                            ScrolledWindow {
+                                min-content-height: 0;
+                                max-content-height: 320;
+                                propagate-natural-height: true;
+                                vexpand: false;
+
+                                child: ListBox custom_fields_list {
+                                    selection-mode: none;
+                                    css-classes: [ "boxed-list"];
+                                };
+                            }
+
+                            Adw.ActionRow {
+                                [suffix]
+                                Button add_field_button {
+                                    label: "Add Field";
+                                    icon-name: "list-add-symbolic";
+                                    valign: center;
+                                }
+                            }
+                        }
+                    }
+
+                    Box footer_actions {
                         orientation: horizontal;
                         spacing: 12;
-                        halign: start;
+                        margin-top: 12;
+                        margin-bottom: 6;
+                        vexpand: false;
                         hexpand: true;
 
-                        Button delete_button {
-                            label: "Delete Entry";
-                            css-classes: [ "destructive-action"];
+                        Box {
+                            orientation: horizontal;
+                            spacing: 12;
+                            halign: start;
+                            hexpand: true;
+
+                            Button delete_button {
+                                label: "Delete Entry";
+                                css-classes: [ "destructive-action"];
+                            }
+                        }
+
+                        Box {
+                            orientation: horizontal;
+                            spacing: 12;
+                            halign: end;
+
+                            Button cancel_button {
+                                label: "Cancel";
+                                visible: false;
+                            }
+
+                            Button save_button {
+                                label: "Save";
+                                visible: false;
+                                css-classes: [ "suggested-action"];
+                            }
                         }
                     }
-
-                    Box {
-                        orientation: horizontal;
-                        spacing: 12;
-                        halign: end;
-
-                        Button cancel_button {
-                            label: "Cancel";
-                            visible: false;
-                        }
-
-                        Button save_button {
-                            label: "Save";
-                            visible: false;
-                            css-classes: [ "suggested-action"];
-                        }
-                    }
-                }
-            };
+                };
             };
         }
     };
