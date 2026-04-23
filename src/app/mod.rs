@@ -1,0 +1,13 @@
+// Application workflow.
+
+// This layer should know:
+
+// which entry is currently open
+// original vs current content
+// what happens when the user selects, edits, saves, reverts
+
+pub mod app_error;
+pub mod controller;
+pub mod state;
+
+pub use controller::AppController;

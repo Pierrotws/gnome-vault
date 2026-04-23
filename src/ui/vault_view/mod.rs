@@ -3,7 +3,7 @@ mod imp;
 use gtk::{gio, glib, ListItemFactory, SelectionModel};
 use gtk::{prelude::*, subclass::prelude::*};
 
-use crate::pass::store::{load_password_store, PassNode, PassNodeKind};
+use crate::pass::model::{PassNode, PassNodeKind};
 
 glib::wrapper! {
     pub struct VaultView(ObjectSubclass<imp::VaultView>)
@@ -39,38 +39,25 @@ impl VaultView {
             #[weak(rename_to = obj)]
             self,
             move |_| {
-                obj.handle_search_changed();
+                obj.emit_by_name::<()>("search-changed", &[]);
             }
         ));
     }
 
-    pub fn setup_tree_view(&self) {
-        let imp = self.imp();
-        let nodes = match load_password_store() {
-            Ok(nodes) => nodes,
-            Err(err) => {
-                eprintln!("Failed to load password store: {err}");
-                Vec::new()
-            }
-        };
-        let root_store = build_store_from_nodes(&nodes);
-        let tree_model = gtk::TreeListModel::new(root_store.clone(), false, false, |obj| {
-            let boxed = obj.downcast_ref::<glib::BoxedAnyObject>()?;
-            let node = boxed.borrow::<PassNode>();
-            if !node.is_group() {
-                return None;
-            }
-            let child_store = build_store_from_nodes(&node.children);
-            Some(child_store.upcast::<gio::ListModel>())
-        });
-        let selection = gtk::SingleSelection::new(Some(tree_model.clone()));
-        //no selection at start
-        selection.set_can_unselect(true);
-        selection.set_autoselect(false);
-        selection.set_selected(gtk::INVALID_LIST_POSITION);
+    /// Convenience method if parent code constructs the selection model
+    /// and wants VaultView to both install and wire it.
+    pub fn set_selection_model(&self, selection: &gtk::SingleSelection) {
+        self.imp().tree_view.set_model(Some(selection));
+        self.connect_selection(selection);
+    }
+
+    /// Convenience method if parent code wants the default tree factory.
+    pub fn use_default_factory(&self) {
         let factory = build_tree_factory();
-        imp.tree_view.set_model(Some(&selection));
-        imp.tree_view.set_factory(Some(&factory));
+        self.imp().tree_view.set_factory(Some(&factory));
+    }
+
+    fn connect_selection(&self, selection: &gtk::SingleSelection) {
         selection.connect_selected_notify(glib::clone!(
             #[weak(rename_to = obj)]
             self,
@@ -97,9 +84,9 @@ impl VaultView {
                 match node.kind {
                     PassNodeKind::Group => {
                         row.set_expanded(!row.is_expanded());
+                        obj.emit_by_name::<()>("group-activated", &[]);
                     }
                     PassNodeKind::Entry => {
-                        eprintln!("Emit signal entry-selected");
                         obj.emit_by_name::<()>("entry-selected", &[]);
                     }
                 }
@@ -107,26 +94,23 @@ impl VaultView {
         ));
     }
 
-    fn handle_search_changed(&self) {
+    pub fn handle_search_changed(&self) {
         let text = self.imp().search_entry.text();
         eprintln!("VaultView search changed: {text}");
     }
 
     pub fn set_mode_simple(&self) {
         // Placeholder for future mode switching.
-        // Later you can swap internal layout or show a different child.
     }
 
     pub fn set_mode_split(&self) {
         // Placeholder for future 3-pane navigation mode.
     }
 
-    //helper for dedicated entry-selected signal
     pub fn connect_entry_selected<F>(&self, f: F) -> glib::SignalHandlerId
     where
         F: Fn(&Self) + 'static,
     {
-        eprintln!("Connecting callback to signal entry-selected");
         self.connect_local("entry-selected", false, move |values| {
             let obj = values[0]
                 .get::<VaultView>()
@@ -136,8 +120,34 @@ impl VaultView {
         })
     }
 
-    //Since PassNode is not a GObject, we emit a signal without param, so we have this
-    // getter for MainWindow to get the selected PassNode
+    pub fn connect_group_activated<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self) + 'static,
+    {
+        self.connect_local("group-activated", false, move |values| {
+            let obj = values[0]
+                .get::<VaultView>()
+                .expect("group-activated: first arg should be VaultView");
+            f(&obj);
+            None
+        })
+    }
+
+    pub fn connect_search_changed<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self) + 'static,
+    {
+        self.connect_local("search-changed", false, move |values| {
+            let obj = values[0]
+                .get::<VaultView>()
+                .expect("search-changed: first arg should be VaultView");
+            f(&obj);
+            None
+        })
+    }
+
+    /// Since PassNode is not a GObject, signals stay parameterless and parent
+    /// code can pull the current node through this getter.
     pub fn selected_node(&self) -> Option<PassNode> {
         let model = self.imp().tree_view.model()?;
         let selection = model.downcast::<gtk::SingleSelection>().ok()?;
@@ -163,59 +173,75 @@ impl Default for VaultView {
     }
 }
 
-fn build_tree_factory() -> gtk::SignalListItemFactory {
+pub fn build_tree_factory() -> gtk::SignalListItemFactory {
     let factory = gtk::SignalListItemFactory::new();
+
     factory.connect_setup(|_, item| {
         let item = item
             .downcast_ref::<gtk::ListItem>()
             .expect("Factory item must be a gtk::ListItem");
+
         let expander = gtk::TreeExpander::new();
         expander.set_focusable(false);
+
         let row_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         row_box.set_margin_top(6);
         row_box.set_margin_bottom(6);
         row_box.set_margin_start(6);
         row_box.set_margin_end(6);
+
         let icon = gtk::Image::new();
         let label = gtk::Label::new(None);
         label.set_xalign(0.0);
         label.set_hexpand(true);
+
         row_box.append(&icon);
         row_box.append(&label);
         expander.set_child(Some(&row_box));
         item.set_child(Some(&expander));
     });
+
     factory.connect_bind(|_, item| {
         let item = item
             .downcast_ref::<gtk::ListItem>()
             .expect("Factory item must be a gtk::ListItem");
+
         let expander = item
             .child()
             .and_then(|w| w.downcast::<gtk::TreeExpander>().ok())
             .expect("ListItem child must be a TreeExpander");
+
         let row = item
             .item()
             .and_then(|o| o.downcast::<gtk::TreeListRow>().ok())
             .expect("ListItem item must be a TreeListRow");
+
         expander.set_list_row(Some(&row));
+
         let boxed = row
             .item()
             .and_then(|o| o.downcast::<glib::BoxedAnyObject>().ok())
             .expect("TreeListRow item must be a BoxedAnyObject");
+
         let node = boxed.borrow::<PassNode>();
+
         let row_box = expander
             .child()
             .and_then(|w| w.downcast::<gtk::Box>().ok())
             .expect("TreeExpander child must be a Box");
+
         let icon = row_box
             .first_child()
             .and_then(|w| w.downcast::<gtk::Image>().ok())
             .expect("First row child must be an Image");
+
         let label = icon
             .next_sibling()
             .and_then(|w| w.downcast::<gtk::Label>().ok())
             .expect("Second row child must be a Label");
+
         label.set_label(&node.name);
+
         match node.kind {
             PassNodeKind::Group => {
                 icon.set_icon_name(Some("folder-symbolic"));
@@ -224,18 +250,42 @@ fn build_tree_factory() -> gtk::SignalListItemFactory {
                 icon.set_icon_name(Some("dialog-password-symbolic"));
             }
         }
+
         item.set_selectable(true);
         item.set_activatable(true);
     });
-    //Returns
+
     factory
 }
 
-fn build_store_from_nodes(nodes: &[PassNode]) -> gio::ListStore {
+pub fn build_store_from_nodes(nodes: &[PassNode]) -> gio::ListStore {
     let store = gio::ListStore::new::<glib::BoxedAnyObject>();
+
     for node in nodes {
         store.append(&glib::BoxedAnyObject::new(node.clone()));
     }
-    //Returns
+
     store
+}
+
+pub fn build_selection_from_nodes(nodes: &[PassNode]) -> gtk::SingleSelection {
+    let root_store = build_store_from_nodes(nodes);
+
+    let tree_model = gtk::TreeListModel::new(root_store.clone(), false, false, |obj| {
+        let boxed = obj.downcast_ref::<glib::BoxedAnyObject>()?;
+        let node = boxed.borrow::<PassNode>();
+
+        if !node.is_group() {
+            return None;
+        }
+
+        let child_store = build_store_from_nodes(&node.children);
+        Some(child_store.upcast::<gio::ListModel>())
+    });
+
+    let selection = gtk::SingleSelection::new(Some(tree_model));
+    selection.set_can_unselect(true);
+    selection.set_autoselect(false);
+    selection.set_selected(gtk::INVALID_LIST_POSITION);
+    selection
 }

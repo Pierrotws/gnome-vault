@@ -1,8 +1,6 @@
-use std::sync::OnceLock;
-
 use gtk::subclass::prelude::*;
 use gtk::{
-    glib::{self, subclass::Signal},
+    glib::{self, subclass::*},
     CompositeTemplate, TemplateChild,
 };
 
@@ -26,15 +24,22 @@ impl ObjectSubclass for VaultView {
         Self::bind_template(klass);
     }
 
-    fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+    fn instance_init(obj: &InitializingObject<Self>) {
         obj.init_template();
     }
 }
 
 impl ObjectImpl for VaultView {
     fn signals() -> &'static [Signal] {
-        static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
-        SIGNALS.get_or_init(|| vec![Signal::builder("entry-selected").build()])
+        static SIGNALS: std::sync::OnceLock<Vec<Signal>> = std::sync::OnceLock::new();
+
+        SIGNALS.get_or_init(|| {
+            vec![
+                Signal::builder("entry-selected").build(),
+                Signal::builder("group-activated").build(),
+                Signal::builder("search-changed").build(),
+            ]
+        })
     }
 
     fn constructed(&self) {
@@ -42,7 +47,6 @@ impl ObjectImpl for VaultView {
 
         let obj = self.obj();
         obj.setup_callbacks();
-        obj.setup_tree_view();
     }
 }
 

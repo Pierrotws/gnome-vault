@@ -5,7 +5,9 @@ use adw::prelude::*;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 
-use crate::pass::entry::*;
+//use crate::pass::model::*;
+use crate::app::state::EntryViewData;
+use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
 use custom_field_row::CustomFieldRow;
 
@@ -15,24 +17,20 @@ glib::wrapper! {
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
+impl Default for EntryView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EntryView {
     pub fn new() -> Self {
         glib::Object::new()
     }
 
-    pub fn set_modified(&self, val: bool) {
-        let imp = self.imp();
-        imp.modified.set(val);
-        imp.cancel_button.set_visible(val);
-        imp.save_button.set_visible(val);
-    }
-
-    pub fn is_modified(&self) -> bool {
-        self.imp().modified.get()
-    }
-
     pub fn setup_callbacks(&self) {
         let imp = self.imp();
+
         imp.copy_password_button.connect_clicked({
             let password_row = imp.password_row.clone();
             move |_| {
@@ -48,21 +46,92 @@ impl EntryView {
         let this = self.clone();
         imp.add_field_button.connect_clicked(move |_| {
             let row = CustomFieldRow::new_empty(&this);
-            let in_imp = this.imp();
-            in_imp.custom_fields_list.append(&row);
+            this.imp().custom_fields_list.append(&row);
         });
         let this = self.clone();
         imp.cancel_button.connect_clicked(move |_| {
-            this.reload_from_entry();
+            this.emit_by_name::<()>("revert-requested", &[]);
         });
         let this = self.clone();
         imp.save_button.connect_clicked(move |_| {
-            if let Err(err) = save_entry_data(&(&this).into()) {
-                this.show_error(&err.to_string());
-            } else {
-                this.set_modified(false);
-            }
+            this.emit_by_name::<()>("save-requested", &[]);
         });
+        let this = self.clone();
+        imp.password_row.connect_changed(move |_| {
+            this.mark_changed();
+        });
+    }
+
+    pub fn display_empty(&self) {
+        let imp = self.imp();
+        imp.content_stack.set_visible_child_name("empty");
+        imp.title_label.set_text("");
+        imp.password_row.set_text("");
+        self.clear_listbox();
+        self.set_saveable(false);
+        self.set_cancellable(false);
+    }
+
+    pub fn set_entry_data(&self, data: &EntryViewData) {
+        let imp = self.imp();
+
+        imp.is_updating_ui.set(true);
+        imp.content_stack.set_visible_child_name("content");
+        imp.title_label.set_text(&data.title);
+
+        let password_str = (&data.entry.password).to_str();
+        imp.password_row.set_text(&password_str);
+
+        self.clear_listbox();
+        for (key, value) in &data.entry.fields {
+            let row = CustomFieldRow::new(self, key, value);
+            imp.custom_fields_list.append(&row);
+        }
+
+        imp.is_updating_ui.set(false);
+    }
+
+    /// Rebuild an EntryViewData
+    pub fn to_entry_view_data(&self) -> EntryViewData {
+        let imp = self.imp();
+
+        let title = imp.title_label.get().text().to_string();
+        let password = EntryField::Password(imp.password_row.text().to_string());
+
+        let mut fields = Vec::new();
+        let mut child = imp.custom_fields_list.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+
+            if let Some((key, value)) = Self::read_field_row(&widget) {
+                if !key.is_empty() || !value.is_empty() {
+                    fields.push((key, EntryField::Plain(value)));
+                }
+            }
+        }
+        //Returns
+        EntryViewData {
+            title,
+            entry: EntryData { password, fields },
+        }
+    }
+
+    pub fn set_saveable(&self, val: bool) {
+        let imp = self.imp();
+        imp.save_button.set_visible(val);
+    }
+
+    pub fn set_cancellable(&self, val: bool) {
+        let imp = self.imp();
+        imp.cancel_button.set_visible(val);
+    }
+
+    pub fn mark_changed(&self) {
+        let imp = self.imp();
+        if imp.is_updating_ui.get() {
+            return;
+        }
+        self.emit_by_name::<()>("entry-changed", &[]);
     }
 
     pub fn show_error(&self, msg: &str) {
@@ -76,34 +145,50 @@ impl EntryView {
         dialog.present(Some(self));
     }
 
-    pub fn display_entry(&self, entry: &EntryData) {
-        let imp = self.imp();
-        imp.content_stack.set_visible_child_name("content");
-        *imp.current_entry.borrow_mut() = Some(entry.clone());
-        self.reload_from_entry();
+    pub fn connect_entry_changed<F>(&self, f: F)
+    where
+        F: Fn(&EntryView) + 'static,
+    {
+        self.connect_local("entry-changed", false, move |values| {
+            let view = values[0]
+                .get::<EntryView>()
+                .expect("entry-changed: invalid EntryView");
+            f(&view);
+            None
+        });
     }
 
-    pub fn reload_from_entry(&self) {
-        let imp = self.imp();
-        let entry = imp.current_entry.borrow();
-        let Some(entry) = entry.as_ref() else {
-            return;
-        };
-        imp.title_label.set_text(&entry.node.name);
-        let password_str = (&entry.password).to_str();
-        imp.password_row.set_text(&password_str);
-        clear_listbox(&imp.custom_fields_list);
-        for (key, value) in &entry.fields {
-            let row = CustomFieldRow::new(&self, &key, value);
-            imp.custom_fields_list.append(&row);
-        }
-        self.set_modified(false);
+    pub fn connect_save_requested<F>(&self, f: F)
+    where
+        F: Fn(&EntryView) + 'static,
+    {
+        self.connect_local("save-requested", false, move |values| {
+            let view = values[0]
+                .get::<EntryView>()
+                .expect("save-requested: invalid EntryView");
+            f(&view);
+            None
+        });
+    }
+
+    pub fn connect_revert_requested<F>(&self, f: F)
+    where
+        F: Fn(&EntryView) + 'static,
+    {
+        self.connect_local("revert-requested", false, move |values| {
+            let view = values[0]
+                .get::<EntryView>()
+                .expect("revert-requested: invalid EntryView");
+            f(&view);
+            None
+        });
     }
 
     fn show_generate_password_dialog(&self) {
         let parent = self
             .root()
             .and_then(|root| root.downcast::<gtk::Window>().ok());
+
         let dialog = adw::Window::builder()
             .title("Generate Password")
             .modal(true)
@@ -111,14 +196,18 @@ impl EntryView {
             .default_width(640)
             .default_height(320)
             .build();
+
         if let Some(parent) = parent.as_ref() {
             dialog.set_transient_for(Some(parent));
         }
+
         let main_box = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(0)
             .build();
+
         let content = GeneratePasswordView::new();
+
         let actions = gtk::Box::builder()
             .orientation(gtk::Orientation::Horizontal)
             .spacing(12)
@@ -128,32 +217,38 @@ impl EntryView {
             .margin_start(18)
             .margin_end(18)
             .build();
+
         let cancel_button = gtk::Button::with_label("Cancel");
         let ok_button = gtk::Button::with_label("OK");
         ok_button.add_css_class("suggested-action");
+
         actions.append(&cancel_button);
         actions.append(&ok_button);
         main_box.append(&content);
         main_box.append(&actions);
+
         dialog.set_content(Some(&main_box));
+
         {
             let dialog = dialog.clone();
             cancel_button.connect_clicked(move |_| {
                 dialog.close();
             });
         }
+
         {
             let this = self.clone();
             let dialog = dialog.clone();
             let content = content.clone();
+
             ok_button.connect_clicked(move |_| {
                 let password = content.password();
-                this.set_modified(true);
-                let imp = this.imp();
-                imp.password_row.set_text(&password);
+                this.imp().password_row.set_text(&password);
+                this.mark_changed();
                 dialog.close();
             });
         }
+
         dialog.present();
     }
 
@@ -165,43 +260,26 @@ impl EntryView {
         let first = container.first_child()?;
         let second = first.next_sibling()?;
 
-        let key = first.downcast::<gtk::Entry>().ok()?.text().to_string();
-        let value = second.downcast::<gtk::Entry>().ok()?.text().to_string();
+        let key = first
+            .downcast::<gtk::Entry>()
+            .ok()?
+            .text()
+            .trim()
+            .to_string();
+        let value = second
+            .downcast::<gtk::Entry>()
+            .ok()?
+            .text()
+            .trim()
+            .to_string();
 
-        if key.is_empty() || value.is_empty() {
-            return None;
-        }
         Some((key, value))
     }
-}
 
-impl From<&EntryView> for EntryData {
-    fn from(view: &EntryView) -> EntryData {
-        let imp = view.imp();
-        let password = EntryField::Password(imp.password_row.text().to_string());
-        let node = imp.current_entry.borrow().as_ref().unwrap().node.clone();
-        //Fields
-        let mut fields = Vec::new();
-        let mut child = imp.custom_fields_list.first_child();
-        while let Some(widget) = child {
-            child = widget.next_sibling();
-            if let Some((key, value)) = EntryView::read_field_row(&widget) {
-                if !key.is_empty() || !value.is_empty() {
-                    fields.push((key, EntryField::Plain(value)));
-                }
-            }
+    fn clear_listbox(&self) {
+        let list = &self.imp().custom_fields_list;
+        while let Some(child) = list.first_child() {
+            list.remove(&child);
         }
-        EntryData {
-            node,
-            password,
-            fields,
-        }
-    }
-}
-
-//remove all childs of list
-fn clear_listbox(list: &gtk::ListBox) {
-    while let Some(child) = list.first_child() {
-        list.remove(&child);
     }
 }

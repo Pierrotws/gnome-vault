@@ -1,10 +1,15 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use adw::subclass::prelude::*;
 use gtk::glib;
-use gtk::{CompositeTemplate, TemplateChild};
+use gtk::CompositeTemplate;
+use once_cell::unsync::OnceCell;
 
-use crate::ui::{entry_view::EntryView, vault_view::VaultView};
+use crate::app::controller::AppController;
+use crate::ui::{EntryView, VaultView};
 
-#[derive(Debug, Default, CompositeTemplate)]
+#[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/window.ui")]
 pub struct MainWindow {
     #[template_child]
@@ -12,6 +17,9 @@ pub struct MainWindow {
 
     #[template_child]
     pub entry_view: TemplateChild<EntryView>,
+
+    //App Controller
+    pub controller: OnceCell<Rc<RefCell<AppController>>>,
 }
 
 #[glib::object_subclass]
@@ -32,12 +40,10 @@ impl ObjectSubclass for MainWindow {
 impl ObjectImpl for MainWindow {
     fn constructed(&self) {
         self.parent_constructed();
-        let obj = self.obj();
-        obj.setup_callbacks();
     }
 }
 
-impl gtk::subclass::widget::WidgetImpl for MainWindow {}
-impl gtk::subclass::window::WindowImpl for MainWindow {}
-impl gtk::subclass::application_window::ApplicationWindowImpl for MainWindow {}
-impl adw::subclass::application_window::AdwApplicationWindowImpl for MainWindow {}
+impl WidgetImpl for MainWindow {}
+impl WindowImpl for MainWindow {}
+impl ApplicationWindowImpl for MainWindow {}
+impl AdwApplicationWindowImpl for MainWindow {}
