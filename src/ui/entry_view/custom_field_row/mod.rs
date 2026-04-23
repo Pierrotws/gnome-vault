@@ -1,5 +1,7 @@
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
+use crate::pass::entry::EntryField;
+
 use super::EntryView;
 
 mod imp;
@@ -46,10 +48,10 @@ impl CustomFieldRow {
         obj
     }
 
-    pub fn new(entry_view: &EntryView, key: &str, value: &str) -> Self {
+    pub fn new(entry_view: &EntryView, key: &str, value: &EntryField) -> Self {
         let obj: Self = Self::new_empty(entry_view);
         obj.set_key(key);
-        obj.set_value(value);
+        obj.set_value(&value.to_str());
         obj
     }
 

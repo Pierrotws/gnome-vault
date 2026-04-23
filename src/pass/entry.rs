@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use std::{fs, path::PathBuf};
 
 use crate::{
@@ -5,28 +7,51 @@ use crate::{
     pass::store::PassNode,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum EntryField {
+    Password(String),
+    Plain(String),
+    OTP(String),
+    Array(Vec<String>),
+    Multiline(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct EntryData {
     pub node: PassNode,
-    pub password: String,
-    pub fields: Vec<(String, String)>,
+    pub password: EntryField,
+    pub fields: Vec<(String, EntryField)>,
+}
+
+impl<'a> EntryField {
+    pub fn to_str(&'a self) -> Cow<'a, str> {
+        match self {
+            //Except for Array, return a borrowed value
+            EntryField::Password(s)
+            | EntryField::Plain(s)
+            | EntryField::OTP(s)
+            | EntryField::Multiline(s) => Cow::Borrowed(s),
+            EntryField::Array(arr) => Cow::Owned(arr.join("\n")),
+        }
+    }
 }
 
 impl From<&EntryData> for String {
     fn from(entry: &EntryData) -> Self {
         let mut out = String::new();
-        out.push_str(&entry.password);
+        let password_str = &entry.password.to_str();
+        out.push_str(&password_str);
         out.push('\n');
         for (key, value) in &entry.fields {
+            let value = value.to_str();
             if key.trim().is_empty() && value.trim().is_empty() {
                 continue;
             }
             out.push_str(key);
             out.push_str(": ");
-            out.push_str(value);
+            out.push_str(&value);
             out.push('\n');
         }
-
         out
     }
 }
@@ -104,22 +129,25 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, String> {
         .next()
         .ok_or_else(|| "Empty pass entry".to_string())?
         .to_string();
-    let mut fields = Vec::new();
+    let mut fields: Vec<(String, EntryField)> = Vec::new();
+    //this cannot work with multilines, or array
     for line in lines {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
         if let Some((k, v)) = trimmed.split_once(':') {
-            fields.push((k.trim().to_string(), v.trim().to_string()));
-        } else {
-            fields.push(("note".to_string(), trimmed.to_string()));
+            //only handle String for now
+            fields.push((
+                k.trim().to_string(),
+                EntryField::Plain(v.trim().to_string()),
+            ));
         }
     }
     //Returns
     Ok(EntryData {
         node: node.clone(),
-        password,
+        password: EntryField::Password(password),
         fields,
     })
 }
