@@ -5,10 +5,9 @@ use adw::prelude::*;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 
-use custom_field_row::CustomFieldRow;
-
-use crate::pass::entry::{save_entry_data, EntryData};
+use crate::pass::entry::*;
 use crate::ui::generate_password_view::GeneratePasswordView;
+use custom_field_row::CustomFieldRow;
 
 glib::wrapper! {
     pub struct EntryView(ObjectSubclass<imp::EntryView>)
@@ -91,10 +90,11 @@ impl EntryView {
             return;
         };
         imp.title_label.set_text(&entry.node.name);
-        imp.password_row.set_text(&entry.password);
+        let password_str = (&entry.password).to_str();
+        imp.password_row.set_text(&password_str);
         clear_listbox(&imp.custom_fields_list);
         for (key, value) in &entry.fields {
-            let row = CustomFieldRow::new(&self, &key, &value);
+            let row = CustomFieldRow::new(&self, &key, value);
             imp.custom_fields_list.append(&row);
         }
         self.set_modified(false);
@@ -178,7 +178,7 @@ impl EntryView {
 impl From<&EntryView> for EntryData {
     fn from(view: &EntryView) -> EntryData {
         let imp = view.imp();
-        let password = imp.password_row.text().to_string();
+        let password = EntryField::Password(imp.password_row.text().to_string());
         let node = imp.current_entry.borrow().as_ref().unwrap().node.clone();
         //Fields
         let mut fields = Vec::new();
@@ -187,7 +187,7 @@ impl From<&EntryView> for EntryData {
             child = widget.next_sibling();
             if let Some((key, value)) = EntryView::read_field_row(&widget) {
                 if !key.is_empty() || !value.is_empty() {
-                    fields.push((key, value));
+                    fields.push((key, EntryField::Plain(value)));
                 }
             }
         }
