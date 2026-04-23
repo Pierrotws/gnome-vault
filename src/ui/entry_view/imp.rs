@@ -1,10 +1,8 @@
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 
 use adw::subclass::prelude::*;
-use glib::subclass::InitializingObject;
+use glib::subclass::*;
 use gtk::{glib, CompositeTemplate};
-
-use crate::pass::entry::EntryData;
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/entry_view.ui")]
@@ -37,8 +35,7 @@ pub struct EntryView {
     pub save_button: TemplateChild<gtk::Button>,
 
     //non graphical
-    pub current_entry: RefCell<Option<EntryData>>,
-    pub modified: Cell<bool>,
+    pub is_updating_ui: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -59,9 +56,22 @@ impl ObjectSubclass for EntryView {
 impl ObjectImpl for EntryView {
     fn constructed(&self) {
         self.parent_constructed();
-        self.modified.set(false);
+        self.is_updating_ui.set(false);
         let obj = self.obj();
         obj.setup_callbacks();
+    }
+
+    fn signals() -> &'static [Signal] {
+        use std::sync::OnceLock;
+        static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
+
+        SIGNALS.get_or_init(|| {
+            vec![
+                Signal::builder("entry-changed").build(),
+                Signal::builder("save-requested").build(),
+                Signal::builder("revert-requested").build(),
+            ]
+        })
     }
 }
 

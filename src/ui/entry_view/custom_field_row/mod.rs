@@ -1,6 +1,6 @@
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
-use crate::pass::entry::EntryField;
+use crate::pass::model::EntryField;
 
 use super::EntryView;
 
@@ -19,11 +19,11 @@ impl CustomFieldRow {
 
         let parent = entry_view.clone();
         imp.key_entry.connect_changed(move |_| {
-            parent.set_modified(true);
+            parent.mark_changed();
         });
         let parent = entry_view.clone();
         imp.value_entry.connect_changed(move |_| {
-            parent.set_modified(true);
+            parent.mark_changed();
         });
         let value_entry = imp.value_entry.clone();
         imp.copy_button.connect_clicked(move |_| {
@@ -39,9 +39,7 @@ impl CustomFieldRow {
             if let Some(list) = this.parent() {
                 if let Ok(listbox) = list.downcast::<gtk::ListBox>() {
                     listbox.remove(&this);
-                    if !this.is_empty() {
-                        parent.set_modified(true);
-                    }
+                    parent.mark_changed();
                 }
             }
         });

@@ -351,6 +351,7 @@ dependencies = [
  "gpgme",
  "gtk4",
  "libadwaita",
+ "once_cell",
 ]
 
 [[package]]
