@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use adw::subclass::prelude::*;
 use gtk::glib;
 
@@ -38,6 +40,9 @@ pub struct OtpFieldRow {
 
     #[template_child]
     pub delete_button: TemplateChild<Button>,
+
+    pub show_row_controls: Cell<bool>,
+    pub key_editable: Cell<bool>,
 }
 
 #[glib::object_subclass]

@@ -7,6 +7,7 @@ use gtk::subclass::prelude::*;
 
 //use crate::pass::model::*;
 use crate::app::state::EntryViewData;
+use crate::helpers::otp;
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
 use fields::{ArrayFieldRow, EntryFieldRow, MultilineFieldRow, OtpFieldRow, PlainFieldRow};
@@ -35,6 +36,8 @@ impl EntryView {
     pub fn setup_callbacks(&self) {
         let imp = self.imp();
 
+        imp.primary_otp_field_row.setup_callbacks(self);
+        imp.primary_otp_field_row.configure_as_primary_field();
         imp.password_field_row.connect_copy_clicked({
             let password_field_row = imp.password_field_row.clone();
             move |_| {
@@ -86,6 +89,8 @@ impl EntryView {
         imp.content_stack.set_visible_child_name("empty");
         imp.title_label.set_text("");
         imp.password_field_row.set_text("");
+        imp.primary_otp_field_row.set_url("");
+        imp.primary_field_stack.set_visible_child_name("password");
         self.clear_listbox();
         self.set_editable_mode(false);
         self.set_saveable(false);
@@ -99,7 +104,7 @@ impl EntryView {
         imp.content_stack.set_visible_child_name("content");
         imp.title_label.set_text(&data.title);
 
-        imp.password_field_row.set_entry_field(&data.entry.password);
+        self.set_primary_field(&data.entry.password);
 
         self.clear_listbox();
         for (key, value) in &data.entry.fields {
@@ -119,7 +124,7 @@ impl EntryView {
         let imp = self.imp();
 
         let title = imp.title_label.get().text().to_string();
-        let (_password_key, password) = imp.password_field_row.named_entry_field();
+        let password = self.primary_entry_field();
 
         let mut fields = Vec::new();
         let mut child = imp.custom_fields_list.first_child();
@@ -151,9 +156,14 @@ impl EntryView {
     }
 
     pub fn set_editable_mode(&self, editable: bool) {
+        if !editable {
+            self.normalize_primary_field_mode();
+        }
+
         let imp = self.imp();
         imp.is_editable.set(editable);
         imp.password_field_row.set_editable_mode(editable);
+        imp.primary_otp_field_row.set_editable_mode(editable);
         imp.add_field_menu_button.set_visible(editable);
         imp.delete_button.set_visible(editable);
 
@@ -309,6 +319,51 @@ impl EntryView {
         }
 
         None
+    }
+
+    fn set_primary_field(&self, field: &EntryField) {
+        let imp = self.imp();
+        match field {
+            EntryField::OTP(_) => {
+                imp.primary_otp_field_row.set_entry_field(field);
+                imp.primary_field_stack.set_visible_child_name("otp");
+            }
+            _ => {
+                imp.password_field_row.set_entry_field(field);
+                imp.primary_field_stack.set_visible_child_name("password");
+            }
+        }
+    }
+
+    fn primary_entry_field(&self) -> EntryField {
+        let imp = self.imp();
+        if imp.primary_field_stack.visible_child_name().as_deref() == Some("otp") {
+            return imp.primary_otp_field_row.entry_field();
+        }
+
+        let text = imp.password_field_row.text().to_string();
+        if otp::is_otp_url(&text) {
+            EntryField::OTP(text)
+        } else {
+            imp.password_field_row.entry_field()
+        }
+    }
+
+    fn normalize_primary_field_mode(&self) {
+        let imp = self.imp();
+        if imp.primary_field_stack.visible_child_name().as_deref() == Some("otp") {
+            return;
+        }
+
+        let text = imp.password_field_row.text().to_string();
+        if !otp::is_otp_url(&text) {
+            return;
+        }
+
+        let was_updating = imp.is_updating_ui.get();
+        imp.is_updating_ui.set(true);
+        self.set_primary_field(&EntryField::OTP(text));
+        imp.is_updating_ui.set(was_updating);
     }
 
     fn read_field_row(widget: &gtk::Widget) -> Option<(String, EntryField)> {

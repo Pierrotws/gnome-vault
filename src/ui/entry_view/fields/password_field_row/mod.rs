@@ -72,8 +72,6 @@ impl EntryFieldRow for PasswordFieldRow {
     fn set_entry_field(&self, field: &EntryField) {
         self.set_key(PASSWORD_KEY);
 
-        if let EntryField::Password(password) = field {
-            self.set_text(password);
-        }
+        self.set_text(&field.display_value());
     }
 }
