@@ -9,7 +9,7 @@ use gtk::subclass::prelude::*;
 use crate::app::state::EntryViewData;
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
-use fields::PlainFieldRow;
+use fields::{EntryFieldRow, MultilineFieldRow, PlainFieldRow};
 
 glib::wrapper! {
     pub struct EntryView(ObjectSubclass<imp::EntryView>)
@@ -47,8 +47,19 @@ impl EntryView {
             this.show_generate_password_dialog();
         });
         let this = self.clone();
-        imp.add_field_button.connect_clicked(move |_| {
+        imp.add_plain_field_button.connect_clicked(move |_| {
             let row = PlainFieldRow::new_empty(&this);
+            this.imp().custom_fields_list.append(&row);
+        });
+        imp.add_array_field_button.connect_clicked(move |_| {
+            todo!("Add Array field row");
+        });
+        imp.add_otp_field_button.connect_clicked(move |_| {
+            todo!("Add OTP field row");
+        });
+        let this = self.clone();
+        imp.add_multiline_field_button.connect_clicked(move |_| {
+            let row = MultilineFieldRow::new(&this, "Notes", "");
             this.imp().custom_fields_list.append(&row);
         });
         let this = self.clone();
@@ -82,16 +93,13 @@ impl EntryView {
         imp.content_stack.set_visible_child_name("content");
         imp.title_label.set_text(&data.title);
 
-        let password_str = (&data.entry.password).to_str();
-        imp.password_field_row.set_text(&password_str);
+        imp.password_field_row.set_entry_field(&data.entry.password);
 
         self.clear_listbox();
         for (key, value) in &data.entry.fields {
-            let row = match value {
-                EntryField::Plain(str) => PlainFieldRow::new(self, key, str),
-                _ => todo!(),
-            };
-            imp.custom_fields_list.append(&row);
+            if let Some(row) = self.build_field_row(key, value) {
+                imp.custom_fields_list.append(&row);
+            }
         }
 
         imp.is_updating_ui.set(false);
@@ -102,17 +110,15 @@ impl EntryView {
         let imp = self.imp();
 
         let title = imp.title_label.get().text().to_string();
-        let password = EntryField::Password(imp.password_field_row.text().to_string());
+        let (_password_key, password) = imp.password_field_row.named_entry_field();
 
         let mut fields = Vec::new();
         let mut child = imp.custom_fields_list.first_child();
         while let Some(widget) = child {
             child = widget.next_sibling();
 
-            if let Some((key, value)) = Self::read_field_row(&widget) {
-                if !key.is_empty() || !value.is_empty() {
-                    fields.push((key, EntryField::Plain(value)));
-                }
+            if let Some((key, field)) = Self::read_field_row(&widget) {
+                fields.push((key, field));
             }
         }
         //Returns
@@ -261,28 +267,34 @@ impl EntryView {
         dialog.present();
     }
 
-    fn read_field_row(widget: &gtk::Widget) -> Option<(String, String)> {
-        let row = widget.clone().downcast::<gtk::ListBoxRow>().ok()?;
-        let row_child = row.child()?;
-        let container = row_child.downcast::<gtk::Box>().ok()?;
+    fn build_field_row(&self, key: &str, field: &EntryField) -> Option<gtk::ListBoxRow> {
+        if let Some(row) = PlainFieldRow::from_entry_field(self, key, field) {
+            return Some(row.upcast());
+        }
+        if let Some(row) = MultilineFieldRow::from_entry_field(self, key, field) {
+            return Some(row.upcast());
+        }
 
-        let first = container.first_child()?;
-        let second = first.next_sibling()?;
+        None
+    }
 
-        let key = first
-            .downcast::<gtk::Entry>()
-            .ok()?
-            .text()
-            .trim()
-            .to_string();
-        let value = second
-            .downcast::<gtk::Entry>()
-            .ok()?
-            .text()
-            .trim()
-            .to_string();
+    fn read_field_row(widget: &gtk::Widget) -> Option<(String, EntryField)> {
+        if let Ok(row) = widget.clone().downcast::<PlainFieldRow>() {
+            if row.is_empty() {
+                return None;
+            }
 
-        Some((key, value))
+            return Some(row.named_entry_field());
+        }
+        if let Ok(row) = widget.clone().downcast::<MultilineFieldRow>() {
+            if row.is_empty() {
+                return None;
+            }
+
+            return Some(row.named_entry_field());
+        }
+
+        None
     }
 
     fn clear_listbox(&self) {

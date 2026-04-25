@@ -78,11 +78,43 @@ template $EntryView : Adw.Bin {
                             }
 
                             Adw.ActionRow {
-                                [suffix]
-                                Button add_field_button {
-                                    label: "Add Field";
+                                [prefix]
+                                MenuButton add_field_menu_button {
                                     icon-name: "list-add-symbolic";
+                                    tooltip-text: "Add field";
                                     valign: center;
+
+                                    popover: Popover {
+                                        child: Box {
+                                            orientation: vertical;
+                                            spacing: 6;
+                                            margin-top: 6;
+                                            margin-bottom: 6;
+                                            margin-start: 6;
+                                            margin-end: 6;
+
+                                            Button add_plain_field_button {
+                                                label: "Plain";
+                                                halign: fill;
+                                            }
+
+                                            Button add_otp_field_button {
+                                                label: "OTP";
+                                                halign: fill;
+                                            }
+
+                                            Button add_array_field_button {
+                                                label: "Array";
+                                                halign: fill;
+                                            }
+
+
+                                            Button add_multiline_field_button {
+                                                label: "Multiline";
+                                                halign: fill;
+                                            }
+                                        };
+                                    };
                                 }
                             }
                         }

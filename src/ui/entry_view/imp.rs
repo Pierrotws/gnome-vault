@@ -22,7 +22,16 @@ pub struct EntryView {
     pub custom_fields_list: TemplateChild<gtk::ListBox>,
 
     #[template_child]
-    pub add_field_button: TemplateChild<gtk::Button>,
+    pub add_array_field_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub add_otp_field_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub add_plain_field_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub add_multiline_field_button: TemplateChild<gtk::Button>,
 
     #[template_child]
     pub cancel_button: TemplateChild<gtk::Button>,

@@ -8,29 +8,31 @@ use super::EntryFieldRow;
 mod imp;
 
 glib::wrapper! {
-    pub struct PlainFieldRow(ObjectSubclass<imp::PlainFieldRow>)
+    pub struct MultilineFieldRow(ObjectSubclass<imp::MultilineFieldRow>)
         @extends gtk::Widget, gtk::ListBoxRow,
         @implements gtk::Accessible, gtk::Actionable, gtk::Buildable, gtk::ConstraintTarget;
 }
 
-impl PlainFieldRow {
+impl MultilineFieldRow {
     pub fn new_empty(entry_view: &EntryView) -> Self {
         let obj: Self = glib::Object::new();
         let imp = obj.imp();
 
         let parent = entry_view.clone();
-        imp.key_entry.connect_changed(move |_| {
+        imp.title_entry.connect_changed(move |_| {
             parent.mark_changed();
         });
+
+        let buffer = imp.value_text_view.buffer();
         let parent = entry_view.clone();
-        imp.value_entry.connect_changed(move |_| {
+        buffer.connect_changed(move |_| {
             parent.mark_changed();
         });
-        let value_entry = imp.value_entry.clone();
+
+        let this = obj.clone();
         imp.copy_button.connect_clicked(move |_| {
             if let Some(display) = gtk::gdk::Display::default() {
-                let clipboard = display.clipboard();
-                clipboard.set_text(&value_entry.text());
+                display.clipboard().set_text(&this.value());
             }
         });
 
@@ -44,11 +46,12 @@ impl PlainFieldRow {
                 }
             }
         });
+
         obj
     }
 
     pub fn new(entry_view: &EntryView, key: &str, value: &str) -> Self {
-        let obj: Self = Self::new_empty(entry_view);
+        let obj = Self::new_empty(entry_view);
         obj.set_key(key);
         obj.set_value(value);
         obj
@@ -56,44 +59,47 @@ impl PlainFieldRow {
 
     pub fn from_entry_field(entry_view: &EntryView, key: &str, field: &EntryField) -> Option<Self> {
         match field {
-            EntryField::Plain(value) => Some(Self::new(entry_view, key, value)),
+            EntryField::Multiline(value) => Some(Self::new(entry_view, key, value)),
             _ => None,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        let imp = self.imp();
-        imp.key_entry.text().trim().is_empty() && imp.value_entry.text().trim().is_empty()
+        self.key().trim().is_empty() && self.value().trim().is_empty()
     }
 
     pub fn key(&self) -> String {
-        self.imp().key_entry.text().into()
-    }
-
-    pub fn value(&self) -> glib::GString {
-        self.imp().value_entry.text().into()
+        self.imp().title_entry.text().into()
     }
 
     pub fn set_key(&self, key: &str) {
-        self.imp().key_entry.set_text(key);
+        let title_entry = &self.imp().title_entry;
+        title_entry.set_text(key);
+    }
+
+    pub fn value(&self) -> String {
+        let buffer = self.imp().value_text_view.buffer();
+        let start = buffer.start_iter();
+        let end = buffer.end_iter();
+        buffer.text(&start, &end, true).to_string()
     }
 
     pub fn set_value(&self, value: &str) {
-        self.imp().value_entry.set_text(value);
+        self.imp().value_text_view.buffer().set_text(value);
     }
 }
 
-impl EntryFieldRow for PlainFieldRow {
+impl EntryFieldRow for MultilineFieldRow {
     fn key(&self) -> String {
         self.key().trim().to_string()
     }
 
     fn entry_field(&self) -> EntryField {
-        EntryField::Plain(self.value().trim().to_string())
+        EntryField::Multiline(self.value().trim().to_string())
     }
 
     fn set_entry_field(&self, field: &EntryField) {
-        if let EntryField::Plain(value) = field {
+        if let EntryField::Multiline(value) = field {
             self.set_value(value);
         }
     }

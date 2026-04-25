@@ -1,7 +1,13 @@
 use adw::prelude::*;
 use gtk::{glib, subclass::prelude::*};
 
+use crate::pass::model::EntryField;
+
+use super::EntryFieldRow;
+
 mod imp;
+
+const PASSWORD_KEY: &str = "Password";
 
 glib::wrapper! {
     pub struct PasswordFieldRow(ObjectSubclass<imp::PasswordFieldRow>)
@@ -10,6 +16,14 @@ glib::wrapper! {
 }
 
 impl PasswordFieldRow {
+    pub fn key(&self) -> String {
+        self.imp().password_entry.title().to_string()
+    }
+
+    pub fn set_key(&self, key: &str) {
+        self.imp().password_entry.set_title(key);
+    }
+
     pub fn text(&self) -> glib::GString {
         self.imp().password_entry.text()
     }
@@ -37,5 +51,23 @@ impl PasswordFieldRow {
         F: Fn(&gtk::Button) + 'static,
     {
         self.imp().generate_password_button.connect_clicked(f)
+    }
+}
+
+impl EntryFieldRow for PasswordFieldRow {
+    fn key(&self) -> String {
+        self.key()
+    }
+
+    fn entry_field(&self) -> EntryField {
+        EntryField::Password(self.text().to_string())
+    }
+
+    fn set_entry_field(&self, field: &EntryField) {
+        self.set_key(PASSWORD_KEY);
+
+        if let EntryField::Password(password) = field {
+            self.set_text(password);
+        }
     }
 }
