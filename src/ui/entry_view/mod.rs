@@ -164,7 +164,9 @@ impl EntryView {
         imp.is_editable.set(editable);
         imp.password_field_row.set_editable_mode(editable);
         imp.primary_otp_field_row.set_editable_mode(editable);
+        imp.add_field_row.set_visible(editable);
         imp.add_field_menu_button.set_visible(editable);
+        imp.footer_actions.set_visible(editable);
         imp.delete_button.set_visible(editable);
 
         let mut child = imp.custom_fields_list.first_child();
@@ -441,16 +443,13 @@ impl EntryView {
         let drag_source = gtk::DragSource::builder()
             .actions(gtk::gdk::DragAction::MOVE)
             .build();
+        let list_for_drag = self.imp().custom_fields_list.get();
         let row_for_drag = row.clone();
         drag_source.connect_prepare(move |_, _, _| {
             // Store the source row index in the drag payload. The row object
             // itself cannot be transferred through GTK's content provider.
-            let index = row_for_drag.index();
-            if index < 0 {
-                return None;
-            }
-
-            Some(gtk::gdk::ContentProvider::for_value(&index.to_value()))
+            Self::box_child_index(&list_for_drag, row_for_drag.upcast_ref())
+                .map(|index| gtk::gdk::ContentProvider::for_value(&index.to_value()))
         });
         handle.add_controller(drag_source);
 
@@ -502,14 +501,13 @@ impl EntryView {
         }
 
         let list = self.imp().custom_fields_list.get();
-        let Some(source_row) = list.row_at_index(source_index) else {
+        let Some(source_row) = Self::box_child_at_index(&list, source_index) else {
             return false;
         };
 
-        let target_index = target_row.index();
-        if target_index < 0 || source_index == target_index {
+        let Some(target_index) = Self::box_child_index(&list, target_row.upcast_ref()) else {
             return false;
-        }
+        };
 
         let insert_after_target = drop_y > f64::from(target_row.height()) / 2.0;
         let mut insert_index = target_index + i32::from(insert_after_target);
@@ -522,10 +520,57 @@ impl EntryView {
         }
 
         list.remove(&source_row);
-        list.insert(&source_row, insert_index);
+        Self::box_insert_child_at_index(&list, &source_row, insert_index);
         self.mark_changed();
 
         true
+    }
+
+    fn box_child_index(list: &gtk::Box, target: &gtk::Widget) -> Option<i32> {
+        let mut index = 0;
+        let mut child = list.first_child();
+
+        while let Some(widget) = child {
+            if widget == *target {
+                return Some(index);
+            }
+
+            child = widget.next_sibling();
+            index += 1;
+        }
+
+        None
+    }
+
+    fn box_child_at_index(list: &gtk::Box, target_index: i32) -> Option<gtk::Widget> {
+        let mut index = 0;
+        let mut child = list.first_child();
+
+        while let Some(widget) = child {
+            if index == target_index {
+                return Some(widget);
+            }
+
+            child = widget.next_sibling();
+            index += 1;
+        }
+
+        None
+    }
+
+    fn box_insert_child_at_index(list: &gtk::Box, child: &gtk::Widget, index: i32) {
+        if index <= 0 {
+            list.prepend(child);
+            return;
+        }
+
+        let previous_index = index - 1;
+        let Some(previous_sibling) = Self::box_child_at_index(list, previous_index) else {
+            list.append(child);
+            return;
+        };
+
+        list.insert_child_after(child, Some(&previous_sibling));
     }
 
     fn clear_listbox(&self) {

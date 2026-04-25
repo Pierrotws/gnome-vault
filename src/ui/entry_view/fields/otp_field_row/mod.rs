@@ -59,8 +59,8 @@ impl OtpFieldRow {
         let parent = entry_view.clone();
         imp.delete_button.connect_clicked(move |_| {
             if let Some(list) = this.parent() {
-                if let Ok(listbox) = list.downcast::<gtk::ListBox>() {
-                    listbox.remove(&this);
+                if let Ok(container) = list.downcast::<gtk::Box>() {
+                    container.remove(&this);
                     parent.mark_changed();
                 }
             }
