@@ -69,9 +69,9 @@ fn relative_path(root: &Path, path: &Path) -> PathBuf {
 
 pub fn load_password_store() -> io::Result<Vec<PassNode>> {
     let store_dir = password_store_dir();
-    eprintln!("Loading password store from: {}", store_dir.display());
+    log::debug!("Loading password store from: {}", store_dir.display());
     let nodes = load_dir(&store_dir, &store_dir)?;
-    eprintln!("Top-level nodes: {}", nodes.len());
+    log::debug!("Top-level nodes: {}", nodes.len());
     //Returns
     Ok(nodes)
 }

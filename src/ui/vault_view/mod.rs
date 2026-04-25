@@ -96,7 +96,7 @@ impl VaultView {
 
     pub fn handle_search_changed(&self) {
         let text = self.imp().search_entry.text();
-        eprintln!("VaultView search changed: {text}");
+        log::debug!("VaultView search changed: {text}");
     }
 
     pub fn set_mode_simple(&self) {
