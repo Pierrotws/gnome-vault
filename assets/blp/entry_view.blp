@@ -52,7 +52,17 @@ template $EntryView : Adw.Bin {
                         margin-top: 12;
                         margin-bottom: 12;
 
-                        $PasswordFieldRow password_field_row {}
+                        Stack primary_field_stack {
+                            StackPage {
+                                name: "password";
+                                child: $PasswordFieldRow password_field_row {};
+                            }
+
+                            StackPage {
+                                name: "otp";
+                                child: $OtpFieldRow primary_otp_field_row {};
+                            }
+                        }
                     }
 
                     Adw.PreferencesGroup {

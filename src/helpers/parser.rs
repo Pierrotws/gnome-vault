@@ -5,7 +5,9 @@ use crate::{
 
 /// Parses decrypted pass entry text into an [`EntryData`] model.
 ///
-/// The first line is always the secret/password. Remaining fields use the
+/// The first line is always the mandatory secret. It is treated as an OTP when
+/// it starts with `otpauth://`; otherwise it is treated as a password.
+/// Remaining fields use the
 /// pass-compatible YAML subset emitted by [`format_entry`]:
 ///
 /// - `key: value` for plain scalar fields.
@@ -15,11 +17,11 @@ use crate::{
 /// Malformed field lines are ignored, but an empty file returns `None`.
 pub fn parse_entry(plaintext: &str) -> Option<EntryData> {
     let mut lines = plaintext.lines();
-    let password = lines.next()?.to_string();
+    let password = parse_secret_field(lines.next()?);
     let field_lines: Vec<&str> = lines.collect();
 
     Some(EntryData {
-        password: EntryField::Password(password),
+        password,
         fields: parse_fields(&field_lines),
     })
 }
@@ -142,6 +144,14 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
     }
 
     fields
+}
+
+fn parse_secret_field(value: &str) -> EntryField {
+    if otp::is_otp_url(value) {
+        EntryField::OTP(value.to_string())
+    } else {
+        EntryField::Password(value.to_string())
+    }
 }
 
 fn should_skip_field(key: &str, value: &EntryField) -> bool {
@@ -535,6 +545,16 @@ mod tests {
                 "otp".into(),
                 EntryField::OTP("otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ".into())
             )]
+        );
+    }
+
+    #[test]
+    fn parses_first_line_otp_as_mandatory_otp_field() {
+        let entry = parse_entry("otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ\n").unwrap();
+
+        assert_eq!(
+            entry.password,
+            EntryField::OTP("otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ".into())
         );
     }
 }

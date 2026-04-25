@@ -4,7 +4,7 @@ use adw::subclass::prelude::*;
 use glib::subclass::*;
 use gtk::{glib, CompositeTemplate};
 
-use super::fields::PasswordFieldRow;
+use super::fields::{OtpFieldRow, PasswordFieldRow};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/entry_view.ui")]
@@ -16,7 +16,13 @@ pub struct EntryView {
     pub title_label: TemplateChild<gtk::Label>,
 
     #[template_child]
+    pub primary_field_stack: TemplateChild<gtk::Stack>,
+
+    #[template_child]
     pub password_field_row: TemplateChild<PasswordFieldRow>,
+
+    #[template_child]
+    pub primary_otp_field_row: TemplateChild<OtpFieldRow>,
 
     #[template_child]
     pub custom_fields_list: TemplateChild<gtk::ListBox>,
