@@ -81,6 +81,10 @@ impl PlainFieldRow {
     pub fn set_value(&self, value: &str) {
         self.imp().value_entry.set_text(value);
     }
+
+    pub fn drag_handle(&self) -> gtk::Widget {
+        self.imp().drag_handle.get().upcast()
+    }
 }
 
 impl EntryFieldRow for PlainFieldRow {

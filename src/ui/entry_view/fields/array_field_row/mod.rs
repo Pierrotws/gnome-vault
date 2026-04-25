@@ -77,6 +77,10 @@ impl ArrayFieldRow {
         self.imp().title_entry.set_text(key);
     }
 
+    pub fn drag_handle(&self) -> gtk::Widget {
+        self.imp().drag_handle.get().upcast()
+    }
+
     pub fn values(&self) -> Vec<String> {
         let list = &self.imp().value_list;
         let mut values = Vec::new();

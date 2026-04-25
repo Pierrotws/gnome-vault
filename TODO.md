@@ -4,13 +4,6 @@
 
 Implement search on node entry name and folder name
 
-## Cache EntryView
-
-EntryData is loaded when EntryView is opened, without cache. A bit slow (1 sec).
-Could either:
-  - load everything at start. Slow at start but fast afterwards and allow deep search
-  - cache once opened
-
 ## Implement changes view
 
 Show git history
@@ -32,7 +25,3 @@ check pass init process
 ## Implement OTP
 
 handle OTP password and fields
-
-## Implement multiline
-
-handle multiline custom field

@@ -13,6 +13,13 @@ template $MultilineFieldRow : ListBoxRow {
             orientation: horizontal;
             spacing: 8;
 
+            Image drag_handle {
+                icon-name: "list-drag-handle-symbolic";
+                tooltip-text: _("Drag to reorder");
+                valign: center;
+                css-classes: ["dim-label"];
+            }
+
             Entry title_entry {
                 placeholder-text: _("Key");
                 hexpand: true;

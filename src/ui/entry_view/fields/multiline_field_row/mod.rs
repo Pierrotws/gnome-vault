@@ -77,6 +77,10 @@ impl MultilineFieldRow {
         title_entry.set_text(key);
     }
 
+    pub fn drag_handle(&self) -> gtk::Widget {
+        self.imp().drag_handle.get().upcast()
+    }
+
     pub fn value(&self) -> String {
         let buffer = self.imp().value_text_view.buffer();
         let start = buffer.start_iter();

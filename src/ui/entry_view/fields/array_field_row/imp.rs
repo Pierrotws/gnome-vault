@@ -1,11 +1,14 @@
 use adw::subclass::prelude::*;
 use gtk::glib;
 
-use gtk::{Button, CompositeTemplate, Entry, ListBox, TemplateChild};
+use gtk::{Button, CompositeTemplate, Entry, Image, ListBox, TemplateChild};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/fields/array_field_row.ui")]
 pub struct ArrayFieldRow {
+    #[template_child]
+    pub drag_handle: TemplateChild<Image>,
+
     #[template_child]
     pub title_entry: TemplateChild<Entry>,
 

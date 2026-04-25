@@ -1,11 +1,14 @@
 use adw::subclass::prelude::*;
 use gtk::glib;
 
-use gtk::{Button, CompositeTemplate, Entry, TemplateChild};
+use gtk::{Button, CompositeTemplate, Entry, Image, TemplateChild};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/fields/plain_field_row.ui")]
 pub struct PlainFieldRow {
+    #[template_child]
+    pub drag_handle: TemplateChild<Image>,
+
     #[template_child]
     pub key_entry: TemplateChild<Entry>,
 
