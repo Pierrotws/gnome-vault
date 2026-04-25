@@ -76,7 +76,7 @@ impl AppController {
     }
 
     pub fn update_current_entry(&mut self, data: EntryViewData) -> Result<(), AppError> {
-        eprintln!("update current entry");
+        log::debug!("update current entry");
         let session = self
             .state
             .current_session_mut()

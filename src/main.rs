@@ -16,12 +16,13 @@ use crate::ui::window::MainWindow;
 const APP_ID: &str = "io.pierrotws.GnomeVault";
 
 fn main() -> glib::ExitCode {
-    eprintln!("main() start");
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+    log::debug!("main() start");
 
     let resource = match gio::Resource::load("assets/resources.gresource") {
         Ok(res) => res,
         Err(err) => {
-            eprintln!("Failed to load resources: {err}");
+            log::error!("Failed to load resources: {err}");
             return glib::ExitCode::FAILURE;
         }
     };
@@ -30,15 +31,14 @@ fn main() -> glib::ExitCode {
     let app = adw::Application::builder().application_id(APP_ID).build();
 
     app.connect_activate(|app| {
-        eprintln!("app.activate");
-
+        log::debug!("app.activate");
         let controller = Rc::new(RefCell::new(AppController::new()));
 
         let win = MainWindow::new(app, controller);
-        eprintln!("window created");
+        log::debug!("window created");
 
         win.present();
-        eprintln!("window presented");
+        log::debug!("window presented");
     });
 
     app.run()
