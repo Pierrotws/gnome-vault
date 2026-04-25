@@ -1,12 +1,18 @@
 // Global state of App
 
-use crate::{app::state::EntrySession, pass::model::PassNode};
+use std::{collections::HashMap, path::Path};
+
+use crate::{
+    app::state::EntrySession,
+    pass::model::{EntryData, PassNode},
+};
 
 #[derive(Clone, Default)]
 pub struct AppState {
     tree: Vec<PassNode>,
     selected_node: Option<PassNode>,
     current_session: Option<EntrySession>,
+    entry_cache: HashMap<std::path::PathBuf, EntryData>,
 }
 
 impl AppState {
@@ -42,6 +48,14 @@ impl AppState {
         self.current_session = session;
     }
 
+    pub fn cached_entry(&self, path: &Path) -> Option<&EntryData> {
+        self.entry_cache.get(path)
+    }
+
+    pub fn cache_entry(&mut self, node: &PassNode, entry: EntryData) {
+        self.entry_cache.insert(node.path.clone(), entry);
+    }
+
     pub fn has_unsaved_changes(&self) -> bool {
         self.current_session
             .as_ref()
@@ -52,5 +66,52 @@ impl AppState {
     pub fn clear_current_entry(&mut self) {
         self.selected_node = None;
         self.current_session = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::pass::model::{EntryField, PassNodeKind};
+
+    use super::*;
+
+    fn entry(value: &str) -> EntryData {
+        EntryData {
+            password: EntryField::Password(value.into()),
+            fields: Vec::new(),
+        }
+    }
+
+    fn node(path: &str) -> PassNode {
+        PassNode {
+            name: path.into(),
+            path: PathBuf::from(path),
+            kind: PassNodeKind::Entry,
+            children: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn caches_entries_by_node_path() {
+        let node = node("email/example.gpg");
+        let data = entry("secret");
+        let mut state = AppState::new();
+
+        state.cache_entry(&node, data.clone());
+
+        assert_eq!(state.cached_entry(&node.path), Some(&data));
+    }
+
+    #[test]
+    fn cache_entry_replaces_existing_value() {
+        let node = node("email/example.gpg");
+        let mut state = AppState::new();
+
+        state.cache_entry(&node, entry("old"));
+        state.cache_entry(&node, entry("new"));
+
+        assert_eq!(state.cached_entry(&node.path), Some(&entry("new")));
     }
 }
