@@ -80,7 +80,7 @@ pub fn generate_password(length: usize, mode: PasswordMode) -> String {
             password.push(NUMERIC[random_index(NUMERIC.len())]);
             password.push(LOWER[random_index(LOWER.len())]);
             password.push(UPPER[random_index(UPPER.len())]);
-            password.push(ALL[random_index(ALL.len())]);
+            password.push(SPECIAL[random_index(SPECIAL.len())]);
         }
     }
     // Fill remaining
@@ -145,6 +145,19 @@ mod tests {
         assert!(contains_any(&password, b"abcdefghijklmnopqrstuvwxyz"));
         assert!(contains_any(&password, b"ABCDEFGHIJKLMNPQRSTUVWXYZ"));
         assert!(contains_any(&password, b".!?+-_:&*%@"));
+    }
+
+    #[test]
+    fn generated_all_password_contains_required_groups() {
+        let password = generate_password(64, PasswordMode::All);
+        let charset = get_charset_for_mode(PasswordMode::All);
+
+        assert_eq!(password.len(), 64);
+        assert!(only_uses_charset(&password, charset));
+        assert!(contains_any(&password, b"0123456789"));
+        assert!(contains_any(&password, b"abcdefghijklmnopqrstuvwxyz"));
+        assert!(contains_any(&password, b"ABCDEFGHIJKLMNPQRSTUVWXYZ"));
+        assert!(contains_any(&password, b".!?+-_:&*%@#$^()=[]{}<>~,;"));
     }
 
     #[test]
