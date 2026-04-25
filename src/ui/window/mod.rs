@@ -3,7 +3,7 @@ mod imp;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use adw::subclass::prelude::*;
+use adw::{prelude::*, subclass::prelude::*};
 use gtk::{gio, glib};
 
 use crate::app::controller::AppController;
@@ -56,6 +56,7 @@ impl MainWindow {
         imp.vault_view.set_factory(Some(&build_tree_factory()));
 
         imp.entry_view.display_empty();
+        self.set_edit_unlock_state(false, false, false);
     }
 
     pub fn setup_callbacks(&self) {
@@ -64,6 +65,7 @@ impl MainWindow {
         {
             let controller = self.controller();
             let entry_view = imp.entry_view.clone();
+            let window = self.clone();
 
             imp.vault_view.connect_entry_selected(move |nav| {
                 let Some(node) = nav.selected_node() else {
@@ -78,6 +80,7 @@ impl MainWindow {
                 match result {
                     Ok(data) => {
                         entry_view.set_entry_data(&data);
+                        window.set_edit_unlock_state(true, false, false);
                         let is_dirty = controller.borrow().has_unsaved_changes();
                         entry_view.set_cancellable(is_dirty);
                         let is_valid = controller.borrow().has_valid_changes();
@@ -90,6 +93,7 @@ impl MainWindow {
 
         {
             let controller = self.controller();
+            let window = self.clone();
 
             imp.entry_view.connect_entry_changed(move |view| {
                 let updated = view.to_entry_view_data();
@@ -105,6 +109,7 @@ impl MainWindow {
                         view.set_cancellable(is_dirty);
                         let is_valid = controller.borrow().has_valid_changes();
                         view.set_saveable(is_valid);
+                        window.set_edit_unlock_state(true, view.is_editable_mode(), is_dirty);
                     }
                     Err(err) => view.show_error(&err.to_string()),
                 }
@@ -113,12 +118,15 @@ impl MainWindow {
 
         {
             let controller = self.controller();
+            let window = self.clone();
 
             imp.entry_view.connect_save_requested(move |view| {
                 let result = controller.borrow_mut().save_current_entry();
 
                 match result {
                     Ok(()) => {
+                        view.set_editable_mode(false);
+                        window.set_edit_unlock_state(true, false, false);
                         let is_dirty = controller.borrow().has_unsaved_changes();
                         view.set_cancellable(is_dirty);
                         let is_valid = controller.borrow().has_valid_changes();
@@ -132,6 +140,7 @@ impl MainWindow {
         {
             let controller = self.controller();
             let entry_view = imp.entry_view.clone();
+            let window = self.clone();
 
             imp.entry_view.connect_revert_requested(move |_| {
                 let result = controller.borrow_mut().revert_current_entry();
@@ -139,6 +148,7 @@ impl MainWindow {
                 match result {
                     Ok(entry_data) => {
                         entry_view.set_entry_data(&entry_data);
+                        window.set_edit_unlock_state(true, false, false);
                         let is_dirty = controller.borrow().has_unsaved_changes();
                         entry_view.set_cancellable(is_dirty);
                         let is_valid = controller.borrow().has_valid_changes();
@@ -149,6 +159,17 @@ impl MainWindow {
             });
         }
 
+        {
+            let entry_view = imp.entry_view.clone();
+            let window = self.clone();
+
+            imp.lock_vault_button.connect_clicked(move |_| {
+                let editing = !entry_view.is_editable_mode();
+                entry_view.set_editable_mode(editing);
+                window.set_edit_unlock_state(true, editing, false);
+            });
+        }
+
         imp.vault_view.connect_search_changed(move |nav| {
             nav.handle_search_changed();
         });
@@ -156,5 +177,22 @@ impl MainWindow {
 
     pub fn get_entry_view(&self) -> EntryView {
         self.imp().entry_view.clone()
+    }
+
+    fn set_edit_unlock_state(&self, has_entry: bool, editing: bool, is_dirty: bool) {
+        let imp = self.imp();
+        imp.lock_vault_button.set_sensitive(has_entry && !is_dirty);
+        imp.lock_vault_button.set_icon_name(if editing {
+            "changes-allow-symbolic"
+        } else {
+            "system-lock-screen-symbolic"
+        });
+        imp.lock_vault_button.set_tooltip_text(Some(if editing {
+            "Editing unlocked"
+        } else {
+            "Unlock editing"
+        }));
+        imp.window_title
+            .set_subtitle(if editing { "Editing" } else { "Read-only" });
     }
 }

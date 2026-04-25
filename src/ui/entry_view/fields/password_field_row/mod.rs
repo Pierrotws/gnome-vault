@@ -32,6 +32,12 @@ impl PasswordFieldRow {
         self.imp().password_entry.set_text(text);
     }
 
+    pub fn set_editable_mode(&self, editable: bool) {
+        let imp = self.imp();
+        imp.password_entry.set_editable(editable);
+        imp.generate_password_button.set_visible(editable);
+    }
+
     pub fn connect_changed<F>(&self, f: F) -> glib::SignalHandlerId
     where
         F: Fn(&adw::PasswordEntryRow) + 'static,

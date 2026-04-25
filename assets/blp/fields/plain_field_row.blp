@@ -17,9 +17,14 @@ template $PlainFieldRow : ListBoxRow {
         }
 
         Entry key_entry {
-            hexpand: true;
-            width-chars: 14;
+            hexpand: false;
+            width-chars: 18;
             placeholder-text: _("Key");
+            css-classes: ["heading"];
+        }
+
+        Separator key_value_separator {
+            orientation: vertical;
         }
 
         Entry value_entry {

@@ -77,6 +77,16 @@ impl MultilineFieldRow {
         title_entry.set_text(key);
     }
 
+    pub fn set_editable_mode(&self, editable: bool) {
+        let imp = self.imp();
+        imp.drag_handle.set_visible(editable);
+        Self::set_entry_editable_mode(&imp.title_entry, editable);
+        imp.value_text_view.set_editable(editable);
+        imp.value_text_view.set_can_focus(editable);
+        imp.value_text_view.set_cursor_visible(editable);
+        imp.delete_button.set_visible(editable);
+    }
+
     pub fn drag_handle(&self) -> gtk::Widget {
         self.imp().drag_handle.get().upcast()
     }
@@ -90,6 +100,12 @@ impl MultilineFieldRow {
 
     pub fn set_value(&self, value: &str) {
         self.imp().value_text_view.buffer().set_text(value);
+    }
+
+    fn set_entry_editable_mode(entry: &gtk::Entry, editable: bool) {
+        entry.set_editable(editable);
+        entry.set_can_focus(editable);
+        entry.set_has_frame(editable);
     }
 }
 

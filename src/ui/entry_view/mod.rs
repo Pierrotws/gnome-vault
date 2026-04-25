@@ -20,6 +20,7 @@ glib::wrapper! {
 impl Default for EntryView {
     fn default() -> Self {
         let r = Self::new();
+        r.set_editable_mode(false);
         r.set_cancellable(false);
         r.set_saveable(false);
         r
@@ -84,6 +85,7 @@ impl EntryView {
         imp.title_label.set_text("");
         imp.password_field_row.set_text("");
         self.clear_listbox();
+        self.set_editable_mode(false);
         self.set_saveable(false);
         self.set_cancellable(false);
     }
@@ -104,6 +106,9 @@ impl EntryView {
             }
         }
 
+        self.set_editable_mode(false);
+        self.set_saveable(false);
+        self.set_cancellable(false);
         imp.is_updating_ui.set(false);
     }
 
@@ -141,6 +146,24 @@ impl EntryView {
     pub fn set_cancellable(&self, val: bool) {
         let imp = self.imp();
         imp.cancel_button.set_visible(val);
+    }
+
+    pub fn set_editable_mode(&self, editable: bool) {
+        let imp = self.imp();
+        imp.is_editable.set(editable);
+        imp.password_field_row.set_editable_mode(editable);
+        imp.add_field_menu_button.set_visible(editable);
+        imp.delete_button.set_visible(editable);
+
+        let mut child = imp.custom_fields_list.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            Self::set_field_row_editable(&widget, editable);
+        }
+    }
+
+    pub fn is_editable_mode(&self) -> bool {
+        self.imp().is_editable.get()
     }
 
     pub fn mark_changed(&self) {
@@ -309,12 +332,32 @@ impl EntryView {
         None
     }
 
+    fn set_field_row_editable(widget: &gtk::Widget, editable: bool) {
+        if let Ok(row) = widget.clone().downcast::<PlainFieldRow>() {
+            row.set_editable_mode(editable);
+            return;
+        }
+
+        if let Ok(row) = widget.clone().downcast::<ArrayFieldRow>() {
+            row.set_editable_mode(editable);
+            return;
+        }
+
+        if let Ok(row) = widget.clone().downcast::<MultilineFieldRow>() {
+            row.set_editable_mode(editable);
+        }
+    }
+
     fn append_custom_field_row<R>(&self, row: &R)
     where
         R: IsA<gtk::ListBoxRow>,
     {
         let row = row.upcast_ref::<gtk::ListBoxRow>();
         self.setup_custom_field_drag(row);
+        Self::set_field_row_editable(
+            row.upcast_ref::<gtk::Widget>(),
+            self.imp().is_editable.get(),
+        );
         self.imp().custom_fields_list.append(row);
     }
 
@@ -374,6 +417,10 @@ impl EntryView {
         target_row: &gtk::ListBoxRow,
         drop_y: f64,
     ) -> bool {
+        if !self.imp().is_editable.get() {
+            return false;
+        }
+
         if source_index < 0 {
             return false;
         }
