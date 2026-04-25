@@ -1,37 +1,39 @@
 use std::{
     fs,
-    path::{Path, PathBuf},
-    process::Command,
+    path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use gnome_vault::helpers::git;
+use git2::Repository;
+use gnome_vault::helpers::git::{self, GitError};
 
 fn temp_dir(name: &str) -> PathBuf {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    std::env::temp_dir().join(format!("gnome-vault-{name}-{}-{unique}", std::process::id()))
+    std::env::temp_dir().join(format!(
+        "gnome-vault-{name}-{}-{unique}",
+        std::process::id()
+    ))
 }
 
-fn run_git(dir: &Path, args: &[&str]) {
-    let status = Command::new("git")
-        .current_dir(dir)
-        .args(args)
-        .status()
+fn init_repo(dir: &PathBuf) -> Repository {
+    let repo = Repository::init(dir).unwrap();
+    let mut config = repo.config().unwrap();
+    config
+        .set_str("user.email", "test@example.invalid")
         .unwrap();
-    assert!(status.success(), "git {args:?} failed");
+    config.set_str("user.name", "Gnome Vault Tests").unwrap();
+    drop(config);
+    repo
 }
 
 #[test]
 fn adds_and_commits_file() {
     let dir = temp_dir("git-commit");
     fs::create_dir_all(&dir).unwrap();
-
-    run_git(&dir, &["init"]);
-    run_git(&dir, &["config", "user.email", "test@example.invalid"]);
-    run_git(&dir, &["config", "user.name", "Gnome Vault Tests"]);
+    let repo = init_repo(&dir);
 
     let file_path = dir.join("entry.gpg");
     fs::write(&file_path, "encrypted").unwrap();
@@ -39,28 +41,42 @@ fn adds_and_commits_file() {
     git::add(&dir, &file_path).unwrap();
     git::commit(&dir, "Add entry").unwrap();
 
-    let output = Command::new("git")
-        .current_dir(&dir)
-        .args(["log", "--oneline", "-1"])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    assert!(String::from_utf8(output.stdout).unwrap().contains("Add entry"));
+    let commit = repo.head().unwrap().peel_to_commit().unwrap();
+    assert_eq!(commit.message(), Some("Add entry"));
 
     fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
-fn reports_command_failure_stderr() {
+fn reports_open_repository_failure() {
     let dir = temp_dir("git-failure");
     fs::create_dir_all(&dir).unwrap();
 
     let err = git::commit(&dir, "No repository").unwrap_err();
     let message = err.to_string();
 
-    assert!(message.contains("git commit failed with status"));
+    assert!(matches!(err, GitError::Git(_)));
+    assert!(message.contains("Git error:"));
     assert!(!message.trim().is_empty());
 
     fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn rejects_add_paths_outside_workdir() {
+    let dir = temp_dir("git-invalid-path");
+    let outside_dir = temp_dir("git-outside");
+    fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&outside_dir).unwrap();
+    let _repo = init_repo(&dir);
+
+    let outside_file = outside_dir.join("entry.gpg");
+    fs::write(&outside_file, "encrypted").unwrap();
+
+    let err = git::add(&dir, &outside_file).unwrap_err();
+
+    assert!(matches!(err, GitError::InvalidPath { .. }));
+
+    fs::remove_dir_all(dir).unwrap();
+    fs::remove_dir_all(outside_dir).unwrap();
 }
