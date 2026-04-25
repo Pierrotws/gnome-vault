@@ -21,7 +21,3 @@ If ~/.password_store does not exists, show a view to create gitproject
 - Also create pgp key if not existing ?
 
 check pass init process
-
-## Implement OTP
-
-handle OTP password and fields

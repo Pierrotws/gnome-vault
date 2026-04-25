@@ -1,4 +1,7 @@
-use crate::pass::model::{EntryData, EntryField};
+use crate::{
+    helpers::otp,
+    pass::model::{EntryData, EntryField},
+};
 
 /// Parses decrypted pass entry text into an [`EntryData`] model.
 ///
@@ -129,7 +132,12 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
             continue;
         }
 
-        fields.push((key, EntryField::Plain(parse_yaml_scalar(value))));
+        let value = parse_yaml_scalar(value);
+        if otp::is_otp_url(&value) {
+            fields.push((key, EntryField::OTP(value)));
+        } else {
+            fields.push((key, EntryField::Plain(value)));
+        }
         index += 1;
     }
 
@@ -514,5 +522,19 @@ mod tests {
 
         assert!(formatted.contains("notes: |+"));
         assert_eq!(parse_entry(&formatted), Some(entry));
+    }
+
+    #[test]
+    fn parses_otp_urls_as_otp_fields() {
+        let entry =
+            parse_entry("secret\notp: otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ\n").unwrap();
+
+        assert_eq!(
+            entry.fields,
+            vec![(
+                "otp".into(),
+                EntryField::OTP("otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ".into())
+            )]
+        );
     }
 }

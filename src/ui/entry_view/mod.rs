@@ -9,7 +9,7 @@ use gtk::subclass::prelude::*;
 use crate::app::state::EntryViewData;
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
-use fields::{ArrayFieldRow, EntryFieldRow, MultilineFieldRow, PlainFieldRow};
+use fields::{ArrayFieldRow, EntryFieldRow, MultilineFieldRow, OtpFieldRow, PlainFieldRow};
 
 glib::wrapper! {
     pub struct EntryView(ObjectSubclass<imp::EntryView>)
@@ -57,8 +57,10 @@ impl EntryView {
             let row = ArrayFieldRow::new(&this, "List", &[]);
             this.append_custom_field_row(&row);
         });
+        let this = self.clone();
         imp.add_otp_field_button.connect_clicked(move |_| {
-            todo!("Add OTP field row");
+            let row = OtpFieldRow::new(&this, "OTP", "");
+            this.append_custom_field_row(&row);
         });
         let this = self.clone();
         imp.add_multiline_field_button.connect_clicked(move |_| {
@@ -299,6 +301,9 @@ impl EntryView {
         if let Some(row) = ArrayFieldRow::from_entry_field(self, key, field) {
             return Some(row.upcast());
         }
+        if let Some(row) = OtpFieldRow::from_entry_field(self, key, field) {
+            return Some(row.upcast());
+        }
         if let Some(row) = MultilineFieldRow::from_entry_field(self, key, field) {
             return Some(row.upcast());
         }
@@ -315,6 +320,13 @@ impl EntryView {
             return Some(row.named_entry_field());
         }
         if let Ok(row) = widget.clone().downcast::<ArrayFieldRow>() {
+            if row.is_empty() {
+                return None;
+            }
+
+            return Some(row.named_entry_field());
+        }
+        if let Ok(row) = widget.clone().downcast::<OtpFieldRow>() {
             if row.is_empty() {
                 return None;
             }
@@ -339,6 +351,11 @@ impl EntryView {
         }
 
         if let Ok(row) = widget.clone().downcast::<ArrayFieldRow>() {
+            row.set_editable_mode(editable);
+            return;
+        }
+
+        if let Ok(row) = widget.clone().downcast::<OtpFieldRow>() {
             row.set_editable_mode(editable);
             return;
         }
@@ -401,6 +418,10 @@ impl EntryView {
         }
 
         if let Ok(row) = row.clone().downcast::<ArrayFieldRow>() {
+            return Some(row.drag_handle());
+        }
+
+        if let Ok(row) = row.clone().downcast::<OtpFieldRow>() {
             return Some(row.drag_handle());
         }
 
