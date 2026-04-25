@@ -1,0 +1,85 @@
+using Gtk 4.0;
+
+template $OtpFieldRow : ListBoxRow {
+    child: Box {
+        orientation: vertical;
+        spacing: 8;
+        margin-top: 8;
+        margin-bottom: 8;
+        margin-start: 8;
+        margin-end: 8;
+
+        Box view_box {
+            orientation: vertical;
+            spacing: 8;
+
+            Box {
+                orientation: horizontal;
+                spacing: 8;
+
+                Label title_label {
+                    hexpand: true;
+                    xalign: 0;
+                    css-classes: ["heading"];
+                }
+
+                Button copy_code_button {
+                    icon-name: "edit-copy-symbolic";
+                    tooltip-text: _("Copy code");
+                    valign: center;
+                }
+            }
+
+            Label code_label {
+                halign: center;
+                xalign: 0.5;
+                css-classes: ["title-1", "numeric"];
+            }
+
+            ProgressBar validity_progress {
+                hexpand: true;
+            }
+        }
+
+        Box edit_box {
+            orientation: horizontal;
+            spacing: 8;
+
+            Image drag_handle {
+                icon-name: "list-drag-handle-symbolic";
+                tooltip-text: _("Drag to reorder");
+                valign: center;
+                css-classes: ["dim-label"];
+            }
+
+            Entry key_entry {
+                hexpand: false;
+                width-chars: 18;
+                placeholder-text: _("Key");
+                css-classes: ["heading"];
+            }
+
+            Separator {
+                orientation: vertical;
+            }
+
+            Entry url_entry {
+                hexpand: true;
+                width-chars: 32;
+                placeholder-text: _("otpauth://totp/...");
+            }
+
+            Button copy_url_button {
+                icon-name: "edit-copy-symbolic";
+                tooltip-text: _("Copy URL");
+                valign: center;
+            }
+
+            Button delete_button {
+                icon-name: "user-trash-symbolic";
+                tooltip-text: _("Delete field");
+                valign: center;
+            }
+        }
+    };
+}

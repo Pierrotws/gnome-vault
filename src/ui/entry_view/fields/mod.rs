@@ -1,5 +1,6 @@
 mod array_field_row;
 mod multiline_field_row;
+mod otp_field_row;
 mod password_field_row;
 mod plain_field_row;
 
@@ -7,6 +8,7 @@ use crate::pass::model::EntryField;
 
 pub use array_field_row::ArrayFieldRow;
 pub use multiline_field_row::MultilineFieldRow;
+pub use otp_field_row::OtpFieldRow;
 pub use password_field_row::PasswordFieldRow;
 pub use plain_field_row::PlainFieldRow;
 

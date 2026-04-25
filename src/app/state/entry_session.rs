@@ -1,6 +1,9 @@
 // Context of current edition
 
-use crate::pass::model::{EntryData, EntryField, PassNode};
+use crate::{
+    helpers::otp,
+    pass::model::{EntryData, EntryField, PassNode},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EntrySession {
@@ -48,7 +51,7 @@ impl EntrySession {
                 }
             }
             EntryField::OTP(str) => {
-                if str.is_empty() {
+                if !otp::is_otp_url(str) {
                     return false;
                 }
             }
@@ -66,7 +69,7 @@ impl EntrySession {
                     }
                 }
                 EntryField::OTP(str) => {
-                    if str.is_empty() {
+                    if !otp::is_otp_url(str) {
                         return false;
                     }
                 }
