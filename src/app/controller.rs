@@ -68,7 +68,18 @@ impl AppController {
 
     pub fn open_node(&mut self, node: PassNode) -> Result<EntryViewData, AppError> {
         let title = node.name.clone();
-        let entry = pass::store::load_entry_from_node(&node)?;
+        let entry = match self.state.cached_entry(&node.path) {
+            Some(entry) => {
+                log::debug!("entry cache hit: {}", node.path.display());
+                entry.clone()
+            }
+            None => {
+                log::debug!("entry cache miss: {}", node.path.display());
+                let entry = pass::store::load_entry_from_node(&node)?;
+                self.state.cache_entry(&node, entry.clone());
+                entry
+            }
+        };
         let session = EntrySession::new(node, entry.clone());
         self.state.set_current_session(Some(session));
 
@@ -95,7 +106,10 @@ impl AppController {
         //no validate yet
         //session.current().validate()?;
         pass::store::save_entry_data(session.node(), session.current())?;
+        let node = session.node().clone();
+        let entry = session.current().clone();
         session.mark_saved();
+        self.state.cache_entry(&node, entry);
         Ok(())
     }
 
