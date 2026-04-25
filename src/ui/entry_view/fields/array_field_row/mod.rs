@@ -77,6 +77,20 @@ impl ArrayFieldRow {
         self.imp().title_entry.set_text(key);
     }
 
+    pub fn set_editable_mode(&self, editable: bool) {
+        let imp = self.imp();
+        imp.drag_handle.set_visible(editable);
+        Self::set_entry_editable_mode(&imp.title_entry, editable);
+        imp.add_item_button.set_visible(editable);
+        imp.delete_button.set_visible(editable);
+
+        let mut child = imp.value_list.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            Self::set_value_row_editable(&widget, editable);
+        }
+    }
+
     pub fn drag_handle(&self) -> gtk::Widget {
         self.imp().drag_handle.get().upcast()
     }
@@ -155,6 +169,24 @@ impl ArrayFieldRow {
         box_.append(&delete_button);
         row.set_child(Some(&box_));
         self.imp().value_list.append(&row);
+    }
+
+    fn set_value_row_editable(widget: &gtk::Widget, editable: bool) -> Option<()> {
+        let row = widget.clone().downcast::<gtk::ListBoxRow>().ok()?;
+        let child = row.child()?;
+        let container = child.downcast::<gtk::Box>().ok()?;
+        let entry = container.first_child()?.downcast::<gtk::Entry>().ok()?;
+        let delete_button = entry.next_sibling()?.downcast::<gtk::Button>().ok()?;
+
+        Self::set_entry_editable_mode(&entry, editable);
+        delete_button.set_visible(editable);
+        Some(())
+    }
+
+    fn set_entry_editable_mode(entry: &gtk::Entry, editable: bool) {
+        entry.set_editable(editable);
+        entry.set_can_focus(editable);
+        entry.set_has_frame(editable);
     }
 
     fn read_value_row(widget: &gtk::Widget) -> Option<String> {

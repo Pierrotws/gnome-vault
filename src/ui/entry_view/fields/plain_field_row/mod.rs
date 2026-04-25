@@ -82,8 +82,22 @@ impl PlainFieldRow {
         self.imp().value_entry.set_text(value);
     }
 
+    pub fn set_editable_mode(&self, editable: bool) {
+        let imp = self.imp();
+        imp.drag_handle.set_visible(editable);
+        Self::set_entry_editable_mode(&imp.key_entry, editable);
+        Self::set_entry_editable_mode(&imp.value_entry, editable);
+        imp.delete_button.set_visible(editable);
+    }
+
     pub fn drag_handle(&self) -> gtk::Widget {
         self.imp().drag_handle.get().upcast()
+    }
+
+    fn set_entry_editable_mode(entry: &gtk::Entry, editable: bool) {
+        entry.set_editable(editable);
+        entry.set_can_focus(editable);
+        entry.set_has_frame(editable);
     }
 }
 

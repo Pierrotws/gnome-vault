@@ -22,6 +22,12 @@ pub struct EntryView {
     pub custom_fields_list: TemplateChild<gtk::ListBox>,
 
     #[template_child]
+    pub add_field_menu_button: TemplateChild<gtk::MenuButton>,
+
+    #[template_child]
+    pub delete_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
     pub add_array_field_button: TemplateChild<gtk::Button>,
 
     #[template_child]
@@ -41,6 +47,7 @@ pub struct EntryView {
 
     //non graphical
     pub is_updating_ui: Cell<bool>,
+    pub is_editable: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -62,6 +69,7 @@ impl ObjectImpl for EntryView {
     fn constructed(&self) {
         self.parent_constructed();
         self.is_updating_ui.set(false);
+        self.is_editable.set(false);
         let obj = self.obj();
         obj.setup_callbacks();
     }

@@ -13,10 +13,16 @@ use crate::ui::{EntryView, VaultView};
 #[template(resource = "/io/pierrotws/GnomeVault/ui/window.ui")]
 pub struct MainWindow {
     #[template_child]
+    pub window_title: TemplateChild<adw::WindowTitle>,
+
+    #[template_child]
     pub vault_view: TemplateChild<VaultView>,
 
     #[template_child]
     pub entry_view: TemplateChild<EntryView>,
+
+    #[template_child]
+    pub lock_vault_button: TemplateChild<gtk::Button>,
 
     //App Controller
     pub controller: OnceCell<Rc<RefCell<AppController>>>,

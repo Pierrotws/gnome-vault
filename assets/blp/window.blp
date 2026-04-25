@@ -9,9 +9,9 @@ template $MainWindow : Adw.ApplicationWindow {
     content: Adw.ToolbarView {
         [top]
         Adw.HeaderBar {
-            title-widget: Adw.WindowTitle {
+            title-widget: Adw.WindowTitle window_title {
                 title: "Gnome Vault";
-                subtitle: "Unlocked";
+                subtitle: "Read-only";
             };
 
             [start]
@@ -21,42 +21,9 @@ template $MainWindow : Adw.ApplicationWindow {
             }
 
             [end]
-            MenuButton security_menu_button {
+            Button lock_vault_button {
                 icon-name: "system-lock-screen-symbolic";
-                tooltip-text: "Security";
-
-                popover: Popover {
-                    child: Box {
-                        orientation: vertical;
-                        spacing: 6;
-                        margin-top: 6;
-                        margin-bottom: 6;
-                        margin-start: 6;
-                        margin-end: 6;
-
-                        Button lock_vault_button {
-                            label: "Lock Vault";
-                            halign: fill;
-                        }
-
-                        Button lock_timeout_button {
-                            label: "Lock After Timeout";
-                            halign: fill;
-                        }
-
-                        Button clear_clipboard_button {
-                            label: "Clear Clipboard";
-                            halign: fill;
-                        }
-
-                        Separator {}
-
-                        Button vault_settings_button {
-                            label: "Vault Settings";
-                            halign: fill;
-                        }
-                    };
-                };
+                tooltip-text: "Unlock editing";
             }
         }
 
