@@ -34,16 +34,16 @@ impl EntryView {
     pub fn setup_callbacks(&self) {
         let imp = self.imp();
 
-        imp.copy_password_button.connect_clicked({
-            let password_row = imp.password_row.clone();
+        imp.password_field_row.connect_copy_clicked({
+            let password_field_row = imp.password_field_row.clone();
             move |_| {
                 if let Some(display) = gtk::gdk::Display::default() {
-                    display.clipboard().set_text(&password_row.text());
+                    display.clipboard().set_text(&password_field_row.text());
                 }
             }
         });
         let this = self.clone();
-        imp.generate_password_button.connect_clicked(move |_| {
+        imp.password_field_row.connect_generate_clicked(move |_| {
             this.show_generate_password_dialog();
         });
         let this = self.clone();
@@ -60,7 +60,7 @@ impl EntryView {
             this.emit_by_name::<()>("save-requested", &[]);
         });
         let this = self.clone();
-        imp.password_row.connect_changed(move |_| {
+        imp.password_field_row.connect_changed(move |_| {
             this.mark_changed();
         });
     }
@@ -69,7 +69,7 @@ impl EntryView {
         let imp = self.imp();
         imp.content_stack.set_visible_child_name("empty");
         imp.title_label.set_text("");
-        imp.password_row.set_text("");
+        imp.password_field_row.set_text("");
         self.clear_listbox();
         self.set_saveable(false);
         self.set_cancellable(false);
@@ -83,7 +83,7 @@ impl EntryView {
         imp.title_label.set_text(&data.title);
 
         let password_str = (&data.entry.password).to_str();
-        imp.password_row.set_text(&password_str);
+        imp.password_field_row.set_text(&password_str);
 
         self.clear_listbox();
         for (key, value) in &data.entry.fields {
@@ -102,7 +102,7 @@ impl EntryView {
         let imp = self.imp();
 
         let title = imp.title_label.get().text().to_string();
-        let password = EntryField::Password(imp.password_row.text().to_string());
+        let password = EntryField::Password(imp.password_field_row.text().to_string());
 
         let mut fields = Vec::new();
         let mut child = imp.custom_fields_list.first_child();
@@ -252,7 +252,7 @@ impl EntryView {
 
             ok_button.connect_clicked(move |_| {
                 let password = content.password();
-                this.imp().password_row.set_text(&password);
+                this.imp().password_field_row.set_text(&password);
                 this.mark_changed();
                 dialog.close();
             });

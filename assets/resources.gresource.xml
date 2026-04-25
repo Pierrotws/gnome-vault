@@ -12,5 +12,9 @@
             compressed="true"
             preprocess="xml-stripblanks"
         >fields/plain_field_row.ui</file>
+    <file
+            compressed="true"
+            preprocess="xml-stripblanks"
+        >fields/password_field_row.ui</file>
     </gresource>
 </gresources>
