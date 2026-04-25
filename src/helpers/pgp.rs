@@ -9,6 +9,10 @@ use gpgme::{Context, Data, Key, Protocol};
 pub enum PgpError {
     ContextError(String),
     InvalidPath(PathBuf),
+    ReadError {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     LoadingError(String),
     DecryptError(String),
     EncryptError(String),
@@ -24,6 +28,9 @@ impl std::fmt::Display for PgpError {
                 write!(f, "Failed to initialize GPGME OpenPGP context: {err}")
             }
             PgpError::InvalidPath(path) => write!(f, "Invalid path: {}", path.display()),
+            PgpError::ReadError { path, source } => {
+                write!(f, "Error reading {}: {source}", path.display())
+            }
             PgpError::LoadingError(str) => write!(f, "Error loading path: {str}"),
             PgpError::DecryptError(str) => write!(f, "Error decrypting data: {str}"),
             PgpError::EncryptError(str) => write!(f, "Error encrypting data: {str}"),
@@ -73,8 +80,10 @@ pub fn encrypt(plaintext: &str, recipient_ids: &[String]) -> Result<Vec<u8>, Pgp
 
 pub fn recipient_ids(store_dir: &Path) -> Result<Vec<String>, PgpError> {
     let gpg_id_path = store_dir.join(".gpg-id");
-    let content = fs::read_to_string(&gpg_id_path)
-        .map_err(|_| PgpError::InvalidPath(gpg_id_path.to_path_buf()))?;
+    let content = fs::read_to_string(&gpg_id_path).map_err(|source| PgpError::ReadError {
+        path: gpg_id_path.to_path_buf(),
+        source,
+    })?;
 
     let ids = content
         .lines()
@@ -139,13 +148,13 @@ mod tests {
     }
 
     #[test]
-    fn reports_missing_gpg_id_as_invalid_path() {
+    fn reports_missing_gpg_id_read_error() {
         let dir = temp_dir("pgp-missing-recipients");
         fs::create_dir_all(&dir).unwrap();
 
         let err = recipient_ids(&dir).unwrap_err();
 
-        assert!(matches!(err, PgpError::InvalidPath(_)));
+        assert!(matches!(err, PgpError::ReadError { .. }));
 
         fs::remove_dir_all(dir).unwrap();
     }
