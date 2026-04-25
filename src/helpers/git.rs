@@ -105,9 +105,27 @@ pub fn commit(project_dir: &Path, message: &str) -> Result<(), GitError> {
 pub fn push(project_dir: &Path) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
     let head = repo.head()?;
-    let refname = head.name().ok_or(GitError::NoHeadName)?.to_string();
-    let refspec = format!("{refname}:{refname}");
+    let refname = head
+        .name()
+        .filter(|name| name.starts_with("refs/heads/"))
+        .ok_or(GitError::NoHeadName)?
+        .to_string();
+    let branch_name = refname
+        .strip_prefix("refs/heads/")
+        .ok_or(GitError::NoHeadName)?;
     let config = repo.config()?;
+    let remote_name = config
+        .get_string(&format!("branch.{branch_name}.remote"))
+        .unwrap_or_else(|_| "origin".to_string());
+    let remote_ref = config
+        .get_string(&format!("branch.{branch_name}.merge"))
+        .unwrap_or_else(|_| refname.clone());
+    let remote_ref = if remote_ref.starts_with("refs/") {
+        remote_ref
+    } else {
+        format!("refs/heads/{remote_ref}")
+    };
+    let refspec = format!("{refname}:{remote_ref}");
     let mut callbacks = RemoteCallbacks::new();
 
     callbacks.credentials(move |url, username_from_url, allowed_types| {
@@ -125,7 +143,7 @@ pub fn push(project_dir: &Path) -> Result<(), GitError> {
     let mut push_options = PushOptions::new();
     push_options.remote_callbacks(callbacks);
 
-    repo.find_remote("origin")?
+    repo.find_remote(&remote_name)?
         .push(&[refspec.as_str()], Some(&mut push_options))?;
 
     Ok(())
@@ -138,5 +156,124 @@ fn head_commit(repo: &Repository) -> Result<Option<git2::Commit<'_>>, GitError> 
             Ok(None)
         }
         Err(err) => Err(GitError::Git(err)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    use git2::Repository;
+
+    use super::*;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "gnome-vault-{name}-{}-{unique}",
+            std::process::id()
+        ))
+    }
+
+    fn init_repo(dir: &PathBuf) -> Repository {
+        let repo = Repository::init(dir).unwrap();
+        let mut config = repo.config().unwrap();
+        config
+            .set_str("user.email", "test@example.invalid")
+            .unwrap();
+        config.set_str("user.name", "Gnome Vault Tests").unwrap();
+        drop(config);
+        repo
+    }
+
+    #[test]
+    fn adds_and_commits_file() {
+        let dir = temp_dir("git-commit");
+        fs::create_dir_all(&dir).unwrap();
+        let repo = init_repo(&dir);
+
+        let file_path = dir.join("entry.gpg");
+        fs::write(&file_path, "encrypted").unwrap();
+
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "Add entry").unwrap();
+
+        let commit = repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(commit.message(), Some("Add entry"));
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn pushes_current_branch_to_origin() {
+        let dir = temp_dir("git-push");
+        let remote_dir = temp_dir("git-push-remote");
+        fs::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(&remote_dir).unwrap();
+        let repo = init_repo(&dir);
+        let _remote_repo = Repository::init_bare(&remote_dir).unwrap();
+
+        let file_path = dir.join("entry.gpg");
+        fs::write(&file_path, "encrypted").unwrap();
+
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "Add entry").unwrap();
+
+        let refname = repo.head().unwrap().name().unwrap().to_string();
+        repo.remote("origin", remote_dir.to_str().unwrap()).unwrap();
+
+        push(&dir).unwrap();
+
+        let remote_repo = Repository::open_bare(&remote_dir).unwrap();
+        let remote_ref = remote_repo.find_reference(&refname).unwrap();
+
+        assert_eq!(
+            remote_ref.target(),
+            Some(repo.head().unwrap().peel_to_commit().unwrap().id())
+        );
+
+        fs::remove_dir_all(dir).unwrap();
+        fs::remove_dir_all(remote_dir).unwrap();
+    }
+
+    #[test]
+    fn reports_open_repository_failure() {
+        let dir = temp_dir("git-failure");
+        fs::create_dir_all(&dir).unwrap();
+
+        let err = commit(&dir, "No repository").unwrap_err();
+        let message = err.to_string();
+
+        assert!(matches!(err, GitError::Git(_)));
+        assert!(message.contains("Git error:"));
+        assert!(!message.trim().is_empty());
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn rejects_add_paths_outside_workdir() {
+        let dir = temp_dir("git-invalid-path");
+        let outside_dir = temp_dir("git-outside");
+        fs::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(&outside_dir).unwrap();
+        let _repo = init_repo(&dir);
+
+        let outside_file = outside_dir.join("entry.gpg");
+        fs::write(&outside_file, "encrypted").unwrap();
+
+        let err = add(&dir, &outside_file).unwrap_err();
+
+        assert!(matches!(err, GitError::InvalidPath { .. }));
+
+        fs::remove_dir_all(dir).unwrap();
+        fs::remove_dir_all(outside_dir).unwrap();
     }
 }
