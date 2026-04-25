@@ -5,7 +5,7 @@ use glib::subclass::*;
 use gtk::{glib, CompositeTemplate};
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/entry_view.ui")]
+#[template(resource = "/io/pierrotws/GnomeVault/ui/entry_view.ui")]
 pub struct EntryView {
     #[template_child]
     pub content_stack: TemplateChild<gtk::Stack>,

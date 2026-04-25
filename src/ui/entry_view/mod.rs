@@ -1,4 +1,4 @@
-mod custom_field_row;
+mod fields;
 mod imp;
 
 use adw::prelude::*;
@@ -9,7 +9,7 @@ use gtk::subclass::prelude::*;
 use crate::app::state::EntryViewData;
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
-use custom_field_row::CustomFieldRow;
+use fields::PlainFieldRow;
 
 glib::wrapper! {
     pub struct EntryView(ObjectSubclass<imp::EntryView>)
@@ -48,7 +48,7 @@ impl EntryView {
         });
         let this = self.clone();
         imp.add_field_button.connect_clicked(move |_| {
-            let row = CustomFieldRow::new_empty(&this);
+            let row = PlainFieldRow::new_empty(&this);
             this.imp().custom_fields_list.append(&row);
         });
         let this = self.clone();
@@ -87,7 +87,10 @@ impl EntryView {
 
         self.clear_listbox();
         for (key, value) in &data.entry.fields {
-            let row = CustomFieldRow::new(self, key, value);
+            let row = match value {
+                EntryField::Plain(str) => PlainFieldRow::new(self, key, str),
+                _ => todo!(),
+            };
             imp.custom_fields_list.append(&row);
         }
 

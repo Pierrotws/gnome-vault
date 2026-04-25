@@ -10,7 +10,7 @@ use crate::app::controller::AppController;
 use crate::ui::{EntryView, VaultView};
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/window.ui")]
+#[template(resource = "/io/pierrotws/GnomeVault/ui/window.ui")]
 pub struct MainWindow {
     #[template_child]
     pub vault_view: TemplateChild<VaultView>,

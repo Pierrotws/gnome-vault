@@ -4,8 +4,8 @@ use gtk::glib;
 use gtk::{Button, CompositeTemplate, Entry, TemplateChild};
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/custom_field_row.ui")]
-pub struct CustomFieldRow {
+#[template(resource = "/io/pierrotws/GnomeVault/ui/fields/plain_field_row.ui")]
+pub struct PlainFieldRow {
     #[template_child]
     pub key_entry: TemplateChild<Entry>,
 
@@ -20,9 +20,9 @@ pub struct CustomFieldRow {
 }
 
 #[glib::object_subclass]
-impl ObjectSubclass for CustomFieldRow {
-    const NAME: &'static str = "CustomFieldRow";
-    type Type = super::CustomFieldRow;
+impl ObjectSubclass for PlainFieldRow {
+    const NAME: &'static str = "PlainFieldRow";
+    type Type = super::PlainFieldRow;
     type ParentType = gtk::ListBoxRow;
 
     fn class_init(klass: &mut Self::Class) {
@@ -34,12 +34,12 @@ impl ObjectSubclass for CustomFieldRow {
     }
 }
 
-impl ObjectImpl for CustomFieldRow {
+impl ObjectImpl for PlainFieldRow {
     fn constructed(&self) {
         self.parent_constructed();
         // let obj = self.obj();
     }
 }
 
-impl WidgetImpl for CustomFieldRow {}
-impl ListBoxRowImpl for CustomFieldRow {}
+impl WidgetImpl for PlainFieldRow {}
+impl ListBoxRowImpl for PlainFieldRow {}

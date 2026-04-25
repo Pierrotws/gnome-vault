@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <gresources>
-    <gresource prefix="/io/pierrotws/GnomeVault">
-    <file
-            compressed="true"
-            preprocess="xml-stripblanks"
-        >custom_field_row.ui</file>
+    <gresource prefix="/io/pierrotws/GnomeVault/ui">
     <file compressed="true" preprocess="xml-stripblanks">entry_view.ui</file>
     <file
             compressed="true"
@@ -12,5 +8,9 @@
         >generate_password_view.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">vault_view.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">window.ui</file>
+    <file
+            compressed="true"
+            preprocess="xml-stripblanks"
+        >fields/plain_field_row.ui</file>
     </gresource>
 </gresources>

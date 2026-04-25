@@ -1,10 +1,10 @@
 blueprint = find_program('blueprint-compiler')
 
-custom_field_row_ui = custom_target(
-  'custom-field-row-ui',
-  input: 'blp/custom_field_row.blp',
-  output: 'custom_field_row.ui',
-  command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
+plain_field_row_ui = custom_target(
+  'plain-field-row-ui',
+  input: 'blp/fields/plain_field_row.blp',
+  output: 'plain_field_row.ui',
+  command: [blueprint, 'compile', '--output', 'assets/fields/plain_field_row.ui', '@INPUT@'],
 )
 
 entry_view_ui = custom_target(
@@ -40,7 +40,7 @@ resources = gnome.compile_resources(
   'resources.gresource.xml',
   gresource_bundle: true,
   source_dir: meson.current_build_dir(),
-  dependencies: [custom_field_row_ui, entry_view_ui, generate_password_view_ui, vault_view_ui, window_ui],
+  dependencies: [plain_field_row_ui, entry_view_ui, generate_password_view_ui, vault_view_ui, window_ui],
   install: true,
   install_dir: pkgdatadir,
 )

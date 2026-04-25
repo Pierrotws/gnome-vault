@@ -3,7 +3,7 @@ use glib::subclass::InitializingObject;
 use gtk::{glib, CompositeTemplate, TemplateChild};
 
 #[derive(Debug, Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/generate_password_view.ui")]
+#[template(resource = "/io/pierrotws/GnomeVault/ui/generate_password_view.ui")]
 pub struct GeneratePasswordView {
     #[template_child]
     pub length_spin: TemplateChild<gtk::SpinButton>,
