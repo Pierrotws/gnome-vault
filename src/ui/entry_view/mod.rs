@@ -49,12 +49,12 @@ impl EntryView {
         let this = self.clone();
         imp.add_plain_field_button.connect_clicked(move |_| {
             let row = PlainFieldRow::new_empty(&this);
-            this.imp().custom_fields_list.append(&row);
+            this.append_custom_field_row(&row);
         });
         let this = self.clone();
         imp.add_array_field_button.connect_clicked(move |_| {
             let row = ArrayFieldRow::new(&this, "List", &[]);
-            this.imp().custom_fields_list.append(&row);
+            this.append_custom_field_row(&row);
         });
         imp.add_otp_field_button.connect_clicked(move |_| {
             todo!("Add OTP field row");
@@ -62,7 +62,7 @@ impl EntryView {
         let this = self.clone();
         imp.add_multiline_field_button.connect_clicked(move |_| {
             let row = MultilineFieldRow::new(&this, "Notes", "");
-            this.imp().custom_fields_list.append(&row);
+            this.append_custom_field_row(&row);
         });
         let this = self.clone();
         imp.cancel_button.connect_clicked(move |_| {
@@ -100,7 +100,7 @@ impl EntryView {
         self.clear_listbox();
         for (key, value) in &data.entry.fields {
             if let Some(row) = self.build_field_row(key, value) {
-                imp.custom_fields_list.append(&row);
+                self.append_custom_field_row(&row);
             }
         }
 
@@ -307,6 +307,102 @@ impl EntryView {
         }
 
         None
+    }
+
+    fn append_custom_field_row<R>(&self, row: &R)
+    where
+        R: IsA<gtk::ListBoxRow>,
+    {
+        let row = row.upcast_ref::<gtk::ListBoxRow>();
+        self.setup_custom_field_drag(row);
+        self.imp().custom_fields_list.append(row);
+    }
+
+    fn setup_custom_field_drag(&self, row: &gtk::ListBoxRow) {
+        let Some(handle) = Self::field_row_drag_handle(row) else {
+            return;
+        };
+
+        let drag_source = gtk::DragSource::builder()
+            .actions(gtk::gdk::DragAction::MOVE)
+            .build();
+        let row_for_drag = row.clone();
+        drag_source.connect_prepare(move |_, _, _| {
+            // Store the source row index in the drag payload. The row object
+            // itself cannot be transferred through GTK's content provider.
+            let index = row_for_drag.index();
+            if index < 0 {
+                return None;
+            }
+
+            Some(gtk::gdk::ContentProvider::for_value(&index.to_value()))
+        });
+        handle.add_controller(drag_source);
+
+        let drop_target = gtk::DropTarget::new(i32::static_type(), gtk::gdk::DragAction::MOVE);
+        let this = self.clone();
+        let target_row = row.clone();
+        drop_target.connect_drop(move |_, value, _, y| {
+            let Ok(source_index) = value.get::<i32>() else {
+                return false;
+            };
+
+            this.move_custom_field_row(source_index, &target_row, y)
+        });
+        row.add_controller(drop_target);
+    }
+
+    fn field_row_drag_handle(row: &gtk::ListBoxRow) -> Option<gtk::Widget> {
+        if let Ok(row) = row.clone().downcast::<PlainFieldRow>() {
+            return Some(row.drag_handle());
+        }
+
+        if let Ok(row) = row.clone().downcast::<ArrayFieldRow>() {
+            return Some(row.drag_handle());
+        }
+
+        if let Ok(row) = row.clone().downcast::<MultilineFieldRow>() {
+            return Some(row.drag_handle());
+        }
+
+        None
+    }
+
+    fn move_custom_field_row(
+        &self,
+        source_index: i32,
+        target_row: &gtk::ListBoxRow,
+        drop_y: f64,
+    ) -> bool {
+        if source_index < 0 {
+            return false;
+        }
+
+        let list = self.imp().custom_fields_list.get();
+        let Some(source_row) = list.row_at_index(source_index) else {
+            return false;
+        };
+
+        let target_index = target_row.index();
+        if target_index < 0 || source_index == target_index {
+            return false;
+        }
+
+        let insert_after_target = drop_y > f64::from(target_row.height()) / 2.0;
+        let mut insert_index = target_index + i32::from(insert_after_target);
+        if source_index < insert_index {
+            insert_index -= 1;
+        }
+
+        if source_index == insert_index {
+            return false;
+        }
+
+        list.remove(&source_row);
+        list.insert(&source_row, insert_index);
+        self.mark_changed();
+
+        true
     }
 
     fn clear_listbox(&self) {

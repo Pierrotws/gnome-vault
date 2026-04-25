@@ -9,6 +9,13 @@ template $PlainFieldRow : ListBoxRow {
         margin-start: 8;
         margin-end: 8;
 
+        Image drag_handle {
+            icon-name: "list-drag-handle-symbolic";
+            tooltip-text: _("Drag to reorder");
+            valign: center;
+            css-classes: ["dim-label"];
+        }
+
         Entry key_entry {
             hexpand: true;
             width-chars: 14;
