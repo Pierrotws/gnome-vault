@@ -1,4 +1,5 @@
 pub mod git;
 pub mod macros;
+pub mod parser;
 pub mod password;
 pub mod pgp;
