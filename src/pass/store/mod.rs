@@ -8,8 +8,8 @@ use std::{
 };
 
 use crate::{
-    helpers::{git, pgp},
-    pass::model::{EntryData, EntryField, PassNode, PassNodeKind},
+    helpers::{git, parser, pgp},
+    pass::model::{EntryData, PassNode, PassNodeKind},
 };
 
 pub use store_error::StoreError;
@@ -79,35 +79,11 @@ pub fn load_password_store() -> io::Result<Vec<PassNode>> {
 pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
     let path = password_store_dir().join(&node.path);
     let content = pgp::decrypt(&path)?;
-    let mut lines = content.lines();
-    let password = lines
-        .next()
-        .ok_or_else(|| StoreError::EmptyFile(path))?
-        .to_string();
-    let mut fields: Vec<(String, EntryField)> = Vec::new();
-    //this cannot work with multilines, or array
-    for line in lines {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if let Some((k, v)) = trimmed.split_once(':') {
-            //only handle String for now
-            fields.push((
-                k.trim().to_string(),
-                EntryField::Plain(v.trim().to_string()),
-            ));
-        }
-    }
-    //Returns
-    Ok(EntryData {
-        password: EntryField::Password(password),
-        fields,
-    })
+    parser::parse_entry(&content).ok_or_else(|| StoreError::EmptyFile(path))
 }
 
 pub fn save_entry_data(node: &PassNode, entry: &EntryData) -> Result<(), StoreError> {
-    let plaintext: String = entry.into();
+    let plaintext = parser::format_entry(entry);
     let store_dir = password_store_dir();
     let parent = node
         .path
