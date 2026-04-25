@@ -52,25 +52,7 @@ template $EntryView : Adw.Bin {
                         margin-top: 12;
                         margin-bottom: 12;
 
-                        Adw.PasswordEntryRow password_row {
-                            text: "Password";
-                            editable: false;
-
-                            [suffix]
-                            Button generate_password_button {
-                                icon-name: "view-refresh-symbolic";
-                                tooltip-text: "Generate password";
-                                valign: center;
-                                margin-start: 6;
-                            }
-
-                            [suffix]
-                            Button copy_password_button {
-                                icon-name: "edit-copy-symbolic";
-                                tooltip-text: "Copy password";
-                                valign: center;
-                            }
-                        }
+                        $PasswordFieldRow password_field_row {}
                     }
 
                     Adw.PreferencesGroup {
