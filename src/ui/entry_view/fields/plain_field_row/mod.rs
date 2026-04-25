@@ -1,6 +1,9 @@
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
+use crate::pass::model::EntryField;
+
 use super::super::EntryView;
+use super::EntryFieldRow;
 
 mod imp;
 
@@ -51,6 +54,13 @@ impl PlainFieldRow {
         obj
     }
 
+    pub fn from_entry_field(entry_view: &EntryView, key: &str, field: &EntryField) -> Option<Self> {
+        match field {
+            EntryField::Plain(value) => Some(Self::new(entry_view, key, value)),
+            _ => None,
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         let imp = self.imp();
         imp.key_entry.text().trim().is_empty() && imp.value_entry.text().trim().is_empty()
@@ -70,5 +80,21 @@ impl PlainFieldRow {
 
     pub fn set_value(&self, value: &str) {
         self.imp().value_entry.set_text(value);
+    }
+}
+
+impl EntryFieldRow for PlainFieldRow {
+    fn key(&self) -> String {
+        self.key().trim().to_string()
+    }
+
+    fn entry_field(&self) -> EntryField {
+        EntryField::Plain(self.value().trim().to_string())
+    }
+
+    fn set_entry_field(&self, field: &EntryField) {
+        if let EntryField::Plain(value) = field {
+            self.set_value(value);
+        }
     }
 }
