@@ -28,143 +28,126 @@ template $EntryView : Adw.Bin {
 
         StackPage {
             name: "content";
-            child: ScrolledWindow {
+            child: Box {
                 vexpand: true;
                 hexpand: true;
+                orientation: vertical;
+                spacing: 10;
+                margin-top: 18;
+                margin-bottom: 18;
+                margin-start: 18;
+                margin-end: 18;
 
-                child: Box {
+                Label title_label {
+                    label: "";
+                    xalign: 0;
+                    halign: center;
+                    css-classes: [ "title-2"];
+                }
+
+                Stack primary_field_stack {
+                    vexpand: false;
+
+                    StackPage {
+                        name: "password";
+                        child: $PasswordFieldRow password_field_row {};
+                    }
+
+                    StackPage {
+                        name: "otp";
+                        child: $OtpFieldRow primary_otp_field_row {};
+                    }
+                }
+
+                ScrolledWindow custom_fields_scrolled_window {
+                    min-content-height: 0;
+                    propagate-natural-height: false;
                     vexpand: true;
-                    orientation: vertical;
-                    spacing: 18;
-                    margin-top: 18;
-                    margin-bottom: 18;
-                    margin-start: 18;
-                    margin-end: 18;
+                    hexpand: true;
 
-                    Label title_label {
-                        label: "";
-                        xalign: 0;
-                        halign: center;
-                        css-classes: [ "title-2"];
-                    }
+                    child: Box custom_fields_list {
+                        orientation: vertical;
+                        spacing: 8;
+                    };
+                }
 
-                    Adw.PreferencesGroup {
-                        margin-top: 12;
-                        margin-bottom: 12;
+                Box add_field_row {
+                    orientation: horizontal;
+                    spacing: 8;
+                    vexpand: false;
+                    hexpand: true;
 
-                        Stack primary_field_stack {
-                            StackPage {
-                                name: "password";
-                                child: $PasswordFieldRow password_field_row {};
-                            }
+                    MenuButton add_field_menu_button {
+                        icon-name: "list-add-symbolic";
+                        tooltip-text: "Add field";
+                        valign: center;
 
-                            StackPage {
-                                name: "otp";
-                                child: $OtpFieldRow primary_otp_field_row {};
-                            }
-                        }
-                    }
+                        popover: Popover {
+                            child: Box {
+                                orientation: vertical;
+                                spacing: 6;
+                                margin-top: 6;
+                                margin-bottom: 6;
+                                margin-start: 6;
+                                margin-end: 6;
 
-                    Adw.PreferencesGroup {
-                        //title: "Custom Fields";
-                        margin-top: 24;
-                        vexpand: true;
-
-                        Box {
-                            orientation: vertical;
-                            spacing: 8;
-                            vexpand: true;
-
-                            ScrolledWindow {
-                                min-content-height: 0;
-                                propagate-natural-height: true;
-                                vexpand: false;
-
-                                child: ListBox custom_fields_list {
-                                    selection-mode: none;
-                                    css-classes: [ "boxed-list"];
-                                };
-                            }
-
-                            Adw.ActionRow {
-                                [prefix]
-                                MenuButton add_field_menu_button {
-                                    icon-name: "list-add-symbolic";
-                                    tooltip-text: "Add field";
-                                    valign: center;
-
-                                    popover: Popover {
-                                        child: Box {
-                                            orientation: vertical;
-                                            spacing: 6;
-                                            margin-top: 6;
-                                            margin-bottom: 6;
-                                            margin-start: 6;
-                                            margin-end: 6;
-
-                                            Button add_plain_field_button {
-                                                label: "Plain";
-                                                halign: fill;
-                                            }
-
-                                            Button add_otp_field_button {
-                                                label: "OTP";
-                                                halign: fill;
-                                            }
-
-                                            Button add_array_field_button {
-                                                label: "Array";
-                                                halign: fill;
-                                            }
-
-
-                                            Button add_multiline_field_button {
-                                                label: "Multiline";
-                                                halign: fill;
-                                            }
-                                        };
-                                    };
+                                Button add_plain_field_button {
+                                    label: "Plain";
+                                    halign: fill;
                                 }
-                            }
-                        }
-                    }
 
-                    Box footer_actions {
+                                Button add_otp_field_button {
+                                    label: "OTP";
+                                    halign: fill;
+                                }
+
+                                Button add_array_field_button {
+                                    label: "Array";
+                                    halign: fill;
+                                }
+
+                                Button add_multiline_field_button {
+                                    label: "Multiline";
+                                    halign: fill;
+                                }
+                            };
+                        };
+                    }
+                }
+
+                Box footer_actions {
+                    orientation: horizontal;
+                    spacing: 12;
+                    vexpand: false;
+                    hexpand: true;
+
+                    Box {
                         orientation: horizontal;
                         spacing: 12;
-                        margin-top: 12;
-                        margin-bottom: 6;
-                        vexpand: false;
+                        halign: start;
                         hexpand: true;
 
-                        Box {
-                            orientation: horizontal;
-                            spacing: 12;
-                            halign: start;
-                            hexpand: true;
-
-                            Button delete_button {
-                                label: "Delete Entry";
-                                css-classes: [ "destructive-action"];
-                            }
-                        }
-
-                        Box {
-                            orientation: horizontal;
-                            spacing: 12;
-                            halign: end;
-
-                            Button cancel_button {
-                                label: "Cancel";
-                            }
-
-                            Button save_button {
-                                label: "Save";
-                                css-classes: [ "suggested-action"];
-                            }
+                        Button delete_button {
+                            label: "Delete Entry";
+                            css-classes: [ "destructive-action"];
                         }
                     }
-                };
+
+                    Box {
+                        orientation: horizontal;
+                        spacing: 12;
+                        halign: end;
+
+                        Button cancel_button {
+                            label: "Cancel";
+                        }
+
+                        Button save_button {
+                            label: "Save";
+                            css-classes: [ "suggested-action"];
+                        }
+                    }
+                }
             };
         }
     };

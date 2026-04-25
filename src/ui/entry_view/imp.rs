@@ -25,10 +25,16 @@ pub struct EntryView {
     pub primary_otp_field_row: TemplateChild<OtpFieldRow>,
 
     #[template_child]
-    pub custom_fields_list: TemplateChild<gtk::ListBox>,
+    pub custom_fields_list: TemplateChild<gtk::Box>,
+
+    #[template_child]
+    pub add_field_row: TemplateChild<gtk::Box>,
 
     #[template_child]
     pub add_field_menu_button: TemplateChild<gtk::MenuButton>,
+
+    #[template_child]
+    pub footer_actions: TemplateChild<gtk::Box>,
 
     #[template_child]
     pub delete_button: TemplateChild<gtk::Button>,
