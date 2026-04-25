@@ -11,7 +11,7 @@ pub enum EntryField {
 }
 
 impl<'a> EntryField {
-    pub fn to_str(&'a self) -> Cow<'a, str> {
+    pub fn display_value(&'a self) -> Cow<'a, str> {
         match self {
             //Except for Array, return a borrowed value
             EntryField::Password(s)

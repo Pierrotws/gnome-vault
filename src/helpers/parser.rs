@@ -13,7 +13,7 @@ pub fn parse_entry(plaintext: &str) -> Option<EntryData> {
 
 pub fn format_entry(entry: &EntryData) -> String {
     let mut out = String::new();
-    let password_str = &entry.password.to_str();
+    let password_str = &entry.password.display_value();
     out.push_str(password_str);
     out.push('\n');
 
@@ -261,6 +261,10 @@ fn literal_block_lines(lines: &[String]) -> String {
 }
 
 fn fold_block_lines(lines: &[String]) -> String {
+    if lines.is_empty() {
+        return String::new();
+    }
+
     let mut out = String::new();
     let mut previous_blank = false;
 
@@ -280,6 +284,7 @@ fn fold_block_lines(lines: &[String]) -> String {
         previous_blank = false;
     }
 
+    out.push('\n');
     out
 }
 
@@ -332,10 +337,21 @@ fn needs_quotes(value: &str) -> bool {
         || value.contains('\n')
         || value.contains('\r')
         || value.contains('\t')
-        || value
-            .chars()
-            .next()
-            .is_some_and(|ch| matches!(ch, '-' | '?' | '!' | '&' | '*' | '[' | ']' | '{' | '}'))
+        || is_yaml_reserved_scalar(value)
+        || value.chars().next().is_some_and(|ch| {
+            ch.is_ascii_digit()
+                || matches!(
+                    ch,
+                    '-' | '?' | '!' | '&' | '*' | '[' | ']' | '{' | '}' | '|' | '>' | '@' | '`'
+                )
+        })
+}
+
+fn is_yaml_reserved_scalar(value: &str) -> bool {
+    matches!(
+        value.to_ascii_lowercase().as_str(),
+        "true" | "false" | "null" | "~"
+    )
 }
 
 fn parse_yaml_scalar(value: &str) -> String {
