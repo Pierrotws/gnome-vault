@@ -19,7 +19,10 @@ glib::wrapper! {
 
 impl Default for EntryView {
     fn default() -> Self {
-        Self::new()
+        let r = Self::new();
+        r.set_cancellable(false);
+        r.set_saveable(false);
+        r
     }
 }
 
@@ -118,7 +121,10 @@ impl EntryView {
 
     pub fn set_saveable(&self, val: bool) {
         let imp = self.imp();
-        imp.save_button.set_visible(val);
+        //imp.save_button.set_visible(val);
+        let save = imp.save_button.get();
+        save.set_opacity(if val { 1.0 } else { 0.0 });
+        save.set_sensitive(val);
     }
 
     pub fn set_cancellable(&self, val: bool) {
