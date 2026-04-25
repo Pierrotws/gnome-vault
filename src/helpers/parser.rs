@@ -24,27 +24,30 @@ pub fn format_entry(entry: &EntryData) -> String {
 
         match value {
             EntryField::Array(values) => {
-                out.push_str(key);
+                out.push_str(&format_yaml_scalar(key));
                 out.push_str(":\n");
                 for item in values {
                     out.push_str("  - ");
-                    out.push_str(item);
+                    out.push_str(&format_yaml_scalar(item));
                     out.push('\n');
                 }
             }
             EntryField::Multiline(value) => {
-                out.push_str(key);
-                out.push_str(": |\n");
-                for line in value.lines() {
+                out.push_str(&format_yaml_scalar(key));
+                let (indicator, body) = multiline_block_parts(value);
+                out.push_str(": ");
+                out.push_str(indicator);
+                out.push('\n');
+                for line in body.split('\n') {
                     out.push_str("  ");
                     out.push_str(line);
                     out.push('\n');
                 }
             }
             EntryField::Password(value) | EntryField::Plain(value) | EntryField::OTP(value) => {
-                out.push_str(key);
+                out.push_str(&format_yaml_scalar(key));
                 out.push_str(": ");
-                out.push_str(value);
+                out.push_str(&format_yaml_scalar(value));
                 out.push('\n');
             }
         }
@@ -66,19 +69,19 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
             continue;
         }
 
-        let Some((key, value)) = trimmed.split_once(':') else {
+        let Some((key, value)) = split_mapping_line(trimmed) else {
             index += 1;
             continue;
         };
 
-        let key = key.trim();
+        let key = parse_yaml_scalar(key.trim());
         if key.is_empty() {
             index += 1;
             continue;
         }
 
         let value = value.trim();
-        if value == "|" || value == ">" {
+        if let Some(block) = parse_block_indicator(value) {
             index += 1;
             let mut block_lines = Vec::new();
 
@@ -87,14 +90,9 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
                 index += 1;
             }
 
-            trim_trailing_empty_lines(&mut block_lines);
-            let value = if value == ">" {
-                fold_block_lines(&block_lines)
-            } else {
-                block_lines.join("\n")
-            };
+            let value = parse_block_scalar(block, &block_lines);
 
-            fields.push((key.to_string(), EntryField::Multiline(value)));
+            fields.push((key, EntryField::Multiline(value)));
             continue;
         }
 
@@ -104,16 +102,16 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
 
             while index < lines.len() && !is_top_level_field(lines[index]) {
                 if let Some(item) = parse_array_item(lines[index]) {
-                    values.push(item.to_string());
+                    values.push(parse_yaml_scalar(item));
                 }
                 index += 1;
             }
 
-            fields.push((key.to_string(), EntryField::Array(values)));
+            fields.push((key, EntryField::Array(values)));
             continue;
         }
 
-        fields.push((key.to_string(), EntryField::Plain(value.to_string())));
+        fields.push((key, EntryField::Plain(parse_yaml_scalar(value))));
         index += 1;
     }
 
@@ -138,8 +136,7 @@ fn is_top_level_field(line: &str) -> bool {
         return false;
     }
 
-    line.split_once(':')
-        .is_some_and(|(key, _)| !key.trim().is_empty())
+    split_mapping_line(line).is_some_and(|(key, _)| !key.trim().is_empty())
 }
 
 fn is_indented(line: &str) -> bool {
@@ -178,10 +175,89 @@ fn parse_array_item(line: &str) -> Option<&str> {
     item.strip_prefix(' ').map(str::trim)
 }
 
-fn trim_trailing_empty_lines(lines: &mut Vec<String>) {
-    while lines.last().is_some_and(|line| line.is_empty()) {
-        lines.pop();
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BlockStyle {
+    Literal,
+    Folded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Chomp {
+    Clip,
+    Strip,
+    Keep,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct BlockIndicator {
+    style: BlockStyle,
+    chomp: Chomp,
+}
+
+fn multiline_block_parts(value: &str) -> (&'static str, &str) {
+    if let Some(body) = value.strip_suffix('\n') {
+        ("|+", body)
+    } else {
+        ("|-", value)
     }
+}
+
+fn parse_block_indicator(value: &str) -> Option<BlockIndicator> {
+    let mut chars = value.chars();
+    let style = match chars.next()? {
+        '|' => BlockStyle::Literal,
+        '>' => BlockStyle::Folded,
+        _ => return None,
+    };
+
+    let chomp = match chars.next() {
+        Some('-') => Chomp::Strip,
+        Some('+') => Chomp::Keep,
+        Some(_) => return None,
+        None => Chomp::Clip,
+    };
+
+    if chars.next().is_some() {
+        return None;
+    }
+
+    Some(BlockIndicator { style, chomp })
+}
+
+fn parse_block_scalar(block: BlockIndicator, lines: &[String]) -> String {
+    let mut value = match block.style {
+        BlockStyle::Literal => literal_block_lines(lines),
+        BlockStyle::Folded => fold_block_lines(lines),
+    };
+
+    match block.chomp {
+        Chomp::Strip => {
+            while value.ends_with('\n') {
+                value.pop();
+            }
+        }
+        Chomp::Clip => {
+            while value.ends_with('\n') {
+                value.pop();
+            }
+            if !value.is_empty() || !lines.is_empty() {
+                value.push('\n');
+            }
+        }
+        Chomp::Keep => {}
+    }
+
+    value
+}
+
+fn literal_block_lines(lines: &[String]) -> String {
+    if lines.is_empty() {
+        return String::new();
+    }
+
+    let mut out = lines.join("\n");
+    out.push('\n');
+    out
 }
 
 fn fold_block_lines(lines: &[String]) -> String {
@@ -207,6 +283,94 @@ fn fold_block_lines(lines: &[String]) -> String {
     out
 }
 
+fn split_mapping_line(line: &str) -> Option<(&str, &str)> {
+    let mut escaped = false;
+    let mut in_quotes = false;
+
+    for (index, ch) in line.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        match ch {
+            '\\' if in_quotes => escaped = true,
+            '"' => in_quotes = !in_quotes,
+            ':' if !in_quotes => return Some((&line[..index], &line[index + 1..])),
+            _ => {}
+        }
+    }
+
+    None
+}
+
+fn format_yaml_scalar(value: &str) -> String {
+    if !needs_quotes(value) {
+        return value.to_string();
+    }
+
+    let mut out = String::from("\"");
+    for ch in value.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            _ => out.push(ch),
+        }
+    }
+    out.push('"');
+    out
+}
+
+fn needs_quotes(value: &str) -> bool {
+    value.is_empty()
+        || value.trim() != value
+        || value.contains(':')
+        || value.contains('#')
+        || value.contains('\n')
+        || value.contains('\r')
+        || value.contains('\t')
+        || value
+            .chars()
+            .next()
+            .is_some_and(|ch| matches!(ch, '-' | '?' | '!' | '&' | '*' | '[' | ']' | '{' | '}'))
+}
+
+fn parse_yaml_scalar(value: &str) -> String {
+    let Some(inner) = value
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+    else {
+        return value.to_string();
+    };
+
+    let mut out = String::new();
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            out.push(ch);
+            continue;
+        }
+
+        match chars.next() {
+            Some('\\') => out.push('\\'),
+            Some('"') => out.push('"'),
+            Some('n') => out.push('\n'),
+            Some('r') => out.push('\r'),
+            Some('t') => out.push('\t'),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,7 +389,7 @@ mod tests {
                 ("username".into(), EntryField::Plain("test".into())),
                 (
                     "notes".into(),
-                    EntryField::Multiline("Test1\ntest2\nMultiline".into())
+                    EntryField::Multiline("Test1\ntest2\nMultiline\n".into())
                 ),
                 (
                     "tags".into(),
@@ -243,7 +407,7 @@ mod tests {
             entry.fields,
             vec![(
                 "notes".into(),
-                EntryField::Multiline("Test1 test2 Multiline".into())
+                EntryField::Multiline("Test1 test2 Multiline\n".into())
             )]
         );
     }
@@ -267,7 +431,48 @@ mod tests {
 
         assert_eq!(
             format_entry(&entry),
-            "secret\nusername: test\nnotes: |\n  Test1\n  test2\n  Multiline\ntags:\n  - elem1\n  - elem2\n"
+            "secret\nusername: test\nnotes: |-\n  Test1\n  test2\n  Multiline\ntags:\n  - elem1\n  - elem2\n"
         );
+    }
+
+    #[test]
+    fn quotes_and_parses_yaml_sensitive_scalars() {
+        let entry = EntryData {
+            password: EntryField::Password("secret".into()),
+            fields: vec![
+                (
+                    "url".into(),
+                    EntryField::Plain("https://example.invalid/a: b".into()),
+                ),
+                (
+                    "tags".into(),
+                    EntryField::Array(vec![
+                        "hash # value".into(),
+                        "- leading dash".into(),
+                        "quote \" slash \\".into(),
+                    ]),
+                ),
+            ],
+        };
+
+        let formatted = format_entry(&entry);
+
+        assert!(formatted.contains("url: \"https://example.invalid/a: b\""));
+        assert!(formatted.contains("  - \"hash # value\""));
+        assert!(formatted.contains("  - \"- leading dash\""));
+        assert_eq!(parse_entry(&formatted), Some(entry));
+    }
+
+    #[test]
+    fn preserves_trailing_multiline_newlines() {
+        let entry = EntryData {
+            password: EntryField::Password("secret".into()),
+            fields: vec![("notes".into(), EntryField::Multiline("a\nb\n\n".into()))],
+        };
+
+        let formatted = format_entry(&entry);
+
+        assert!(formatted.contains("notes: |+"));
+        assert_eq!(parse_entry(&formatted), Some(entry));
     }
 }
