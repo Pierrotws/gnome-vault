@@ -5,7 +5,7 @@ use gtk::{
 };
 
 #[derive(Debug, Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/vault_view.ui")]
+#[template(resource = "/io/pierrotws/GnomeVault/ui/vault_view.ui")]
 pub struct VaultView {
     #[template_child]
     pub search_entry: TemplateChild<gtk::SearchEntry>,

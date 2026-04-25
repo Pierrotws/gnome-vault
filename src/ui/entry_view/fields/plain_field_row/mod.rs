@@ -1,18 +1,16 @@
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
-use crate::pass::model::EntryField;
-
-use super::EntryView;
+use super::super::EntryView;
 
 mod imp;
 
 glib::wrapper! {
-    pub struct CustomFieldRow(ObjectSubclass<imp::CustomFieldRow>)
+    pub struct PlainFieldRow(ObjectSubclass<imp::PlainFieldRow>)
         @extends gtk::Widget, gtk::ListBoxRow,
         @implements gtk::Accessible, gtk::Actionable, gtk::Buildable, gtk::ConstraintTarget;
 }
 
-impl CustomFieldRow {
+impl PlainFieldRow {
     pub fn new_empty(entry_view: &EntryView) -> Self {
         let obj: Self = glib::Object::new();
         let imp = obj.imp();
@@ -46,10 +44,10 @@ impl CustomFieldRow {
         obj
     }
 
-    pub fn new(entry_view: &EntryView, key: &str, value: &EntryField) -> Self {
+    pub fn new(entry_view: &EntryView, key: &str, value: &str) -> Self {
         let obj: Self = Self::new_empty(entry_view);
         obj.set_key(key);
-        obj.set_value(&value.to_str());
+        obj.set_value(value);
         obj
     }
 
