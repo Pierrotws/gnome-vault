@@ -20,5 +20,9 @@
             compressed="true"
             preprocess="xml-stripblanks"
         >fields/multiline_field_row.ui</file>
+    <file
+            compressed="true"
+            preprocess="xml-stripblanks"
+        >fields/array_field_row.ui</file>
     </gresource>
 </gresources>

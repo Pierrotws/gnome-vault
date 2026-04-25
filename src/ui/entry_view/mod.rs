@@ -9,7 +9,7 @@ use gtk::subclass::prelude::*;
 use crate::app::state::EntryViewData;
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
-use fields::{EntryFieldRow, MultilineFieldRow, PlainFieldRow};
+use fields::{ArrayFieldRow, EntryFieldRow, MultilineFieldRow, PlainFieldRow};
 
 glib::wrapper! {
     pub struct EntryView(ObjectSubclass<imp::EntryView>)
@@ -51,8 +51,10 @@ impl EntryView {
             let row = PlainFieldRow::new_empty(&this);
             this.imp().custom_fields_list.append(&row);
         });
+        let this = self.clone();
         imp.add_array_field_button.connect_clicked(move |_| {
-            todo!("Add Array field row");
+            let row = ArrayFieldRow::new(&this, "List", &[]);
+            this.imp().custom_fields_list.append(&row);
         });
         imp.add_otp_field_button.connect_clicked(move |_| {
             todo!("Add OTP field row");
@@ -271,6 +273,9 @@ impl EntryView {
         if let Some(row) = PlainFieldRow::from_entry_field(self, key, field) {
             return Some(row.upcast());
         }
+        if let Some(row) = ArrayFieldRow::from_entry_field(self, key, field) {
+            return Some(row.upcast());
+        }
         if let Some(row) = MultilineFieldRow::from_entry_field(self, key, field) {
             return Some(row.upcast());
         }
@@ -280,6 +285,13 @@ impl EntryView {
 
     fn read_field_row(widget: &gtk::Widget) -> Option<(String, EntryField)> {
         if let Ok(row) = widget.clone().downcast::<PlainFieldRow>() {
+            if row.is_empty() {
+                return None;
+            }
+
+            return Some(row.named_entry_field());
+        }
+        if let Ok(row) = widget.clone().downcast::<ArrayFieldRow>() {
             if row.is_empty() {
                 return None;
             }

@@ -1,0 +1,52 @@
+using Gtk 4.0;
+
+template $ArrayFieldRow : ListBoxRow {
+    child: Box {
+        orientation: vertical;
+        spacing: 8;
+        margin-top: 8;
+        margin-bottom: 8;
+        margin-start: 8;
+        margin-end: 8;
+
+        Box {
+            orientation: horizontal;
+            spacing: 8;
+
+            Entry title_entry {
+                placeholder-text: _("Key");
+                hexpand: true;
+                css-classes: ["heading"];
+            }
+
+            Button add_item_button {
+                icon-name: "list-add-symbolic";
+                tooltip-text: _("Add item");
+                valign: center;
+            }
+
+            Button copy_button {
+                icon-name: "edit-copy-symbolic";
+                tooltip-text: _("Copy value");
+                valign: center;
+            }
+
+            Button delete_button {
+                icon-name: "user-trash-symbolic";
+                tooltip-text: _("Delete field");
+                valign: center;
+            }
+        }
+
+        ScrolledWindow {
+            min-content-height: 0;
+            max-content-height: 220;
+            propagate-natural-height: true;
+
+            child: ListBox value_list {
+                selection-mode: none;
+                css-classes: ["boxed-list"];
+            };
+        }
+    };
+}
