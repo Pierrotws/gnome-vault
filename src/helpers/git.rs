@@ -38,15 +38,18 @@ impl From<git2::Error> for GitError {
     }
 }
 
+/// Opens the password store as a Git repository.
 fn open_repository(project_dir: &Path) -> Result<Repository, GitError> {
     Repository::open(project_dir).map_err(GitError::from)
 }
 
+/// Returns the repository worktree path.
 fn workdir_path(repo: &Repository) -> Result<&Path, GitError> {
     repo.workdir()
         .ok_or_else(|| GitError::MissingWorkdir(repo.path().to_path_buf()))
 }
 
+/// Converts absolute paths to paths relative to the repository worktree.
 fn relative_workdir_path(repo: &Repository, file_path: &Path) -> Result<PathBuf, GitError> {
     let workdir = workdir_path(repo)?;
 
@@ -63,6 +66,7 @@ fn relative_workdir_path(repo: &Repository, file_path: &Path) -> Result<PathBuf,
     Ok(file_path.to_path_buf())
 }
 
+/// Stages a single path in the repository index.
 pub fn add(project_dir: &Path, file_path: &Path) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
     let file_path = relative_workdir_path(&repo, file_path)?;
@@ -74,6 +78,10 @@ pub fn add(project_dir: &Path, file_path: &Path) -> Result<(), GitError> {
     Ok(())
 }
 
+/// Creates a commit from the current index.
+///
+/// The author and committer are read from Git configuration, matching the
+/// behavior users expect from `git commit`.
 pub fn commit(project_dir: &Path, message: &str) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
     let signature = repo.signature()?;
@@ -102,6 +110,10 @@ pub fn commit(project_dir: &Path, message: &str) -> Result<(), GitError> {
     Ok(())
 }
 
+/// Pushes the current branch to its configured remote.
+///
+/// If the branch has no upstream configuration, this falls back to pushing to
+/// `origin` using the same local branch name.
 pub fn push(project_dir: &Path) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
     let head = repo.head()?;
@@ -128,6 +140,8 @@ pub fn push(project_dir: &Path) -> Result<(), GitError> {
     let refspec = format!("{refname}:{remote_ref}");
     let mut callbacks = RemoteCallbacks::new();
 
+    // Try SSH agent credentials first, then fall back to libgit2's configured
+    // credential helpers for HTTPS or custom credential setups.
     callbacks.credentials(move |url, username_from_url, allowed_types| {
         if allowed_types.contains(CredentialType::SSH_KEY) {
             if let Some(username) = username_from_url {
@@ -149,6 +163,7 @@ pub fn push(project_dir: &Path) -> Result<(), GitError> {
     Ok(())
 }
 
+/// Returns the current HEAD commit, or `None` for an unborn repository.
 fn head_commit(repo: &Repository) -> Result<Option<git2::Commit<'_>>, GitError> {
     match repo.head() {
         Ok(head) => Ok(Some(head.peel_to_commit()?)),

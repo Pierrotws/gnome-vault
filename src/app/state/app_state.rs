@@ -12,6 +12,11 @@ pub struct AppState {
     tree: Vec<PassNode>,
     selected_node: Option<PassNode>,
     current_session: Option<EntrySession>,
+    /// Decrypted entry cache keyed by password-store relative path.
+    ///
+    /// This avoids repeatedly opening and decrypting the same `.gpg` file while
+    /// the application is running. The cache stores clean entry data only:
+    /// opened entries and entries after a successful save.
     entry_cache: HashMap<std::path::PathBuf, EntryData>,
 }
 
@@ -48,10 +53,12 @@ impl AppState {
         self.current_session = session;
     }
 
+    /// Returns cached entry data for a password-store relative path.
     pub fn cached_entry(&self, path: &Path) -> Option<&EntryData> {
         self.entry_cache.get(path)
     }
 
+    /// Stores decrypted entry data for the node path, replacing older data.
     pub fn cache_entry(&mut self, node: &PassNode, entry: EntryData) {
         self.entry_cache.insert(node.path.clone(), entry);
     }

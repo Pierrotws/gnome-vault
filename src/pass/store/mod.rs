@@ -14,7 +14,7 @@ use crate::{
 
 pub use store_error::StoreError;
 
-//recursive read function
+/// Recursively loads password-store groups and `.gpg` entries.
 fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
     let mut nodes = Vec::new();
     for entry in fs::read_dir(dir)? {
@@ -76,12 +76,14 @@ pub fn load_password_store() -> io::Result<Vec<PassNode>> {
     Ok(nodes)
 }
 
+/// Loads and decrypts a password-store entry from a tree node.
 pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
     let path = password_store_dir().join(&node.path);
     let content = pgp::decrypt(&path)?;
     parser::parse_entry(&content).ok_or_else(|| StoreError::EmptyFile(path))
 }
 
+/// Encrypts, writes, commits, and pushes entry data for a tree node.
 pub fn save_entry_data(node: &PassNode, entry: &EntryData) -> Result<(), StoreError> {
     let plaintext = parser::format_entry(entry);
     let store_dir = password_store_dir();
@@ -89,21 +91,20 @@ pub fn save_entry_data(node: &PassNode, entry: &EntryData) -> Result<(), StoreEr
     let parent = output_path
         .parent()
         .ok_or_else(|| StoreError::MissingParent(output_path.clone()))?;
-    //encrypt
     let recipient_ids = pgp::recipient_ids(&store_dir)?;
     let encrypted = pgp::encrypt(&plaintext, &recipient_ids)?;
-    //save
     fs::create_dir_all(parent)?;
     fs::write(&output_path, encrypted)?;
-    //git
     git::add(&store_dir, &output_path)?;
     let message = format!("Add/update entry {}", node.name);
     git::commit(&store_dir, &message)?;
     git::push(&store_dir)?;
-    //end
     Ok(())
 }
 
+/// Returns the active password-store directory.
+///
+/// Honors `PASSWORD_STORE_DIR` and falls back to `~/.password-store`.
 pub fn password_store_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("PASSWORD_STORE_DIR") {
         PathBuf::from(dir)

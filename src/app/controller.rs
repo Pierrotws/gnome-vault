@@ -19,6 +19,7 @@ pub struct AppController {
 }
 
 impl AppController {
+    /// Creates a controller with empty application state.
     pub fn new() -> Self {
         Self {
             state: AppState::new(),
@@ -60,12 +61,20 @@ impl AppController {
         self.state.has_unsaved_changes()
     }
 
+    /// Reloads the password-store tree from disk.
+    ///
+    /// This refreshes the visible node tree only. Cached decrypted entries are
+    /// kept so reopening an already viewed entry does not decrypt the file again.
     pub fn reload_tree(&mut self) -> Result<(), AppError> {
         let tree = pass::store::load_password_store()?;
         self.state.set_tree(tree);
         Ok(())
     }
 
+    /// Opens an entry node and returns view data for the UI.
+    ///
+    /// Decrypted entries are cached by node path. The first open reads and
+    /// decrypts the `.gpg` file; later opens reuse the cached [`EntryData`].
     pub fn open_node(&mut self, node: PassNode) -> Result<EntryViewData, AppError> {
         let title = node.name.clone();
         let entry = match self.state.cached_entry(&node.path) {
@@ -86,6 +95,7 @@ impl AppController {
         Ok(EntryViewData { title, entry })
     }
 
+    /// Replaces the currently edited entry with values read from the UI.
     pub fn update_current_entry(&mut self, data: EntryViewData) -> Result<(), AppError> {
         log::debug!("update current entry");
         let session = self
@@ -97,6 +107,7 @@ impl AppController {
         Ok(())
     }
 
+    /// Persists the current entry, marks the session clean, and updates cache.
     pub fn save_current_entry(&mut self) -> Result<(), AppError> {
         let session = self
             .state
@@ -113,6 +124,7 @@ impl AppController {
         Ok(())
     }
 
+    /// Restores the current session to its last loaded or saved state.
     pub fn revert_current_entry(&mut self) -> Result<EntryViewData, AppError> {
         let session = self
             .state
