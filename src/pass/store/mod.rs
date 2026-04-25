@@ -85,16 +85,15 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
 pub fn save_entry_data(node: &PassNode, entry: &EntryData) -> Result<(), StoreError> {
     let plaintext = parser::format_entry(entry);
     let store_dir = password_store_dir();
-    let parent = node
-        .path
+    let output_path = store_dir.join(&node.path);
+    let parent = output_path
         .parent()
-        .ok_or_else(|| StoreError::MissingParent(node.path.clone()))?;
+        .ok_or_else(|| StoreError::MissingParent(output_path.clone()))?;
     //encrypt
     let recipient_ids = pgp::recipient_ids(&store_dir)?;
     let encrypted = pgp::encrypt(&plaintext, &recipient_ids)?;
     //save
     fs::create_dir_all(parent)?;
-    let output_path = store_dir.join(&node.path);
     fs::write(&output_path, encrypted)?;
     //git
     git::add(&store_dir, &output_path)?;
