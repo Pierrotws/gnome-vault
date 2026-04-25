@@ -5,6 +5,7 @@ use std::{
 
 use gpgme::{Context, Data, Key, Protocol};
 
+/// Errors raised by GPGME operations and `.gpg-id` handling.
 #[derive(Debug)]
 pub enum PgpError {
     ContextError(String),
@@ -41,6 +42,7 @@ impl std::fmt::Display for PgpError {
     }
 }
 
+/// Decrypts an encrypted password-store file into UTF-8 plaintext.
 pub fn decrypt(path: &Path) -> Result<String, PgpError> {
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)
         .map_err(|e| PgpError::ContextError(e.to_string()))?;
@@ -59,6 +61,7 @@ pub fn decrypt(path: &Path) -> Result<String, PgpError> {
     String::from_utf8(plain).map_err(|e| PgpError::Utf8Error(e.to_string()))
 }
 
+/// Encrypts plaintext for the configured recipient key IDs.
 pub fn encrypt(plaintext: &str, recipient_ids: &[String]) -> Result<Vec<u8>, PgpError> {
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)
         .map_err(|e| PgpError::ContextError(e.to_string()))?;
@@ -78,6 +81,9 @@ pub fn encrypt(plaintext: &str, recipient_ids: &[String]) -> Result<Vec<u8>, Pgp
     Ok(ciphertext)
 }
 
+/// Reads recipient key IDs from the password-store `.gpg-id` file.
+///
+/// Empty lines and comment lines beginning with `#` are ignored.
 pub fn recipient_ids(store_dir: &Path) -> Result<Vec<String>, PgpError> {
     let gpg_id_path = store_dir.join(".gpg-id");
     let content = fs::read_to_string(&gpg_id_path).map_err(|source| PgpError::ReadError {

@@ -1,5 +1,15 @@
 use crate::pass::model::{EntryData, EntryField};
 
+/// Parses decrypted pass entry text into an [`EntryData`] model.
+///
+/// The first line is always the secret/password. Remaining fields use the
+/// pass-compatible YAML subset emitted by [`format_entry`]:
+///
+/// - `key: value` for plain scalar fields.
+/// - `key: |` / `key: >` block scalars for multiline fields.
+/// - `key:` followed by indented `- value` rows for array fields.
+///
+/// Malformed field lines are ignored, but an empty file returns `None`.
 pub fn parse_entry(plaintext: &str) -> Option<EntryData> {
     let mut lines = plaintext.lines();
     let password = lines.next()?.to_string();
@@ -11,6 +21,12 @@ pub fn parse_entry(plaintext: &str) -> Option<EntryData> {
     })
 }
 
+/// Formats an [`EntryData`] model back into pass entry plaintext.
+///
+/// This writes a conservative YAML-like subset rather than arbitrary YAML.
+/// Scalars that could be misread by a YAML parser are double-quoted and escaped.
+/// Multiline fields are always emitted as literal block scalars with an explicit
+/// chomp indicator so trailing newlines roundtrip.
 pub fn format_entry(entry: &EntryData) -> String {
     let mut out = String::new();
     let password_str = &entry.password.display_value();
@@ -85,6 +101,8 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
             index += 1;
             let mut block_lines = Vec::new();
 
+            // A block or sequence belongs to the preceding top-level key until
+            // the next non-indented mapping line starts.
             while index < lines.len() && !is_top_level_field(lines[index]) {
                 block_lines.push(strip_yaml_indent(lines[index]).to_string());
                 index += 1;
@@ -288,6 +306,7 @@ fn fold_block_lines(lines: &[String]) -> String {
     out
 }
 
+/// Splits a top-level mapping at the first colon outside double quotes.
 fn split_mapping_line(line: &str) -> Option<(&str, &str)> {
     let mut escaped = false;
     let mut in_quotes = false;
@@ -309,6 +328,10 @@ fn split_mapping_line(line: &str) -> Option<(&str, &str)> {
     None
 }
 
+/// Formats a scalar for the local YAML subset.
+///
+/// Only double-quoted scalars are emitted when quoting is needed. The matching
+/// parser supports the same escape set.
 fn format_yaml_scalar(value: &str) -> String {
     if !needs_quotes(value) {
         return value.to_string();
@@ -354,6 +377,7 @@ fn is_yaml_reserved_scalar(value: &str) -> bool {
     )
 }
 
+/// Parses a scalar emitted by [`format_yaml_scalar`].
 fn parse_yaml_scalar(value: &str) -> String {
     let Some(inner) = value
         .strip_prefix('"')
