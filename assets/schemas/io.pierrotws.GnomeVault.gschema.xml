@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.pierrotws.GnomeVault" path="/io/pierrotws/GnomeVault/">
+    <key name="autopush" type="b">
+      <default>true</default>
+      <summary>Push changes automatically</summary>
+      <description>When enabled, password-store commits are pushed after each change.</description>
+    </key>
+  </schema>
+</schemalist>

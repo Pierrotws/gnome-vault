@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use adw::subclass::prelude::*;
-use gtk::glib;
 use gtk::CompositeTemplate;
+use gtk::{gio, glib};
 use once_cell::unsync::OnceCell;
 
 use crate::app::controller::AppController;
@@ -33,8 +33,12 @@ pub struct MainWindow {
     #[template_child]
     pub lock_vault_button: TemplateChild<gtk::Button>,
 
+    #[template_child]
+    pub preferences_button: TemplateChild<gtk::Button>,
+
     //App Controller
     pub controller: OnceCell<Rc<RefCell<AppController>>>,
+    pub settings: OnceCell<gio::Settings>,
 }
 
 #[glib::object_subclass]

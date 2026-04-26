@@ -10,6 +10,9 @@ use gtk::{
 #[template(resource = "/io/pierrotws/GnomeVault/ui/changes_view.ui")]
 pub struct ChangesView {
     #[template_child]
+    pub push_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
     pub empty_label: TemplateChild<gtk::Label>,
 
     #[template_child]
@@ -43,8 +46,14 @@ impl ObjectImpl for ChangesView {
                 Signal::builder("rollback-change-requested")
                     .param_types([String::static_type()])
                     .build(),
+                Signal::builder("push-requested").build(),
             ]
         })
+    }
+
+    fn constructed(&self) {
+        self.parent_constructed();
+        self.obj().setup_callbacks();
     }
 }
 
