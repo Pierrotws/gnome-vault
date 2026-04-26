@@ -83,6 +83,19 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
     parser::parse_entry(&content).ok_or_else(|| StoreError::EmptyFile(path))
 }
 
+/// Deletes an entry file, commits the deletion, and pushes it.
+pub fn delete_entry(node: &PassNode) -> Result<(), StoreError> {
+    let store_dir = password_store_dir();
+    let entry_path = store_dir.join(&node.path);
+
+    fs::remove_file(&entry_path)?;
+    git::remove(&store_dir, &entry_path)?;
+    git::commit(&store_dir, &format!("Delete entry {}", node.name))?;
+    git::push(&store_dir)?;
+
+    Ok(())
+}
+
 /// Creates a new entry under a password-store folder.
 pub fn create_entry_data(
     folder_path: &Path,

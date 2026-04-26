@@ -41,6 +41,9 @@ impl ObjectImpl for VaultView {
                 Signal::builder("create-entry-requested")
                     .param_types([String::static_type()])
                     .build(),
+                Signal::builder("delete-entry-requested")
+                    .param_types([String::static_type(), String::static_type()])
+                    .build(),
                 Signal::builder("search-changed").build(),
             ]
         })

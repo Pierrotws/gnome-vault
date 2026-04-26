@@ -79,6 +79,10 @@ impl EntryView {
             this.emit_by_name::<()>("save-requested", &[]);
         });
         let this = self.clone();
+        imp.delete_button.connect_clicked(move |_| {
+            this.emit_by_name::<()>("delete-requested", &[]);
+        });
+        let this = self.clone();
         imp.password_field_row.connect_changed(move |_| {
             this.mark_changed();
         });
@@ -93,6 +97,7 @@ impl EntryView {
 
     pub fn display_empty(&self) {
         let imp = self.imp();
+        imp.is_updating_ui.set(true);
         imp.content_stack.set_visible_child_name("empty");
         imp.title_label.set_text("");
         imp.title_entry.set_text("");
@@ -103,6 +108,7 @@ impl EntryView {
         self.set_editable_mode(false);
         self.set_saveable(false);
         self.set_cancellable(false);
+        imp.is_updating_ui.set(false);
     }
 
     pub fn set_entry_data(&self, data: &EntryViewData) {
@@ -246,6 +252,19 @@ impl EntryView {
             let view = values[0]
                 .get::<EntryView>()
                 .expect("revert-requested: invalid EntryView");
+            f(&view);
+            None
+        });
+    }
+
+    pub fn connect_delete_requested<F>(&self, f: F)
+    where
+        F: Fn(&EntryView) + 'static,
+    {
+        self.connect_local("delete-requested", false, move |values| {
+            let view = values[0]
+                .get::<EntryView>()
+                .expect("delete-requested: invalid EntryView");
             f(&view);
             None
         });
