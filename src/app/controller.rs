@@ -83,6 +83,25 @@ impl AppController {
         Ok(())
     }
 
+    /// Returns tree nodes matching a search query.
+    ///
+    /// Entry names are always searchable. Cached entries also expose their
+    /// field keys to search without decrypting files that were never opened.
+    /// Matching groups include their complete subtree; matching entries include
+    /// their parent groups.
+    pub fn filtered_tree(&self, query: &str) -> Vec<PassNode> {
+        let query = query.trim().to_lowercase();
+        if query.is_empty() {
+            return self.state.tree().to_vec();
+        }
+
+        self.state
+            .tree()
+            .iter()
+            .filter_map(|node| self.filtered_node(node, &query))
+            .collect()
+    }
+
     /// Lists commits reachable from the current password-store branch.
     pub fn load_changes(&self) -> Result<Vec<GitChange>, AppError> {
         Ok(pass::store::load_changes()?)
@@ -265,5 +284,117 @@ impl AppController {
 
     pub fn close_current_entry(&mut self) {
         self.state.set_current_session(None);
+    }
+
+    fn filtered_node(&self, node: &PassNode, query: &str) -> Option<PassNode> {
+        if node.name.to_lowercase().contains(query) {
+            return Some(node.clone());
+        }
+
+        if node.is_group() {
+            let children = node
+                .children
+                .iter()
+                .filter_map(|child| self.filtered_node(child, query))
+                .collect::<Vec<_>>();
+
+            if children.is_empty() {
+                return None;
+            }
+
+            let mut node = node.clone();
+            node.children = children;
+            return Some(node);
+        }
+
+        self.state.cached_entry(&node.path).and_then(|entry| {
+            entry
+                .fields
+                .iter()
+                .any(|(key, _)| key.to_lowercase().contains(query))
+                .then(|| node.clone())
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::pass::model::{EntryData, EntryField, PassNodeKind};
+
+    use super::*;
+
+    fn entry_node(name: &str, path: &str) -> PassNode {
+        PassNode {
+            name: name.into(),
+            path: PathBuf::from(path),
+            kind: PassNodeKind::Entry,
+            children: Vec::new(),
+        }
+    }
+
+    fn group_node(name: &str, path: &str, children: Vec<PassNode>) -> PassNode {
+        PassNode {
+            name: name.into(),
+            path: PathBuf::from(path),
+            kind: PassNodeKind::Group,
+            children,
+        }
+    }
+
+    fn entry_with_key(key: &str) -> EntryData {
+        EntryData {
+            password: EntryField::Password("secret".into()),
+            fields: vec![(key.into(), EntryField::Plain("value".into()))],
+        }
+    }
+
+    #[test]
+    fn filters_entries_by_name_and_keeps_parents() {
+        let mut controller = AppController::new();
+        controller.state_mut().set_tree(vec![group_node(
+            "Personal",
+            "Personal",
+            vec![entry_node("Email", "Personal/Email.gpg")],
+        )]);
+
+        let filtered = controller.filtered_tree("email");
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "Personal");
+        assert_eq!(filtered[0].children.len(), 1);
+        assert_eq!(filtered[0].children[0].name, "Email");
+    }
+
+    #[test]
+    fn matching_groups_keep_full_subtree() {
+        let mut controller = AppController::new();
+        controller.state_mut().set_tree(vec![group_node(
+            "Work",
+            "Work",
+            vec![entry_node("Email", "Work/Email.gpg")],
+        )]);
+
+        let filtered = controller.filtered_tree("work");
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "Work");
+        assert_eq!(filtered[0].children.len(), 1);
+    }
+
+    #[test]
+    fn filters_cached_entries_by_field_key() {
+        let mut controller = AppController::new();
+        let node = entry_node("Server", "Server.gpg");
+        controller.state_mut().set_tree(vec![node.clone()]);
+        controller
+            .state_mut()
+            .cache_entry(&node, entry_with_key("username"));
+
+        let filtered = controller.filtered_tree("user");
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "Server");
     }
 }

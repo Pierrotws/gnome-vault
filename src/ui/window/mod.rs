@@ -10,7 +10,7 @@ use gtk::{gio, glib};
 use crate::app::controller::AppController;
 use crate::pass::model::{EntryData, EntryField, PassNode, PassNodeKind};
 use crate::ui::generate_password_view::GeneratePasswordView;
-use crate::ui::vault_view::{build_selection_from_nodes, build_tree_factory};
+use crate::ui::vault_view::{build_selection_from_nodes_with_autoexpand, build_tree_factory};
 use crate::ui::EntryView;
 
 const CHANGES_PAGE_SIZE: usize = 50;
@@ -294,9 +294,13 @@ impl MainWindow {
             });
         }
 
-        imp.vault_view.connect_search_changed(move |nav| {
-            nav.handle_search_changed();
-        });
+        {
+            let window = self.clone();
+
+            imp.vault_view.connect_search_changed(move |_| {
+                window.rebuild_vault_tree();
+            });
+        }
     }
 
     pub fn get_entry_view(&self) -> EntryView {
@@ -532,14 +536,20 @@ impl MainWindow {
 
     fn reload_vault_tree(&self) -> Result<(), crate::app::app_error::AppError> {
         let controller = self.controller();
-        let nodes = {
+        {
             let mut controller = controller.borrow_mut();
             controller.reload_tree()?;
-            controller.state().tree().to_vec()
-        };
-        let selection = build_selection_from_nodes(&nodes);
-        self.imp().vault_view.set_selection_model(&selection);
+        }
+        self.rebuild_vault_tree();
         Ok(())
+    }
+
+    fn rebuild_vault_tree(&self) {
+        let search_text = self.imp().vault_view.search_entry().text().to_string();
+        let nodes = self.controller().borrow().filtered_tree(&search_text);
+        let selection =
+            build_selection_from_nodes_with_autoexpand(&nodes, !search_text.trim().is_empty());
+        self.imp().vault_view.set_selection_model(&selection);
     }
 
     fn reload_changes_view(&self) -> Result<(), crate::app::app_error::AppError> {
