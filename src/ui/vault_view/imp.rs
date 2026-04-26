@@ -1,6 +1,7 @@
 use gtk::subclass::prelude::*;
 use gtk::{
     glib::{self, subclass::*},
+    prelude::StaticType,
     CompositeTemplate, TemplateChild,
 };
 
@@ -37,6 +38,9 @@ impl ObjectImpl for VaultView {
             vec![
                 Signal::builder("entry-selected").build(),
                 Signal::builder("group-activated").build(),
+                Signal::builder("create-entry-requested")
+                    .param_types([String::static_type()])
+                    .build(),
                 Signal::builder("search-changed").build(),
             ]
         })
