@@ -82,12 +82,20 @@ impl EntryView {
         imp.password_field_row.connect_changed(move |_| {
             this.mark_changed();
         });
+        let this = self.clone();
+        imp.title_entry.connect_changed(move |_| {
+            this.imp()
+                .title_label
+                .set_text(&this.imp().title_entry.text());
+            this.mark_changed();
+        });
     }
 
     pub fn display_empty(&self) {
         let imp = self.imp();
         imp.content_stack.set_visible_child_name("empty");
         imp.title_label.set_text("");
+        imp.title_entry.set_text("");
         imp.password_field_row.set_text("");
         imp.primary_otp_field_row.set_url("");
         imp.primary_field_stack.set_visible_child_name("password");
@@ -103,6 +111,7 @@ impl EntryView {
         imp.is_updating_ui.set(true);
         imp.content_stack.set_visible_child_name("content");
         imp.title_label.set_text(&data.title);
+        imp.title_entry.set_text(&data.title);
 
         self.set_primary_field(&data.entry.password);
 
@@ -123,7 +132,7 @@ impl EntryView {
     pub fn to_entry_view_data(&self) -> EntryViewData {
         let imp = self.imp();
 
-        let title = imp.title_label.get().text().to_string();
+        let title = imp.title_entry.text().trim().to_string();
         let password = self.primary_entry_field();
 
         let mut fields = Vec::new();
@@ -162,6 +171,10 @@ impl EntryView {
 
         let imp = self.imp();
         imp.is_editable.set(editable);
+        imp.title_label.set_visible(!editable);
+        imp.title_entry.set_visible(editable);
+        imp.title_entry.set_editable(editable);
+        imp.title_entry.set_can_focus(editable);
         imp.password_field_row.set_editable_mode(editable);
         imp.primary_otp_field_row.set_editable_mode(editable);
         imp.add_field_row.set_visible(editable);

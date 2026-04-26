@@ -63,6 +63,10 @@ impl AppState {
         self.entry_cache.insert(node.path.clone(), entry);
     }
 
+    pub fn remove_cached_entry(&mut self, path: &Path) {
+        self.entry_cache.remove(path);
+    }
+
     pub fn has_unsaved_changes(&self) -> bool {
         self.current_session
             .as_ref()

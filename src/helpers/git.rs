@@ -78,6 +78,20 @@ pub fn add(project_dir: &Path, file_path: &Path) -> Result<(), GitError> {
     Ok(())
 }
 
+/// Stages a file rename in the repository index.
+pub fn rename(project_dir: &Path, old_path: &Path, new_path: &Path) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let old_path = relative_workdir_path(&repo, old_path)?;
+    let new_path = relative_workdir_path(&repo, new_path)?;
+    let mut index = repo.index()?;
+
+    index.remove_path(&old_path)?;
+    index.add_path(&new_path)?;
+    index.write()?;
+
+    Ok(())
+}
+
 /// Creates a commit from the current index.
 ///
 /// The author and committer are read from Git configuration, matching the
@@ -256,6 +270,31 @@ mod tests {
 
         fs::remove_dir_all(dir).unwrap();
         fs::remove_dir_all(remote_dir).unwrap();
+    }
+
+    #[test]
+    fn stages_and_commits_file_rename() {
+        let dir = temp_dir("git-rename");
+        fs::create_dir_all(&dir).unwrap();
+        let repo = init_repo(&dir);
+
+        let old_path = dir.join("old.gpg");
+        let new_path = dir.join("new.gpg");
+        fs::write(&old_path, "encrypted").unwrap();
+
+        add(&dir, &old_path).unwrap();
+        commit(&dir, "Add entry").unwrap();
+        fs::rename(&old_path, &new_path).unwrap();
+
+        rename(&dir, &old_path, &new_path).unwrap();
+        commit(&dir, "rename entry").unwrap();
+
+        let commit = repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(commit.message(), Some("rename entry"));
+        assert!(repo.revparse_single("HEAD^{tree}:new.gpg").is_ok());
+        assert!(repo.revparse_single("HEAD^{tree}:old.gpg").is_err());
+
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

@@ -109,6 +109,31 @@ impl AppController {
 
     /// Persists the current entry, marks the session clean, and updates cache.
     pub fn save_current_entry(&mut self) -> Result<(), AppError> {
+        let (entry_changed, rename) = {
+            let session = self
+                .state
+                .current_session()
+                .ok_or(AppError::NoEntrySelected)?;
+            let rename = session
+                .has_name_changes()
+                .then(|| (session.node().clone(), session.current_name().to_string()));
+
+            (session.has_entry_changes(), rename)
+        };
+
+        let old_path = if let Some((node, name)) = rename {
+            let old_path = node.path.clone();
+            let renamed_node = pass::store::rename_entry(&node, &name)?;
+            let session = self
+                .state
+                .current_session_mut()
+                .ok_or(AppError::NoEntrySelected)?;
+            session.replace_node(renamed_node);
+            Some(old_path)
+        } else {
+            None
+        };
+
         let session = self
             .state
             .current_session_mut()
@@ -116,10 +141,15 @@ impl AppController {
 
         //no validate yet
         //session.current().validate()?;
-        pass::store::save_entry_data(session.node(), session.current())?;
+        if entry_changed {
+            pass::store::save_entry_data(session.node(), session.current())?;
+        }
         let node = session.node().clone();
         let entry = session.current().clone();
         session.mark_saved();
+        if let Some(old_path) = old_path {
+            self.state.remove_cached_entry(&old_path);
+        }
         self.state.cache_entry(&node, entry);
         Ok(())
     }

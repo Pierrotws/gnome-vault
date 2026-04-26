@@ -43,7 +43,19 @@ impl EntrySession {
         &self.name
     }
 
+    pub fn has_entry_changes(&self) -> bool {
+        self.original != self.current
+    }
+
+    pub fn has_name_changes(&self) -> bool {
+        self.node.name != self.name
+    }
+
     pub fn is_valid(&self) -> bool {
+        if self.name.trim().is_empty() || self.name.contains('/') || self.name.contains('\\') {
+            return false;
+        }
+
         match &self.current.password {
             EntryField::Password(str) => {
                 if str.is_empty() {
@@ -107,8 +119,58 @@ impl EntrySession {
         self.node.name = self.name.clone();
     }
 
+    pub fn replace_node(&mut self, node: PassNode) {
+        self.node = node;
+    }
+
     pub fn replace_current(&mut self, name: String, data: EntryData) {
         self.name = name;
         self.current = data;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::pass::model::{EntryField, PassNodeKind};
+
+    use super::*;
+
+    fn node() -> PassNode {
+        PassNode {
+            name: "old".into(),
+            path: PathBuf::from("folder/old.gpg"),
+            kind: PassNodeKind::Entry,
+            children: Vec::new(),
+        }
+    }
+
+    fn entry() -> EntryData {
+        EntryData {
+            password: EntryField::Password("secret".into()),
+            fields: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn title_changes_make_session_dirty() {
+        let mut session = EntrySession::new(node(), entry());
+
+        session.replace_current("new".into(), entry());
+
+        assert!(session.has_name_changes());
+        assert!(session.is_dirty());
+    }
+
+    #[test]
+    fn rejects_empty_or_path_like_entry_names() {
+        let mut session = EntrySession::new(node(), entry());
+
+        session.replace_current("".into(), entry());
+        assert!(!session.is_valid());
+
+        session.replace_current("folder/name".into(), entry());
+        assert!(!session.is_valid());
     }
 }
