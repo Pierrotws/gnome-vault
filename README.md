@@ -12,6 +12,7 @@ Written in Rust ❤️
 
 ```bash
 meson setup build
+meson compile -C build
 meson install -C build
 ```
 
