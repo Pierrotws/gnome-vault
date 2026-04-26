@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use adw::subclass::prelude::*;
 use gtk::glib;
 use gtk::{
@@ -10,13 +12,16 @@ use gtk::{
 #[template(resource = "/io/pierrotws/GnomeVault/ui/changes_view.ui")]
 pub struct ChangesView {
     #[template_child]
-    pub push_button: TemplateChild<gtk::Button>,
-
-    #[template_child]
     pub empty_label: TemplateChild<gtk::Label>,
 
     #[template_child]
+    pub changes_scrolled_window: TemplateChild<gtk::ScrolledWindow>,
+
+    #[template_child]
     pub changes_box: TemplateChild<gtk::Box>,
+
+    pub is_loading_more: Cell<bool>,
+    pub has_more_changes: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -47,6 +52,7 @@ impl ObjectImpl for ChangesView {
                     .param_types([String::static_type()])
                     .build(),
                 Signal::builder("push-requested").build(),
+                Signal::builder("load-more-requested").build(),
             ]
         })
     }

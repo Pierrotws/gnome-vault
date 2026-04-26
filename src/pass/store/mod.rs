@@ -91,6 +91,15 @@ pub fn load_changes() -> Result<Vec<GitChange>, StoreError> {
     Ok(git::current_branch_changes(&password_store_dir())?)
 }
 
+/// Lists one page from the current branch commit history.
+pub fn load_changes_page(offset: usize, limit: usize) -> Result<Vec<GitChange>, StoreError> {
+    Ok(git::current_branch_changes_page(
+        &password_store_dir(),
+        offset,
+        limit,
+    )?)
+}
+
 /// Reverts a commit in the password store repository and pushes the result.
 pub fn revert_change(commit_id: &str, autopush: bool) -> Result<(), StoreError> {
     let store_dir = password_store_dir();

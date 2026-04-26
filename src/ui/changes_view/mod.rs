@@ -17,9 +17,15 @@ impl ChangesView {
     }
 
     pub fn setup_callbacks(&self) {
+        let adjustment = self.imp().changes_scrolled_window.vadjustment();
         let this = self.clone();
-        self.imp().push_button.connect_clicked(move |_| {
-            this.emit_by_name::<()>("push-requested", &[]);
+        adjustment.connect_value_changed(move |adjustment| {
+            if !this.should_request_more(adjustment) {
+                return;
+            }
+
+            this.imp().is_loading_more.set(true);
+            this.emit_by_name::<()>("load-more-requested", &[]);
         });
     }
 
@@ -30,15 +36,32 @@ impl ChangesView {
         }
 
         imp.empty_label.set_visible(changes.is_empty());
-        imp.push_button
-            .set_sensitive(changes.iter().any(|change| !change.is_pushed));
+        imp.has_more_changes.set(!changes.is_empty());
+        imp.is_loading_more.set(false);
         for change in changes {
             imp.changes_box.append(&self.build_change_row(change));
         }
     }
 
-    pub fn set_autopush_enabled(&self, autopush: bool) {
-        self.imp().push_button.set_visible(!autopush);
+    pub fn append_changes(&self, changes: &[GitChange]) {
+        let imp = self.imp();
+        let has_existing_changes = imp.changes_box.first_child().is_some();
+
+        imp.empty_label
+            .set_visible(!has_existing_changes && changes.is_empty());
+        imp.has_more_changes.set(!changes.is_empty());
+        imp.is_loading_more.set(false);
+        for change in changes {
+            imp.changes_box.append(&self.build_change_row(change));
+        }
+    }
+
+    pub fn set_has_more_changes(&self, has_more_changes: bool) {
+        self.imp().has_more_changes.set(has_more_changes);
+    }
+
+    pub fn set_loading_more(&self, is_loading_more: bool) {
+        self.imp().is_loading_more.set(is_loading_more);
     }
 
     pub fn connect_push_requested<F>(&self, f: F) -> glib::SignalHandlerId
@@ -49,6 +72,19 @@ impl ChangesView {
             let obj = values[0]
                 .get::<ChangesView>()
                 .expect("push-requested: first arg should be ChangesView");
+            f(&obj);
+            None
+        })
+    }
+
+    pub fn connect_load_more_requested<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self) + 'static,
+    {
+        self.connect_local("load-more-requested", false, move |values| {
+            let obj = values[0]
+                .get::<ChangesView>()
+                .expect("load-more-requested: first arg should be ChangesView");
             f(&obj);
             None
         })
@@ -122,6 +158,7 @@ impl ChangesView {
         row.append(&content);
 
         let commit_id = change.id.clone();
+        let is_pushed = change.is_pushed;
         let this = self.clone();
         let gesture = gtk::GestureClick::new();
         gesture.set_button(gdk::BUTTON_SECONDARY);
@@ -143,6 +180,7 @@ impl ChangesView {
             let undo_button = gtk::Button::with_label("Undo Action");
             let rollback_button = gtk::Button::with_label("Rollback");
             rollback_button.add_css_class("destructive-action");
+            let push_button = (!is_pushed).then(|| gtk::Button::with_label("Push"));
 
             let undo_commit_id = commit_id.clone();
             let rollback_commit_id = commit_id.clone();
@@ -166,6 +204,19 @@ impl ChangesView {
                     obj.emit_by_name::<()>("rollback-change-requested", &[&rollback_commit_id]);
                 }
             ));
+            if let Some(push_button) = push_button {
+                push_button.connect_clicked(glib::clone!(
+                    #[weak]
+                    popover,
+                    #[weak(rename_to = obj)]
+                    this,
+                    move |_| {
+                        popover.popdown();
+                        obj.emit_by_name::<()>("push-requested", &[]);
+                    }
+                ));
+                actions.append(&push_button);
+            }
 
             actions.append(&undo_button);
             actions.append(&rollback_button);
@@ -175,6 +226,15 @@ impl ChangesView {
         row.add_controller(gesture);
 
         row
+    }
+
+    fn should_request_more(&self, adjustment: &gtk::Adjustment) -> bool {
+        let imp = self.imp();
+        if imp.is_loading_more.get() || !imp.has_more_changes.get() {
+            return false;
+        }
+
+        adjustment.value() + adjustment.page_size() >= adjustment.upper() - 24.0
     }
 }
 

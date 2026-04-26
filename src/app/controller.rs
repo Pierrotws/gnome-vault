@@ -88,6 +88,15 @@ impl AppController {
         Ok(pass::store::load_changes()?)
     }
 
+    /// Lists one page of commits reachable from the current password-store branch.
+    pub fn load_changes_page(
+        &self,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<GitChange>, AppError> {
+        Ok(pass::store::load_changes_page(offset, limit)?)
+    }
+
     /// Reverts a password-store commit, then clears stale entry state.
     pub fn revert_change(&mut self, commit_id: &str) -> Result<(), AppError> {
         pass::store::revert_change(commit_id, self.autopush)?;

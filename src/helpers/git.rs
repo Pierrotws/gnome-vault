@@ -160,6 +160,15 @@ pub fn commit(project_dir: &Path, message: &str) -> Result<(), GitError> {
 
 /// Lists commits reachable from the current branch head.
 pub fn current_branch_changes(project_dir: &Path) -> Result<Vec<GitChange>, GitError> {
+    current_branch_changes_page(project_dir, 0, usize::MAX)
+}
+
+/// Lists a page of commits reachable from the current branch head.
+pub fn current_branch_changes_page(
+    project_dir: &Path,
+    offset: usize,
+    limit: usize,
+) -> Result<Vec<GitChange>, GitError> {
     let repo = open_repository(project_dir)?;
     let pushed_head = pushed_head(&repo).ok();
     let mut revwalk = repo.revwalk()?;
@@ -171,8 +180,14 @@ pub fn current_branch_changes(project_dir: &Path) -> Result<Vec<GitChange>, GitE
         return Err(GitError::Git(err));
     }
 
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
+
     revwalk.set_sorting(Sort::TIME)?;
     revwalk
+        .skip(offset)
+        .take(limit)
         .map(|oid| {
             let oid = oid?;
             let commit = repo.find_commit(oid)?;
@@ -568,6 +583,10 @@ mod tests {
         assert_eq!(changes[0].summary, "Second entry");
         assert_eq!(changes[1].summary, "First entry");
         assert_eq!(changes[0].short_id.len(), 8);
+
+        let second_page = current_branch_changes_page(&dir, 1, 1).unwrap();
+        assert_eq!(second_page.len(), 1);
+        assert_eq!(second_page[0].summary, "First entry");
 
         fs::remove_dir_all(dir).unwrap();
     }

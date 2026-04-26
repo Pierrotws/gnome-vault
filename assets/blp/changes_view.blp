@@ -9,23 +9,10 @@ template $ChangesView : Gtk.Box {
     margin-end: 12;
     width-request: 360;
 
-    Box {
-        orientation: horizontal;
-        spacing: 8;
-
-        Label {
-            label: "Changes";
-            xalign: 0;
-            hexpand: true;
-            css-classes: ["heading"];
-        }
-
-        Button push_button {
-            label: "Push";
-            tooltip-text: "Push local changes";
-            visible: false;
-            valign: center;
-        }
+    Label {
+        label: "Changes";
+        xalign: 0;
+        css-classes: ["heading"];
     }
 
     Label empty_label {
@@ -34,7 +21,7 @@ template $ChangesView : Gtk.Box {
         css-classes: ["dim-label"];
     }
 
-    ScrolledWindow {
+    ScrolledWindow changes_scrolled_window {
         vexpand: true;
         hexpand: true;
 
