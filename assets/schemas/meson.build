@@ -5,4 +5,4 @@ install_data(
   install_dir: datadir / 'glib-2.0' / 'schemas',
 )
 
-gnome.compile_schemas()
+gnome.compile_schemas(depend_files: schema_files)

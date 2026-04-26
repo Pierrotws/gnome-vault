@@ -12,6 +12,7 @@ use crate::{
     pass::{
         self,
         model::{EntryData, PassNode},
+        store::{GpgRecipient, VaultSetup},
     },
 };
 use std::path::Path;
@@ -71,6 +72,20 @@ impl AppController {
 
     pub fn set_autopush(&mut self, autopush: bool) {
         self.autopush = autopush;
+    }
+
+    /// Initializes a new password-store vault and reloads application state.
+    pub fn setup_vault(&mut self, setup: &VaultSetup) -> Result<(), AppError> {
+        pass::store::setup_vault(setup)?;
+        self.state.clear_entry_cache();
+        self.state.set_current_session(None);
+        self.reload_tree()?;
+        Ok(())
+    }
+
+    /// Lists usable GPG recipients for a newly created vault.
+    pub fn available_recipients(&self) -> Result<Vec<GpgRecipient>, AppError> {
+        Ok(pass::store::available_recipients()?)
     }
 
     /// Reloads the password-store tree from disk.

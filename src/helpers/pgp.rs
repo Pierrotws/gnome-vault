@@ -5,6 +5,13 @@ use std::{
 
 use gpgme::{Context, Data, Key, Protocol};
 
+/// Secret key identity that can decrypt password-store entries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GpgRecipient {
+    pub id: String,
+    pub label: String,
+}
+
 /// Errors raised by GPGME operations and `.gpg-id` handling.
 #[derive(Debug)]
 pub enum PgpError {
@@ -79,6 +86,47 @@ pub fn encrypt(plaintext: &str, recipient_ids: &[String]) -> Result<Vec<u8>, Pgp
         .map_err(|e| PgpError::EncryptError(e.to_string()))?;
 
     Ok(ciphertext)
+}
+
+/// Lists usable local secret keys that can decrypt password-store entries.
+pub fn available_recipients() -> Result<Vec<GpgRecipient>, PgpError> {
+    let mut ctx = Context::from_protocol(Protocol::OpenPgp)
+        .map_err(|e| PgpError::ContextError(e.to_string()))?;
+
+    let recipients = ctx
+        .secret_keys()
+        .map_err(|e| PgpError::NoKeys(e.to_string()))?
+        .filter_map(Result::ok)
+        .filter(|key| key.can_encrypt() && !key.is_bad())
+        .filter_map(|key| {
+            let id = key
+                .fingerprint()
+                .ok()
+                .or_else(|| key.id().ok())?
+                .to_string();
+            let user_id = key
+                .user_ids()
+                .next()
+                .and_then(|user_id| user_id.id().ok())
+                .map(str::to_string)
+                .unwrap_or_else(|| id.clone());
+            let label = if user_id == id {
+                id.clone()
+            } else {
+                format!("{user_id} ({id})")
+            };
+
+            Some(GpgRecipient { id, label })
+        })
+        .collect::<Vec<_>>();
+
+    if recipients.is_empty() {
+        return Err(PgpError::NoKeys(
+            "No usable local secret encryption keys found".to_string(),
+        ));
+    }
+
+    Ok(recipients)
 }
 
 /// Reads recipient key IDs from the password-store `.gpg-id` file.

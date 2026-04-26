@@ -16,6 +16,9 @@ pub struct MainWindow {
     pub window_title: TemplateChild<adw::WindowTitle>,
 
     #[template_child]
+    pub main_stack: TemplateChild<gtk::Stack>,
+
+    #[template_child]
     pub navigation_stack: TemplateChild<gtk::Stack>,
 
     #[template_child]
@@ -36,10 +39,26 @@ pub struct MainWindow {
     #[template_child]
     pub preferences_button: TemplateChild<gtk::Button>,
 
+    #[template_child]
+    pub setup_path_row: TemplateChild<adw::EntryRow>,
+
+    #[template_child]
+    pub setup_recipient_row: TemplateChild<adw::ComboRow>,
+
+    #[template_child]
+    pub setup_provider_row: TemplateChild<adw::ComboRow>,
+
+    #[template_child]
+    pub setup_remote_row: TemplateChild<adw::EntryRow>,
+
+    #[template_child]
+    pub create_vault_button: TemplateChild<gtk::Button>,
+
     //App Controller
     pub controller: OnceCell<Rc<RefCell<AppController>>>,
     pub settings: OnceCell<gio::Settings>,
     pub loaded_changes_count: Cell<usize>,
+    pub setup_recipients: RefCell<Vec<crate::pass::store::GpgRecipient>>,
 }
 
 #[glib::object_subclass]

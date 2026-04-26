@@ -10,6 +10,7 @@ pub enum StoreError {
     MissingParent(PathBuf),
     EmptyFile(PathBuf),
     InvalidEntryName(String),
+    InvalidRecipient,
     InvalidFolderPath(PathBuf),
     DestinationExists(PathBuf),
 }
@@ -28,6 +29,9 @@ impl std::fmt::Display for StoreError {
             }
             StoreError::InvalidEntryName(name) => {
                 write!(f, "Invalid entry name: {name}")
+            }
+            StoreError::InvalidRecipient => {
+                write!(f, "GPG recipient is required")
             }
             StoreError::InvalidFolderPath(path) => {
                 write!(f, "Invalid folder path: {}", path.display())
