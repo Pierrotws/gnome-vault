@@ -1,0 +1,28 @@
+using Gtk 4.0;
+
+template $ChangesView : Gtk.Box {
+    orientation: vertical;
+    spacing: 8;
+    margin-top: 12;
+    margin-bottom: 12;
+    margin-start: 12;
+    margin-end: 12;
+    width-request: 360;
+
+    Label empty_label {
+        label: "No changes";
+        xalign: 0;
+        css-classes: ["dim-label"];
+    }
+
+    ScrolledWindow {
+        vexpand: true;
+        hexpand: true;
+
+        child: Box changes_box {
+            orientation: vertical;
+            spacing: 6;
+            valign: start;
+        };
+    }
+}

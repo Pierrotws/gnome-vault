@@ -34,7 +34,33 @@ template $MainWindow : Adw.ApplicationWindow {
             shrink-start-child: false;
             shrink-end-child: false;
 
-            start-child: $VaultView vault_view {};
+            start-child: Box {
+                orientation: vertical;
+                width-request: 360;
+
+                StackSwitcher {
+                    stack: navigation_stack;
+                    halign: center;
+                    margin-top: 8;
+                    margin-bottom: 0;
+                }
+
+                Stack navigation_stack {
+                    vexpand: true;
+
+                    StackPage {
+                        name: "vault";
+                        title: "Vault";
+                        child: $VaultView vault_view {};
+                    }
+
+                    StackPage {
+                        name: "changes";
+                        title: "Changes";
+                        child: $ChangesView changes_view {};
+                    }
+                }
+            };
 
             end-child: $EntryView entry_view {};
         };

@@ -8,6 +8,7 @@ use crate::{
         app_error::AppError,
         state::{AppState, EntrySession, EntryViewData},
     },
+    helpers::git::GitChange,
     pass::{
         self,
         model::{EntryData, PassNode},
@@ -70,6 +71,29 @@ impl AppController {
         let tree = pass::store::load_password_store()?;
         self.state.set_tree(tree);
         Ok(())
+    }
+
+    /// Lists commits reachable from the current password-store branch.
+    pub fn load_changes(&self) -> Result<Vec<GitChange>, AppError> {
+        Ok(pass::store::load_changes()?)
+    }
+
+    /// Reverts a password-store commit, then clears stale entry state.
+    pub fn revert_change(&mut self, commit_id: &str) -> Result<(), AppError> {
+        pass::store::revert_change(commit_id)?;
+        self.state.clear_entry_cache();
+        self.state.set_current_session(None);
+        self.reload_tree()?;
+        Ok(())
+    }
+
+    /// Rolls the branch back to a commit after creating a remote backup branch.
+    pub fn rollback_to_change(&mut self, commit_id: &str) -> Result<String, AppError> {
+        let backup_branch = pass::store::rollback_to_change(commit_id)?;
+        self.state.clear_entry_cache();
+        self.state.set_current_session(None);
+        self.reload_tree()?;
+        Ok(backup_branch)
     }
 
     /// Opens an entry node and returns view data for the UI.
