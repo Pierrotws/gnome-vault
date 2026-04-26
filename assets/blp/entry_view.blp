@@ -65,54 +65,68 @@ template $EntryView : Adw.Bin {
                     vexpand: true;
                     hexpand: true;
 
-                    child: Box custom_fields_list {
+                    child: Box {
                         orientation: vertical;
-                        spacing: 8;
+                        valign: start;
+                        vexpand: false;
+                        hexpand: true;
+
+                        Box custom_fields_list {
+                            orientation: vertical;
+                            spacing: 8;
+                            valign: start;
+                            vexpand: false;
+                            hexpand: true;
+
+                            Box add_field_row {
+                                orientation: horizontal;
+                                spacing: 8;
+                                vexpand: false;
+                                hexpand: true;
+
+                                MenuButton add_field_menu_button {
+                                    icon-name: "list-add-symbolic";
+                                    tooltip-text: "Add field";
+                                    valign: center;
+
+                                    popover: Popover {
+                                        child: Box {
+                                            orientation: vertical;
+                                            spacing: 6;
+                                            margin-top: 6;
+                                            margin-bottom: 6;
+                                            margin-start: 6;
+                                            margin-end: 6;
+
+                                            Button add_plain_field_button {
+                                                label: "Plain";
+                                                halign: fill;
+                                            }
+
+                                            Button add_otp_field_button {
+                                                label: "OTP";
+                                                halign: fill;
+                                            }
+
+                                            Button add_array_field_button {
+                                                label: "Array";
+                                                halign: fill;
+                                            }
+
+                                            Button add_multiline_field_button {
+                                                label: "Multiline";
+                                                halign: fill;
+                                            }
+                                        };
+                                    };
+                                }
+                            }
+
+                            Box {
+                                vexpand: true;
+                            }
+                        }
                     };
-                }
-
-                Box add_field_row {
-                    orientation: horizontal;
-                    spacing: 8;
-                    vexpand: false;
-                    hexpand: true;
-
-                    MenuButton add_field_menu_button {
-                        icon-name: "list-add-symbolic";
-                        tooltip-text: "Add field";
-                        valign: center;
-
-                        popover: Popover {
-                            child: Box {
-                                orientation: vertical;
-                                spacing: 6;
-                                margin-top: 6;
-                                margin-bottom: 6;
-                                margin-start: 6;
-                                margin-end: 6;
-
-                                Button add_plain_field_button {
-                                    label: "Plain";
-                                    halign: fill;
-                                }
-
-                                Button add_otp_field_button {
-                                    label: "OTP";
-                                    halign: fill;
-                                }
-
-                                Button add_array_field_button {
-                                    label: "Array";
-                                    halign: fill;
-                                }
-
-                                Button add_multiline_field_button {
-                                    label: "Multiline";
-                                    halign: fill;
-                                }
-                            };
-                        };
-                    }
                 }
 
                 Box footer_actions {
