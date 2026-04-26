@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use adw::subclass::prelude::*;
@@ -39,6 +39,7 @@ pub struct MainWindow {
     //App Controller
     pub controller: OnceCell<Rc<RefCell<AppController>>>,
     pub settings: OnceCell<gio::Settings>,
+    pub loaded_changes_count: Cell<usize>,
 }
 
 #[glib::object_subclass]

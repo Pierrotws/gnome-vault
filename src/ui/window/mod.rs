@@ -13,6 +13,8 @@ use crate::ui::generate_password_view::GeneratePasswordView;
 use crate::ui::vault_view::{build_selection_from_nodes, build_tree_factory};
 use crate::ui::EntryView;
 
+const CHANGES_PAGE_SIZE: usize = 50;
+
 glib::wrapper! {
     pub struct MainWindow(ObjectSubclass<imp::MainWindow>)
         @extends adw::ApplicationWindow, gtk::ApplicationWindow, gtk::Window, gtk::Widget,
@@ -108,6 +110,17 @@ impl MainWindow {
 
             imp.changes_view.connect_push_requested(move |_| {
                 window.push_changes();
+            });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.changes_view.connect_load_more_requested(move |_| {
+                if let Err(err) = window.load_more_changes() {
+                    window.imp().changes_view.set_loading_more(false);
+                    window.imp().entry_view.show_error(&err.to_string());
+                }
             });
         }
 
@@ -530,11 +543,30 @@ impl MainWindow {
     }
 
     fn reload_changes_view(&self) -> Result<(), crate::app::app_error::AppError> {
-        let changes = self.controller().borrow().load_changes()?;
+        let changes = self
+            .controller()
+            .borrow()
+            .load_changes_page(0, CHANGES_PAGE_SIZE)?;
+        self.imp().loaded_changes_count.set(changes.len());
+        self.imp().changes_view.set_changes(&changes);
         self.imp()
             .changes_view
-            .set_autopush_enabled(self.controller().borrow().autopush());
-        self.imp().changes_view.set_changes(&changes);
+            .set_has_more_changes(changes.len() == CHANGES_PAGE_SIZE);
+        Ok(())
+    }
+
+    fn load_more_changes(&self) -> Result<(), crate::app::app_error::AppError> {
+        let offset = self.imp().loaded_changes_count.get();
+        let changes = self
+            .controller()
+            .borrow()
+            .load_changes_page(offset, CHANGES_PAGE_SIZE)?;
+
+        self.imp().loaded_changes_count.set(offset + changes.len());
+        self.imp().changes_view.append_changes(&changes);
+        self.imp()
+            .changes_view
+            .set_has_more_changes(changes.len() == CHANGES_PAGE_SIZE);
         Ok(())
     }
 
@@ -549,7 +581,6 @@ impl MainWindow {
     fn apply_autopush_setting(&self) {
         let autopush = self.settings().boolean("autopush");
         self.controller().borrow_mut().set_autopush(autopush);
-        self.imp().changes_view.set_autopush_enabled(autopush);
     }
 
     fn show_preferences_dialog(&self) {
