@@ -23,8 +23,11 @@ glib::wrapper! {
 impl MainWindow {
     pub fn new(app: &adw::Application, controller: Rc<RefCell<AppController>>) -> Self {
         let obj: Self = glib::Object::builder().property("application", app).build();
+        let settings = gio::Settings::new(crate::APP_ID);
 
         let _ = obj.imp().controller.set(controller);
+        let _ = obj.imp().settings.set(settings);
+        obj.apply_autopush_setting();
 
         obj.setup_views();
         obj.setup_callbacks();
@@ -68,6 +71,14 @@ impl MainWindow {
         {
             let window = self.clone();
 
+            imp.preferences_button.connect_clicked(move |_| {
+                window.show_preferences_dialog();
+            });
+        }
+
+        {
+            let window = self.clone();
+
             imp.vault_view
                 .connect_create_entry_requested(move |_, folder_path| {
                     window.show_new_entry_dialog(Some(folder_path));
@@ -90,6 +101,14 @@ impl MainWindow {
                 .connect_rollback_change_requested(move |_, commit_id| {
                     window.confirm_rollback_change(&commit_id);
                 });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.changes_view.connect_push_requested(move |_| {
+                window.push_changes();
+            });
         }
 
         {
@@ -512,8 +531,68 @@ impl MainWindow {
 
     fn reload_changes_view(&self) -> Result<(), crate::app::app_error::AppError> {
         let changes = self.controller().borrow().load_changes()?;
+        self.imp()
+            .changes_view
+            .set_autopush_enabled(self.controller().borrow().autopush());
         self.imp().changes_view.set_changes(&changes);
         Ok(())
+    }
+
+    fn settings(&self) -> gio::Settings {
+        self.imp()
+            .settings
+            .get()
+            .expect("MainWindow settings must be set")
+            .clone()
+    }
+
+    fn apply_autopush_setting(&self) {
+        let autopush = self.settings().boolean("autopush");
+        self.controller().borrow_mut().set_autopush(autopush);
+        self.imp().changes_view.set_autopush_enabled(autopush);
+    }
+
+    fn show_preferences_dialog(&self) {
+        let dialog = adw::PreferencesDialog::builder()
+            .title("Preferences")
+            .build();
+        let page = adw::PreferencesPage::new();
+        let group = adw::PreferencesGroup::builder().title("Git").build();
+        let autopush_row = adw::SwitchRow::builder()
+            .title("Push changes automatically")
+            .subtitle("Push to the remote after every saved change")
+            .active(self.settings().boolean("autopush"))
+            .build();
+
+        group.add(&autopush_row);
+        page.add(&group);
+        dialog.add(&page);
+
+        let settings = self.settings();
+        let window = self.clone();
+        autopush_row.connect_active_notify(move |row| {
+            if let Err(err) = settings.set_boolean("autopush", row.is_active()) {
+                window.imp().entry_view.show_error(&err.to_string());
+                return;
+            }
+            window.apply_autopush_setting();
+            if let Err(err) = window.reload_changes_view() {
+                window.imp().entry_view.show_error(&err.to_string());
+            }
+        });
+
+        dialog.present(Some(self));
+    }
+
+    fn push_changes(&self) {
+        if let Err(err) = self.controller().borrow().push_changes() {
+            self.imp().entry_view.show_error(&err.to_string());
+            return;
+        }
+
+        if let Err(err) = self.reload_changes_view() {
+            self.imp().entry_view.show_error(&err.to_string());
+        }
     }
 
     fn set_edit_unlock_state(&self, has_entry: bool, editing: bool, is_dirty: bool) {

@@ -18,6 +18,7 @@ use std::path::Path;
 
 pub struct AppController {
     state: AppState,
+    autopush: bool,
 }
 
 impl AppController {
@@ -25,6 +26,7 @@ impl AppController {
     pub fn new() -> Self {
         Self {
             state: AppState::new(),
+            autopush: true,
         }
     }
 
@@ -63,6 +65,14 @@ impl AppController {
         self.state.has_unsaved_changes()
     }
 
+    pub fn autopush(&self) -> bool {
+        self.autopush
+    }
+
+    pub fn set_autopush(&mut self, autopush: bool) {
+        self.autopush = autopush;
+    }
+
     /// Reloads the password-store tree from disk.
     ///
     /// This refreshes the visible node tree only. Cached decrypted entries are
@@ -80,7 +90,7 @@ impl AppController {
 
     /// Reverts a password-store commit, then clears stale entry state.
     pub fn revert_change(&mut self, commit_id: &str) -> Result<(), AppError> {
-        pass::store::revert_change(commit_id)?;
+        pass::store::revert_change(commit_id, self.autopush)?;
         self.state.clear_entry_cache();
         self.state.set_current_session(None);
         self.reload_tree()?;
@@ -94,6 +104,11 @@ impl AppController {
         self.state.set_current_session(None);
         self.reload_tree()?;
         Ok(backup_branch)
+    }
+
+    /// Pushes committed local password-store changes.
+    pub fn push_changes(&self) -> Result<(), AppError> {
+        Ok(pass::store::push_changes()?)
     }
 
     /// Opens an entry node and returns view data for the UI.
@@ -139,7 +154,7 @@ impl AppController {
         title: &str,
         entry: EntryData,
     ) -> Result<EntryViewData, AppError> {
-        let node = pass::store::create_entry_data(folder_path, title, &entry)?;
+        let node = pass::store::create_entry_data(folder_path, title, &entry, self.autopush)?;
         self.state.cache_entry(&node, entry.clone());
         let session = EntrySession::new(node.clone(), entry.clone());
         self.state.set_current_session(Some(session));
@@ -164,7 +179,7 @@ impl AppController {
 
     /// Deletes the given entry and clears the current session if it was open.
     pub fn delete_entry(&mut self, node: PassNode) -> Result<bool, AppError> {
-        pass::store::delete_entry(&node)?;
+        pass::store::delete_entry(&node, self.autopush)?;
         self.state.remove_cached_entry(&node.path);
 
         let deleting_current = self
@@ -194,7 +209,7 @@ impl AppController {
 
         let old_path = if let Some((node, name)) = rename {
             let old_path = node.path.clone();
-            let renamed_node = pass::store::rename_entry(&node, &name)?;
+            let renamed_node = pass::store::rename_entry(&node, &name, self.autopush)?;
             let session = self
                 .state
                 .current_session_mut()
@@ -213,7 +228,7 @@ impl AppController {
         //no validate yet
         //session.current().validate()?;
         if entry_changed {
-            pass::store::save_entry_data(session.node(), session.current())?;
+            pass::store::save_entry_data(session.node(), session.current(), self.autopush)?;
         }
         let node = session.node().clone();
         let entry = session.current().clone();

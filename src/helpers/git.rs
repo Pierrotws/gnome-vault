@@ -15,6 +15,7 @@ pub struct GitChange {
     pub summary: String,
     pub author: String,
     pub parent_count: usize,
+    pub is_pushed: bool,
 }
 
 #[derive(Debug)]
@@ -160,6 +161,7 @@ pub fn commit(project_dir: &Path, message: &str) -> Result<(), GitError> {
 /// Lists commits reachable from the current branch head.
 pub fn current_branch_changes(project_dir: &Path) -> Result<Vec<GitChange>, GitError> {
     let repo = open_repository(project_dir)?;
+    let pushed_head = pushed_head(&repo).ok();
     let mut revwalk = repo.revwalk()?;
 
     if let Err(err) = revwalk.push_head() {
@@ -184,12 +186,19 @@ pub fn current_branch_changes(project_dir: &Path) -> Result<Vec<GitChange>, GitE
                 .name()
                 .map(str::to_string)
                 .unwrap_or_else(|| "Unknown author".to_string());
+            let is_pushed = pushed_head
+                .map(|pushed_head| {
+                    pushed_head == oid
+                        || repo.graph_descendant_of(pushed_head, oid).unwrap_or(false)
+                })
+                .unwrap_or(false);
             Ok(GitChange {
                 short_id: id.chars().take(8).collect(),
                 id,
                 summary,
                 author,
                 parent_count: commit.parent_count(),
+                is_pushed,
             })
         })
         .collect::<Result<Vec<_>, git2::Error>>()
@@ -269,6 +278,9 @@ pub fn rollback_to_commit(project_dir: &Path, commit_id: &str) -> Result<String,
         &format!("refs/heads/{branch}:{remote_ref}"),
         true,
     )?;
+    if let Some(head_oid) = repo.head()?.target() {
+        update_tracking_ref(&repo, &remote_name, &remote_ref, head_oid)?;
+    }
 
     Ok(backup_branch)
 }
@@ -283,8 +295,12 @@ pub fn push(project_dir: &Path) -> Result<(), GitError> {
     let remote_name = remote_name_for_branch(&repo, &branch)?;
     let remote_ref = remote_ref_for_branch(&repo, &branch)?;
     let refspec = format!("refs/heads/{branch}:{remote_ref}");
+    let head_oid = repo.head()?.target().ok_or(GitError::NoHeadTarget)?;
 
-    push_refspec(&repo, &remote_name, &refspec, false)
+    push_refspec(&repo, &remote_name, &refspec, false)?;
+    update_tracking_ref(&repo, &remote_name, &remote_ref, head_oid)?;
+
+    Ok(())
 }
 
 fn current_branch(repo: &Repository) -> Result<String, GitError> {
@@ -313,6 +329,19 @@ fn remote_ref_for_branch(repo: &Repository, branch: &str) -> Result<String, GitE
     } else {
         format!("refs/heads/{remote_ref}")
     })
+}
+
+fn pushed_head(repo: &Repository) -> Result<Oid, GitError> {
+    let branch = current_branch(repo)?;
+    let remote_name = remote_name_for_branch(repo, &branch)?;
+    let remote_ref = remote_ref_for_branch(repo, &branch)?;
+    let remote_tracking_ref = remote_ref
+        .strip_prefix("refs/heads/")
+        .map(|branch| format!("refs/remotes/{remote_name}/{branch}"))
+        .unwrap_or(remote_ref);
+    repo.find_reference(&remote_tracking_ref)?
+        .target()
+        .ok_or(GitError::NoHeadTarget)
 }
 
 fn push_refspec(
@@ -349,6 +378,20 @@ fn push_refspec(
     repo.find_remote(remote_name)?
         .push(&[refspec.as_str()], Some(&mut push_options))?;
 
+    Ok(())
+}
+
+fn update_tracking_ref(
+    repo: &Repository,
+    remote_name: &str,
+    remote_ref: &str,
+    oid: Oid,
+) -> Result<(), GitError> {
+    let Some(branch) = remote_ref.strip_prefix("refs/heads/") else {
+        return Ok(());
+    };
+    let tracking_ref = format!("refs/remotes/{remote_name}/{branch}");
+    repo.reference(&tracking_ref, oid, true, "Update remote-tracking branch")?;
     Ok(())
 }
 

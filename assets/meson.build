@@ -1,5 +1,7 @@
 blueprint = find_program('blueprint-compiler')
 
+subdir('schemas')
+
 plain_field_row_ui = custom_target(
   'plain-field-row-ui',
   input: 'blp/fields/plain_field_row.blp',

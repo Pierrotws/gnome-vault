@@ -9,6 +9,25 @@ template $ChangesView : Gtk.Box {
     margin-end: 12;
     width-request: 360;
 
+    Box {
+        orientation: horizontal;
+        spacing: 8;
+
+        Label {
+            label: "Changes";
+            xalign: 0;
+            hexpand: true;
+            css-classes: ["heading"];
+        }
+
+        Button push_button {
+            label: "Push";
+            tooltip-text: "Push local changes";
+            visible: false;
+            valign: center;
+        }
+    }
+
     Label empty_label {
         label: "No changes";
         xalign: 0;

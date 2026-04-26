@@ -16,6 +16,13 @@ impl ChangesView {
         glib::Object::builder().build()
     }
 
+    pub fn setup_callbacks(&self) {
+        let this = self.clone();
+        self.imp().push_button.connect_clicked(move |_| {
+            this.emit_by_name::<()>("push-requested", &[]);
+        });
+    }
+
     pub fn set_changes(&self, changes: &[GitChange]) {
         let imp = self.imp();
         while let Some(child) = imp.changes_box.first_child() {
@@ -23,9 +30,28 @@ impl ChangesView {
         }
 
         imp.empty_label.set_visible(changes.is_empty());
+        imp.push_button
+            .set_sensitive(changes.iter().any(|change| !change.is_pushed));
         for change in changes {
             imp.changes_box.append(&self.build_change_row(change));
         }
+    }
+
+    pub fn set_autopush_enabled(&self, autopush: bool) {
+        self.imp().push_button.set_visible(!autopush);
+    }
+
+    pub fn connect_push_requested<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self) + 'static,
+    {
+        self.connect_local("push-requested", false, move |values| {
+            let obj = values[0]
+                .get::<ChangesView>()
+                .expect("push-requested: first arg should be ChangesView");
+            f(&obj);
+            None
+        })
     }
 
     pub fn connect_revert_change_requested<F>(&self, f: F) -> glib::SignalHandlerId
@@ -73,9 +99,18 @@ impl ChangesView {
         let content = gtk::Box::new(gtk::Orientation::Vertical, 2);
         content.set_hexpand(true);
 
-        let title = gtk::Label::new(Some(&change.summary));
+        let title = gtk::Label::new(None);
         title.set_xalign(0.0);
         title.set_wrap(true);
+        if change.is_pushed {
+            title.set_label(&change.summary);
+        } else {
+            title.set_use_markup(true);
+            title.set_markup(&format!(
+                "<i>{}</i>",
+                glib::markup_escape_text(&change.summary)
+            ));
+        }
 
         let meta = gtk::Label::new(Some(&format!("{} · {}", change.short_id, change.author)));
         meta.set_xalign(0.0);

@@ -92,11 +92,18 @@ pub fn load_changes() -> Result<Vec<GitChange>, StoreError> {
 }
 
 /// Reverts a commit in the password store repository and pushes the result.
-pub fn revert_change(commit_id: &str) -> Result<(), StoreError> {
+pub fn revert_change(commit_id: &str, autopush: bool) -> Result<(), StoreError> {
     let store_dir = password_store_dir();
     git::revert_commit(&store_dir, commit_id)?;
-    git::push(&store_dir)?;
+    if autopush {
+        git::push(&store_dir)?;
+    }
     Ok(())
+}
+
+/// Pushes committed local password-store changes.
+pub fn push_changes() -> Result<(), StoreError> {
+    Ok(git::push(&password_store_dir())?)
 }
 
 /// Backs up the current branch, resets it to a commit, and pushes the reset.
@@ -105,14 +112,16 @@ pub fn rollback_to_change(commit_id: &str) -> Result<String, StoreError> {
 }
 
 /// Deletes an entry file, commits the deletion, and pushes it.
-pub fn delete_entry(node: &PassNode) -> Result<(), StoreError> {
+pub fn delete_entry(node: &PassNode, autopush: bool) -> Result<(), StoreError> {
     let store_dir = password_store_dir();
     let entry_path = store_dir.join(&node.path);
 
     fs::remove_file(&entry_path)?;
     git::remove(&store_dir, &entry_path)?;
     git::commit(&store_dir, &format!("Delete entry {}", node.name))?;
-    git::push(&store_dir)?;
+    if autopush {
+        git::push(&store_dir)?;
+    }
 
     Ok(())
 }
@@ -122,6 +131,7 @@ pub fn create_entry_data(
     folder_path: &Path,
     name: &str,
     entry: &EntryData,
+    autopush: bool,
 ) -> Result<PassNode, StoreError> {
     validate_folder_path(folder_path)?;
     let name = valid_entry_name(name)?;
@@ -138,12 +148,16 @@ pub fn create_entry_data(
         return Err(StoreError::DestinationExists(output_path));
     }
 
-    write_entry_data(&node, entry, &format!("Add entry {}", node.name))?;
+    write_entry_data(&node, entry, &format!("Add entry {}", node.name), autopush)?;
     Ok(node)
 }
 
 /// Renames an entry file, commits the move, and pushes it.
-pub fn rename_entry(node: &PassNode, new_name: &str) -> Result<PassNode, StoreError> {
+pub fn rename_entry(
+    node: &PassNode,
+    new_name: &str,
+    autopush: bool,
+) -> Result<PassNode, StoreError> {
     let new_name = valid_entry_name(new_name)?;
 
     if node.name == new_name {
@@ -162,7 +176,9 @@ pub fn rename_entry(node: &PassNode, new_name: &str) -> Result<PassNode, StoreEr
     fs::rename(&old_path, &new_path)?;
     git::rename(&store_dir, &old_path, &new_path)?;
     git::commit(&store_dir, "rename entry")?;
-    git::push(&store_dir)?;
+    if autopush {
+        git::push(&store_dir)?;
+    }
 
     Ok(PassNode {
         name: new_name.to_string(),
@@ -173,12 +189,21 @@ pub fn rename_entry(node: &PassNode, new_name: &str) -> Result<PassNode, StoreEr
 }
 
 /// Encrypts, writes, commits, and pushes entry data for a tree node.
-pub fn save_entry_data(node: &PassNode, entry: &EntryData) -> Result<(), StoreError> {
+pub fn save_entry_data(
+    node: &PassNode,
+    entry: &EntryData,
+    autopush: bool,
+) -> Result<(), StoreError> {
     let message = format!("Add/update entry {}", node.name);
-    write_entry_data(node, entry, &message)
+    write_entry_data(node, entry, &message, autopush)
 }
 
-fn write_entry_data(node: &PassNode, entry: &EntryData, message: &str) -> Result<(), StoreError> {
+fn write_entry_data(
+    node: &PassNode,
+    entry: &EntryData,
+    message: &str,
+    autopush: bool,
+) -> Result<(), StoreError> {
     let plaintext = parser::format_entry(entry);
     let store_dir = password_store_dir();
     let output_path = store_dir.join(&node.path);
@@ -191,7 +216,9 @@ fn write_entry_data(node: &PassNode, entry: &EntryData, message: &str) -> Result
     fs::write(&output_path, encrypted)?;
     git::add(&store_dir, &output_path)?;
     git::commit(&store_dir, message)?;
-    git::push(&store_dir)?;
+    if autopush {
+        git::push(&store_dir)?;
+    }
     Ok(())
 }
 
