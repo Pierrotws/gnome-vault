@@ -1,6 +1,21 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
-use git2::{Cred, CredentialType, ErrorCode, PushOptions, RemoteCallbacks, Repository};
+use git2::{
+    build::CheckoutBuilder, Cred, CredentialType, ErrorCode, Oid, PushOptions, RemoteCallbacks,
+    Repository, ResetType, Sort,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitChange {
+    pub id: String,
+    pub short_id: String,
+    pub summary: String,
+    pub author: String,
+    pub parent_count: usize,
+}
 
 #[derive(Debug)]
 pub enum GitError {
@@ -8,7 +23,9 @@ pub enum GitError {
     InvalidPath { path: PathBuf, base: PathBuf },
     MissingWorkdir(PathBuf),
     NoHeadName,
+    NoHeadTarget,
     NoChanges,
+    Conflicts(String),
 }
 
 impl std::fmt::Display for GitError {
@@ -25,7 +42,11 @@ impl std::fmt::Display for GitError {
                 write!(f, "Repository has no workdir: {}", path.display())
             }
             GitError::NoHeadName => write!(f, "Current git HEAD has no branch name"),
+            GitError::NoHeadTarget => write!(f, "Current git HEAD has no target commit"),
             GitError::NoChanges => write!(f, "No changes to commit"),
+            GitError::Conflicts(commit_id) => {
+                write!(f, "Reverting commit {commit_id} produced conflicts")
+            }
         }
     }
 }
@@ -136,34 +157,171 @@ pub fn commit(project_dir: &Path, message: &str) -> Result<(), GitError> {
     Ok(())
 }
 
+/// Lists commits reachable from the current branch head.
+pub fn current_branch_changes(project_dir: &Path) -> Result<Vec<GitChange>, GitError> {
+    let repo = open_repository(project_dir)?;
+    let mut revwalk = repo.revwalk()?;
+
+    if let Err(err) = revwalk.push_head() {
+        if err.code() == ErrorCode::UnbornBranch || err.code() == ErrorCode::NotFound {
+            return Ok(Vec::new());
+        }
+        return Err(GitError::Git(err));
+    }
+
+    revwalk.set_sorting(Sort::TIME)?;
+    revwalk
+        .map(|oid| {
+            let oid = oid?;
+            let commit = repo.find_commit(oid)?;
+            let id = oid.to_string();
+            let summary = commit
+                .summary()
+                .map(str::to_string)
+                .unwrap_or_else(|| "(no message)".to_string());
+            let author = commit
+                .author()
+                .name()
+                .map(str::to_string)
+                .unwrap_or_else(|| "Unknown author".to_string());
+            Ok(GitChange {
+                short_id: id.chars().take(8).collect(),
+                id,
+                summary,
+                author,
+                parent_count: commit.parent_count(),
+            })
+        })
+        .collect::<Result<Vec<_>, git2::Error>>()
+        .map_err(GitError::from)
+}
+
+/// Creates a revert commit for an existing commit.
+pub fn revert_commit(project_dir: &Path, commit_id: &str) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let oid = Oid::from_str(commit_id)?;
+    let commit = repo.find_commit(oid)?;
+
+    repo.revert(&commit, None)?;
+
+    let mut index = repo.index()?;
+    if index.has_conflicts() {
+        return Err(GitError::Conflicts(commit_id.to_string()));
+    }
+
+    index.write()?;
+    let tree_id = index.write_tree()?;
+    let tree = repo.find_tree(tree_id)?;
+    let parent = head_commit(&repo)?;
+
+    if parent
+        .as_ref()
+        .is_some_and(|parent| parent.tree_id() == tree_id)
+    {
+        repo.cleanup_state()?;
+        return Err(GitError::NoChanges);
+    }
+
+    let signature = repo.signature()?;
+    let summary = commit.summary().unwrap_or("commit");
+    let message = format!("Revert \"{summary}\"\n\nThis reverts commit {commit_id}.");
+    let parents = parent.iter().collect::<Vec<_>>();
+    repo.commit(
+        Some("HEAD"),
+        &signature,
+        &signature,
+        &message,
+        &tree,
+        &parents,
+    )?;
+    repo.checkout_head(None)?;
+    repo.cleanup_state()?;
+
+    Ok(())
+}
+
+/// Creates a backup branch, resets the current branch to a commit, and pushes both.
+pub fn rollback_to_commit(project_dir: &Path, commit_id: &str) -> Result<String, GitError> {
+    let repo = open_repository(project_dir)?;
+    let branch = current_branch(&repo)?;
+    let head_oid = repo.head()?.target().ok_or(GitError::NoHeadTarget)?;
+    let target_oid = Oid::from_str(commit_id)?;
+    let target = repo.find_object(target_oid, None)?;
+    let backup_branch = backup_branch_name(&branch, &head_oid.to_string());
+    let backup_ref = format!("refs/heads/{backup_branch}");
+    let remote_name = remote_name_for_branch(&repo, &branch)?;
+
+    repo.reference(&backup_ref, head_oid, false, "Create reset backup branch")?;
+    push_refspec(
+        &repo,
+        &remote_name,
+        &format!("{backup_ref}:{backup_ref}"),
+        false,
+    )?;
+
+    repo.reset(&target, ResetType::Hard, None)?;
+    repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
+
+    let remote_ref = remote_ref_for_branch(&repo, &branch)?;
+    push_refspec(
+        &repo,
+        &remote_name,
+        &format!("refs/heads/{branch}:{remote_ref}"),
+        true,
+    )?;
+
+    Ok(backup_branch)
+}
+
 /// Pushes the current branch to its configured remote.
 ///
 /// If the branch has no upstream configuration, this falls back to pushing to
 /// `origin` using the same local branch name.
 pub fn push(project_dir: &Path) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
+    let branch = current_branch(&repo)?;
+    let remote_name = remote_name_for_branch(&repo, &branch)?;
+    let remote_ref = remote_ref_for_branch(&repo, &branch)?;
+    let refspec = format!("refs/heads/{branch}:{remote_ref}");
+
+    push_refspec(&repo, &remote_name, &refspec, false)
+}
+
+fn current_branch(repo: &Repository) -> Result<String, GitError> {
     let head = repo.head()?;
-    let refname = head
-        .name()
-        .filter(|name| name.starts_with("refs/heads/"))
-        .ok_or(GitError::NoHeadName)?
-        .to_string();
-    let branch_name = refname
-        .strip_prefix("refs/heads/")
-        .ok_or(GitError::NoHeadName)?;
+    head.name()
+        .and_then(|name| name.strip_prefix("refs/heads/"))
+        .map(str::to_string)
+        .ok_or(GitError::NoHeadName)
+}
+
+fn remote_name_for_branch(repo: &Repository, branch: &str) -> Result<String, GitError> {
     let config = repo.config()?;
-    let remote_name = config
-        .get_string(&format!("branch.{branch_name}.remote"))
-        .unwrap_or_else(|_| "origin".to_string());
+    Ok(config
+        .get_string(&format!("branch.{branch}.remote"))
+        .unwrap_or_else(|_| "origin".to_string()))
+}
+
+fn remote_ref_for_branch(repo: &Repository, branch: &str) -> Result<String, GitError> {
+    let config = repo.config()?;
+    let local_ref = format!("refs/heads/{branch}");
     let remote_ref = config
-        .get_string(&format!("branch.{branch_name}.merge"))
-        .unwrap_or_else(|_| refname.clone());
-    let remote_ref = if remote_ref.starts_with("refs/") {
+        .get_string(&format!("branch.{branch}.merge"))
+        .unwrap_or(local_ref);
+    Ok(if remote_ref.starts_with("refs/") {
         remote_ref
     } else {
         format!("refs/heads/{remote_ref}")
-    };
-    let refspec = format!("{refname}:{remote_ref}");
+    })
+}
+
+fn push_refspec(
+    repo: &Repository,
+    remote_name: &str,
+    refspec: &str,
+    force: bool,
+) -> Result<(), GitError> {
+    let config = repo.config()?;
     let mut callbacks = RemoteCallbacks::new();
 
     // Try SSH agent credentials first, then fall back to libgit2's configured
@@ -182,11 +340,25 @@ pub fn push(project_dir: &Path) -> Result<(), GitError> {
 
     let mut push_options = PushOptions::new();
     push_options.remote_callbacks(callbacks);
+    let refspec = if force {
+        format!("+{refspec}")
+    } else {
+        refspec.to_string()
+    };
 
-    repo.find_remote(&remote_name)?
+    repo.find_remote(remote_name)?
         .push(&[refspec.as_str()], Some(&mut push_options))?;
 
     Ok(())
+}
+
+fn backup_branch_name(branch: &str, head_id: &str) -> String {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default();
+    let short_id = head_id.chars().take(8).collect::<String>();
+    format!("reset/backup/{branch}-{short_id}-{timestamp}")
 }
 
 /// Returns the current HEAD commit, or `None` for an unborn repository.
@@ -330,6 +502,129 @@ mod tests {
         assert!(repo.revparse_single("HEAD^{tree}:entry.gpg").is_err());
 
         fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn lists_current_branch_changes_newest_first() {
+        let dir = temp_dir("git-log");
+        fs::create_dir_all(&dir).unwrap();
+        let _repo = init_repo(&dir);
+
+        let file_path = dir.join("entry.gpg");
+        fs::write(&file_path, "first").unwrap();
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "First entry").unwrap();
+
+        fs::write(&file_path, "second").unwrap();
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "Second entry").unwrap();
+
+        let changes = current_branch_changes(&dir).unwrap();
+
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0].summary, "Second entry");
+        assert_eq!(changes[1].summary, "First entry");
+        assert_eq!(changes[0].short_id.len(), 8);
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn reverts_commit_and_creates_revert_commit() {
+        let dir = temp_dir("git-revert");
+        fs::create_dir_all(&dir).unwrap();
+        let repo = init_repo(&dir);
+
+        let file_path = dir.join("entry.gpg");
+        fs::write(&file_path, "first").unwrap();
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "First entry").unwrap();
+
+        fs::write(&file_path, "second").unwrap();
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "Second entry").unwrap();
+        let commit_id = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id()
+            .to_string();
+
+        revert_commit(&dir, &commit_id).unwrap();
+
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        assert!(head
+            .message()
+            .unwrap()
+            .starts_with("Revert \"Second entry\""));
+        assert_eq!(fs::read_to_string(&file_path).unwrap(), "first");
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn rollback_creates_remote_backup_then_force_pushes_branch() {
+        let dir = temp_dir("git-rollback");
+        let remote_dir = temp_dir("git-rollback-remote");
+        fs::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(&remote_dir).unwrap();
+        let repo = init_repo(&dir);
+        let _remote_repo = Repository::init_bare(&remote_dir).unwrap();
+        repo.remote("origin", remote_dir.to_str().unwrap()).unwrap();
+
+        let file_path = dir.join("entry.gpg");
+        fs::write(&file_path, "first").unwrap();
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "First entry").unwrap();
+        let first_commit = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id()
+            .to_string();
+        push(&dir).unwrap();
+
+        fs::write(&file_path, "second").unwrap();
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "Second entry").unwrap();
+        let second_commit = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id()
+            .to_string();
+        push(&dir).unwrap();
+
+        let backup_branch = rollback_to_commit(&dir, &first_commit).unwrap();
+        let remote_repo = Repository::open_bare(&remote_dir).unwrap();
+        let branch_ref = repo.head().unwrap().name().unwrap().to_string();
+        let remote_backup_ref = format!("refs/heads/{backup_branch}");
+
+        assert_eq!(fs::read_to_string(&file_path).unwrap(), "first");
+        assert_eq!(
+            remote_repo
+                .find_reference(&remote_backup_ref)
+                .unwrap()
+                .target()
+                .unwrap()
+                .to_string(),
+            second_commit
+        );
+        assert_eq!(
+            remote_repo
+                .find_reference(&branch_ref)
+                .unwrap()
+                .target()
+                .unwrap()
+                .to_string(),
+            first_commit
+        );
+
+        fs::remove_dir_all(dir).unwrap();
+        fs::remove_dir_all(remote_dir).unwrap();
     }
 
     #[test]

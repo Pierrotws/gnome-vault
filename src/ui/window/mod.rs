@@ -46,6 +46,9 @@ impl MainWindow {
             imp.entry_view.show_error(&err.to_string());
         }
         imp.vault_view.set_factory(Some(&build_tree_factory()));
+        if let Err(err) = self.reload_changes_view() {
+            imp.entry_view.show_error(&err.to_string());
+        }
 
         imp.entry_view.display_empty();
         self.set_edit_unlock_state(false, false, false);
@@ -68,6 +71,37 @@ impl MainWindow {
             imp.vault_view
                 .connect_create_entry_requested(move |_, folder_path| {
                     window.show_new_entry_dialog(Some(folder_path));
+                });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.changes_view
+                .connect_revert_change_requested(move |_, commit_id| {
+                    window.revert_change(&commit_id);
+                });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.changes_view
+                .connect_rollback_change_requested(move |_, commit_id| {
+                    window.confirm_rollback_change(&commit_id);
+                });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.navigation_stack
+                .connect_visible_child_name_notify(move |stack| {
+                    if stack.visible_child_name().as_deref() == Some("changes") {
+                        if let Err(err) = window.reload_changes_view() {
+                            window.imp().entry_view.show_error(&err.to_string());
+                        }
+                    }
                 });
         }
 
@@ -157,6 +191,9 @@ impl MainWindow {
                         if let Err(err) = window.reload_vault_tree() {
                             view.show_error(&err.to_string());
                         }
+                        if let Err(err) = window.reload_changes_view() {
+                            view.show_error(&err.to_string());
+                        }
                         window.set_edit_unlock_state(true, false, false);
                         let is_dirty = controller.borrow().has_unsaved_changes();
                         view.set_cancellable(is_dirty);
@@ -180,6 +217,9 @@ impl MainWindow {
                     Ok(_) => {
                         entry_view.display_empty();
                         if let Err(err) = window.reload_vault_tree() {
+                            entry_view.show_error(&err.to_string());
+                        }
+                        if let Err(err) = window.reload_changes_view() {
                             entry_view.show_error(&err.to_string());
                         }
                         window.set_edit_unlock_state(false, false, false);
@@ -337,6 +377,9 @@ impl MainWindow {
                         if let Err(err) = window.reload_vault_tree() {
                             entry_view.show_error(&err.to_string());
                         }
+                        if let Err(err) = window.reload_changes_view() {
+                            entry_view.show_error(&err.to_string());
+                        }
                         entry_view.set_entry_data(&entry_data);
                         window.set_edit_unlock_state(true, false, false);
                         dialog.close();
@@ -372,6 +415,87 @@ impl MainWindow {
         if let Err(err) = self.reload_vault_tree() {
             self.imp().entry_view.show_error(&err.to_string());
         }
+        if let Err(err) = self.reload_changes_view() {
+            self.imp().entry_view.show_error(&err.to_string());
+        }
+    }
+
+    fn revert_change(&self, commit_id: &str) {
+        if self.controller().borrow().has_unsaved_changes() {
+            self.imp()
+                .entry_view
+                .show_error("Save or cancel current changes before reverting a commit");
+            return;
+        }
+
+        if let Err(err) = self.controller().borrow_mut().revert_change(commit_id) {
+            self.imp().entry_view.show_error(&err.to_string());
+            return;
+        }
+
+        self.imp().entry_view.display_empty();
+        self.set_edit_unlock_state(false, false, false);
+        if let Err(err) = self.reload_vault_tree() {
+            self.imp().entry_view.show_error(&err.to_string());
+        }
+        if let Err(err) = self.reload_changes_view() {
+            self.imp().entry_view.show_error(&err.to_string());
+        }
+    }
+
+    fn confirm_rollback_change(&self, commit_id: &str) {
+        if self.controller().borrow().has_unsaved_changes() {
+            self.imp()
+                .entry_view
+                .show_error("Save or cancel current changes before rolling back");
+            return;
+        }
+
+        let dialog = adw::AlertDialog::builder()
+            .heading("Rollback Branch?")
+            .body("This will create and push a reset backup branch, hard-reset the current branch to this action, and push the reset branch state.")
+            .build();
+        dialog.add_responses(&[("cancel", "Cancel"), ("rollback", "Rollback")]);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        dialog.set_response_appearance("rollback", adw::ResponseAppearance::Destructive);
+
+        let window = self.clone();
+        let commit_id = commit_id.to_string();
+        dialog.connect_response(None, move |_, response| {
+            if response == "rollback" {
+                window.rollback_change(&commit_id);
+            }
+        });
+        dialog.present(Some(self));
+    }
+
+    fn rollback_change(&self, commit_id: &str) {
+        let backup_branch = match self.controller().borrow_mut().rollback_to_change(commit_id) {
+            Ok(backup_branch) => backup_branch,
+            Err(err) => {
+                self.imp().entry_view.show_error(&err.to_string());
+                return;
+            }
+        };
+
+        self.imp().entry_view.display_empty();
+        self.set_edit_unlock_state(false, false, false);
+        if let Err(err) = self.reload_vault_tree() {
+            self.imp().entry_view.show_error(&err.to_string());
+        }
+        if let Err(err) = self.reload_changes_view() {
+            self.imp().entry_view.show_error(&err.to_string());
+        }
+
+        let dialog = adw::AlertDialog::builder()
+            .heading("Rollback Complete")
+            .body(format!("Backup branch pushed: {backup_branch}"))
+            .build();
+        dialog.add_responses(&[("ok", "OK")]);
+        dialog.set_default_response(Some("ok"));
+        dialog.set_close_response("ok");
+        dialog.present(Some(self));
     }
 
     fn reload_vault_tree(&self) -> Result<(), crate::app::app_error::AppError> {
@@ -383,6 +507,12 @@ impl MainWindow {
         };
         let selection = build_selection_from_nodes(&nodes);
         self.imp().vault_view.set_selection_model(&selection);
+        Ok(())
+    }
+
+    fn reload_changes_view(&self) -> Result<(), crate::app::app_error::AppError> {
+        let changes = self.controller().borrow().load_changes()?;
+        self.imp().changes_view.set_changes(&changes);
         Ok(())
     }
 

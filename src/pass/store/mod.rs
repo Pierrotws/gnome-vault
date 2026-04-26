@@ -8,7 +8,10 @@ use std::{
 };
 
 use crate::{
-    helpers::{git, parser, pgp},
+    helpers::{
+        git::{self, GitChange},
+        parser, pgp,
+    },
     pass::model::{EntryData, PassNode, PassNodeKind},
 };
 
@@ -81,6 +84,24 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
     let path = password_store_dir().join(&node.path);
     let content = pgp::decrypt(&path)?;
     parser::parse_entry(&content).ok_or_else(|| StoreError::EmptyFile(path))
+}
+
+/// Lists the current branch commit history for the password store repository.
+pub fn load_changes() -> Result<Vec<GitChange>, StoreError> {
+    Ok(git::current_branch_changes(&password_store_dir())?)
+}
+
+/// Reverts a commit in the password store repository and pushes the result.
+pub fn revert_change(commit_id: &str) -> Result<(), StoreError> {
+    let store_dir = password_store_dir();
+    git::revert_commit(&store_dir, commit_id)?;
+    git::push(&store_dir)?;
+    Ok(())
+}
+
+/// Backs up the current branch, resets it to a commit, and pushes the reset.
+pub fn rollback_to_change(commit_id: &str) -> Result<String, StoreError> {
+    Ok(git::rollback_to_commit(&password_store_dir(), commit_id)?)
 }
 
 /// Deletes an entry file, commits the deletion, and pushes it.

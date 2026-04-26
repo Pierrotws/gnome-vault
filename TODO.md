@@ -4,10 +4,6 @@
 
 Implement search on node entry name and folder name
 
-## Implement changes view
-
-Show git history
-
 ## Allow 3-pane view
 
 Allow to separate tree_view for folder and leaf/entry

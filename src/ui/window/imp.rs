@@ -7,7 +7,7 @@ use gtk::CompositeTemplate;
 use once_cell::unsync::OnceCell;
 
 use crate::app::controller::AppController;
-use crate::ui::{EntryView, VaultView};
+use crate::ui::{ChangesView, EntryView, VaultView};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/window.ui")]
@@ -16,7 +16,13 @@ pub struct MainWindow {
     pub window_title: TemplateChild<adw::WindowTitle>,
 
     #[template_child]
+    pub navigation_stack: TemplateChild<gtk::Stack>,
+
+    #[template_child]
     pub vault_view: TemplateChild<VaultView>,
+
+    #[template_child]
+    pub changes_view: TemplateChild<ChangesView>,
 
     #[template_child]
     pub entry_view: TemplateChild<EntryView>,

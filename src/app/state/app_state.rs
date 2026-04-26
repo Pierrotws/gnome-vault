@@ -67,6 +67,10 @@ impl AppState {
         self.entry_cache.remove(path);
     }
 
+    pub fn clear_entry_cache(&mut self) {
+        self.entry_cache.clear();
+    }
+
     pub fn has_unsaved_changes(&self) -> bool {
         self.current_session
             .as_ref()
