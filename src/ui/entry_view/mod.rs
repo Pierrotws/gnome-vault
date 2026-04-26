@@ -432,7 +432,18 @@ impl EntryView {
             row.upcast_ref::<gtk::Widget>(),
             self.imp().is_editable.get(),
         );
-        self.imp().custom_fields_list.append(row);
+        self.insert_custom_field_before_add_button(row);
+    }
+
+    fn insert_custom_field_before_add_button(&self, row: &gtk::ListBoxRow) {
+        let imp = self.imp();
+        let list = imp.custom_fields_list.get();
+        let add_row = imp.add_field_row.get();
+
+        match add_row.prev_sibling() {
+            Some(previous_sibling) => list.insert_child_after(row, Some(&previous_sibling)),
+            None => list.prepend(row),
+        }
     }
 
     fn setup_custom_field_drag(&self, row: &gtk::ListBoxRow) {
@@ -574,8 +585,15 @@ impl EntryView {
     }
 
     fn clear_listbox(&self) {
-        let list = &self.imp().custom_fields_list;
+        let imp = self.imp();
+        let list = &imp.custom_fields_list;
+        let add_row: gtk::Widget = imp.add_field_row.get().upcast();
+
         while let Some(child) = list.first_child() {
+            if child == add_row {
+                break;
+            }
+
             list.remove(&child);
         }
     }
