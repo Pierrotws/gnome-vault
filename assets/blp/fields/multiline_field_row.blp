@@ -39,7 +39,17 @@ template $MultilineFieldRow : ListBoxRow {
             }
         }
 
-        ScrolledWindow {
+        Label value_label {
+            wrap: true;
+            xalign: 0;
+            selectable: true;
+            margin-top: 8;
+            margin-bottom: 8;
+            margin-start: 8;
+            margin-end: 8;
+        }
+
+        ScrolledWindow value_scrolled_window {
             min-content-height: 96;
             max-content-height: 220;
             propagate-natural-height: true;
