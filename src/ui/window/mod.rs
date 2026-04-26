@@ -8,7 +8,7 @@ use adw::{prelude::*, subclass::prelude::*};
 use gtk::{gio, glib};
 
 use crate::app::controller::AppController;
-use crate::pass::model::{EntryData, EntryField};
+use crate::pass::model::{EntryData, EntryField, PassNode, PassNodeKind};
 use crate::ui::generate_password_view::GeneratePasswordView;
 use crate::ui::vault_view::{build_selection_from_nodes, build_tree_factory};
 use crate::ui::EntryView;
@@ -72,6 +72,21 @@ impl MainWindow {
         }
 
         {
+            let window = self.clone();
+
+            imp.vault_view
+                .connect_delete_entry_requested(move |_, entry_path, entry_name| {
+                    let node = PassNode {
+                        name: entry_name,
+                        path: PathBuf::from(entry_path),
+                        kind: PassNodeKind::Entry,
+                        children: Vec::new(),
+                    };
+                    window.delete_entry(node);
+                });
+        }
+
+        {
             let controller = self.controller();
             let entry_view = imp.entry_view.clone();
             let window = self.clone();
@@ -105,6 +120,10 @@ impl MainWindow {
             let window = self.clone();
 
             imp.entry_view.connect_entry_changed(move |view| {
+                if controller.borrow().current_session().is_none() {
+                    return;
+                }
+
                 let updated = view.to_entry_view_data();
 
                 let result = {
@@ -145,6 +164,27 @@ impl MainWindow {
                         view.set_saveable(is_valid);
                     }
                     Err(err) => view.show_error(&err.to_string()),
+                }
+            });
+        }
+
+        {
+            let controller = self.controller();
+            let entry_view = imp.entry_view.clone();
+            let window = self.clone();
+
+            imp.entry_view.connect_delete_requested(move |_| {
+                let result = controller.borrow_mut().delete_current_entry();
+
+                match result {
+                    Ok(_) => {
+                        entry_view.display_empty();
+                        if let Err(err) = window.reload_vault_tree() {
+                            entry_view.show_error(&err.to_string());
+                        }
+                        window.set_edit_unlock_state(false, false, false);
+                    }
+                    Err(err) => entry_view.show_error(&err.to_string()),
                 }
             });
         }
@@ -307,6 +347,31 @@ impl MainWindow {
         ));
 
         dialog.present();
+    }
+
+    fn delete_entry(&self, node: PassNode) {
+        if self.controller().borrow().has_unsaved_changes() {
+            self.imp()
+                .entry_view
+                .show_error("Save or cancel current changes before deleting an entry");
+            return;
+        }
+
+        let deleted_current = match self.controller().borrow_mut().delete_entry(node) {
+            Ok(deleted_current) => deleted_current,
+            Err(err) => {
+                self.imp().entry_view.show_error(&err.to_string());
+                return;
+            }
+        };
+
+        if deleted_current {
+            self.imp().entry_view.display_empty();
+            self.set_edit_unlock_state(false, false, false);
+        }
+        if let Err(err) = self.reload_vault_tree() {
+            self.imp().entry_view.show_error(&err.to_string());
+        }
     }
 
     fn reload_vault_tree(&self) -> Result<(), crate::app::app_error::AppError> {

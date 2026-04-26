@@ -98,6 +98,7 @@ impl ObjectImpl for EntryView {
                 Signal::builder("entry-changed").build(),
                 Signal::builder("save-requested").build(),
                 Signal::builder("revert-requested").build(),
+                Signal::builder("delete-requested").build(),
             ]
         })
     }

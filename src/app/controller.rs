@@ -126,6 +126,34 @@ impl AppController {
         })
     }
 
+    /// Deletes the currently opened entry and closes the current session.
+    pub fn delete_current_entry(&mut self) -> Result<bool, AppError> {
+        let node = self
+            .state
+            .current_session()
+            .ok_or(AppError::NoEntrySelected)?
+            .node()
+            .clone();
+
+        self.delete_entry(node)
+    }
+
+    /// Deletes the given entry and clears the current session if it was open.
+    pub fn delete_entry(&mut self, node: PassNode) -> Result<bool, AppError> {
+        pass::store::delete_entry(&node)?;
+        self.state.remove_cached_entry(&node.path);
+
+        let deleting_current = self
+            .state
+            .current_session()
+            .is_some_and(|session| session.node().path == node.path);
+        if deleting_current {
+            self.state.set_current_session(None);
+        }
+
+        Ok(deleting_current)
+    }
+
     /// Persists the current entry, marks the session clean, and updates cache.
     pub fn save_current_entry(&mut self) -> Result<(), AppError> {
         let (entry_changed, rename) = {

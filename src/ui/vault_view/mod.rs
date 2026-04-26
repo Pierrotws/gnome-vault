@@ -149,6 +149,25 @@ impl VaultView {
         })
     }
 
+    pub fn connect_delete_entry_requested<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self, String, String) + 'static,
+    {
+        self.connect_local("delete-entry-requested", false, move |values| {
+            let obj = values[0]
+                .get::<VaultView>()
+                .expect("delete-entry-requested: first arg should be VaultView");
+            let entry_path = values[1]
+                .get::<String>()
+                .expect("delete-entry-requested: second arg should be String");
+            let entry_name = values[2]
+                .get::<String>()
+                .expect("delete-entry-requested: third arg should be String");
+            f(&obj, entry_path, entry_name);
+            None
+        })
+    }
+
     pub fn connect_search_changed<F>(&self, f: F) -> glib::SignalHandlerId
     where
         F: Fn(&Self) + 'static,
@@ -205,7 +224,7 @@ pub fn build_tree_factory() -> gtk::SignalListItemFactory {
         row_box.set_margin_bottom(6);
         row_box.set_margin_start(6);
         row_box.set_margin_end(6);
-        install_folder_context_menu(&row_box);
+        install_row_context_menu(&row_box);
 
         let icon = gtk::Image::new();
         let label = gtk::Label::new(None);
@@ -275,7 +294,7 @@ pub fn build_tree_factory() -> gtk::SignalListItemFactory {
     factory
 }
 
-fn install_folder_context_menu(row_box: &gtk::Box) {
+fn install_row_context_menu(row_box: &gtk::Box) {
     let gesture = gtk::GestureClick::new();
     gesture.set_button(gdk::BUTTON_SECONDARY);
     gesture.connect_pressed(move |gesture, _, x, y| {
@@ -298,9 +317,6 @@ fn install_folder_context_menu(row_box: &gtk::Box) {
             return;
         };
         let node = boxed.borrow::<PassNode>();
-        if !node.is_group() {
-            return;
-        }
 
         let Some(vault_view) = widget
             .ancestor(VaultView::static_type())
@@ -308,27 +324,48 @@ fn install_folder_context_menu(row_box: &gtk::Box) {
         else {
             return;
         };
-        let folder_path = node.path.to_string_lossy().to_string();
         let popover = gtk::Popover::new();
         popover.set_parent(&widget);
         popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
 
-        let button = gtk::Button::with_label("Create Entry");
+        let button = gtk::Button::with_label(if node.is_group() {
+            "Create Entry"
+        } else {
+            "Delete Entry"
+        });
         button.set_margin_top(6);
         button.set_margin_bottom(6);
         button.set_margin_start(6);
         button.set_margin_end(6);
 
-        button.connect_clicked(glib::clone!(
-            #[weak]
-            popover,
-            #[weak]
-            vault_view,
-            move |_| {
-                popover.popdown();
-                vault_view.emit_by_name::<()>("create-entry-requested", &[&folder_path]);
-            }
-        ));
+        if node.is_group() {
+            let folder_path = node.path.to_string_lossy().to_string();
+            button.connect_clicked(glib::clone!(
+                #[weak]
+                popover,
+                #[weak]
+                vault_view,
+                move |_| {
+                    popover.popdown();
+                    vault_view.emit_by_name::<()>("create-entry-requested", &[&folder_path]);
+                }
+            ));
+        } else {
+            let entry_path = node.path.to_string_lossy().to_string();
+            let entry_name = node.name.clone();
+            button.add_css_class("destructive-action");
+            button.connect_clicked(glib::clone!(
+                #[weak]
+                popover,
+                #[weak]
+                vault_view,
+                move |_| {
+                    popover.popdown();
+                    vault_view
+                        .emit_by_name::<()>("delete-entry-requested", &[&entry_path, &entry_name]);
+                }
+            ));
+        }
 
         popover.set_child(Some(&button));
         popover.popup();

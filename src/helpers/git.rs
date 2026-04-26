@@ -78,6 +78,18 @@ pub fn add(project_dir: &Path, file_path: &Path) -> Result<(), GitError> {
     Ok(())
 }
 
+/// Stages a file deletion in the repository index.
+pub fn remove(project_dir: &Path, file_path: &Path) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let file_path = relative_workdir_path(&repo, file_path)?;
+    let mut index = repo.index()?;
+
+    index.remove_path(&file_path)?;
+    index.write()?;
+
+    Ok(())
+}
+
 /// Stages a file rename in the repository index.
 pub fn rename(project_dir: &Path, old_path: &Path, new_path: &Path) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
@@ -293,6 +305,29 @@ mod tests {
         assert_eq!(commit.message(), Some("rename entry"));
         assert!(repo.revparse_single("HEAD^{tree}:new.gpg").is_ok());
         assert!(repo.revparse_single("HEAD^{tree}:old.gpg").is_err());
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn stages_and_commits_file_deletion() {
+        let dir = temp_dir("git-delete");
+        fs::create_dir_all(&dir).unwrap();
+        let repo = init_repo(&dir);
+
+        let file_path = dir.join("entry.gpg");
+        fs::write(&file_path, "encrypted").unwrap();
+
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "Add entry").unwrap();
+        fs::remove_file(&file_path).unwrap();
+
+        remove(&dir, &file_path).unwrap();
+        commit(&dir, "Delete entry").unwrap();
+
+        let commit = repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(commit.message(), Some("Delete entry"));
+        assert!(repo.revparse_single("HEAD^{tree}:entry.gpg").is_err());
 
         fs::remove_dir_all(dir).unwrap();
     }
