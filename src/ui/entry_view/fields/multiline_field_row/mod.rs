@@ -24,8 +24,10 @@ impl MultilineFieldRow {
         });
 
         let buffer = imp.value_text_view.buffer();
+        let this = obj.clone();
         let parent = entry_view.clone();
         buffer.connect_changed(move |_| {
+            this.sync_value_label();
             parent.mark_changed();
         });
 
@@ -81,6 +83,8 @@ impl MultilineFieldRow {
         let imp = self.imp();
         imp.drag_handle.set_visible(editable);
         Self::set_entry_editable_mode(&imp.title_entry, editable);
+        imp.value_label.set_visible(!editable);
+        imp.value_scrolled_window.set_visible(editable);
         imp.value_text_view.set_editable(editable);
         imp.value_text_view.set_can_focus(editable);
         imp.value_text_view.set_cursor_visible(editable);
@@ -100,6 +104,11 @@ impl MultilineFieldRow {
 
     pub fn set_value(&self, value: &str) {
         self.imp().value_text_view.buffer().set_text(value);
+        self.imp().value_label.set_text(value);
+    }
+
+    fn sync_value_label(&self) {
+        self.imp().value_label.set_text(&self.value());
     }
 
     fn set_entry_editable_mode(entry: &gtk::Entry, editable: bool) {

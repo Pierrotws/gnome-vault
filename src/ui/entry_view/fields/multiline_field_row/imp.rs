@@ -1,7 +1,9 @@
 use adw::subclass::prelude::*;
 use gtk::glib;
 
-use gtk::{Button, CompositeTemplate, Entry, Image, TemplateChild, TextView};
+use gtk::{
+    Button, CompositeTemplate, Entry, Image, Label, ScrolledWindow, TemplateChild, TextView,
+};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/fields/multiline_field_row.ui")]
@@ -11,6 +13,12 @@ pub struct MultilineFieldRow {
 
     #[template_child]
     pub title_entry: TemplateChild<Entry>,
+
+    #[template_child]
+    pub value_label: TemplateChild<Label>,
+
+    #[template_child]
+    pub value_scrolled_window: TemplateChild<ScrolledWindow>,
 
     #[template_child]
     pub value_text_view: TemplateChild<TextView>,
