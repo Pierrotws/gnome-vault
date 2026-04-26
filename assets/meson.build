@@ -1,76 +1,7 @@
 blueprint = find_program('blueprint-compiler')
 
 subdir('schemas')
-
-plain_field_row_ui = custom_target(
-  'plain-field-row-ui',
-  input: 'blp/fields/plain_field_row.blp',
-  output: 'plain_field_row.ui',
-  command: [blueprint, 'compile', '--output', 'assets/fields/plain_field_row.ui', '@INPUT@'],
-)
-
-password_field_row_ui = custom_target(
-  'password-field-row-ui',
-  input: 'blp/fields/password_field_row.blp',
-  output: 'password_field_row.ui',
-  command: [blueprint, 'compile', '--output', 'assets/fields/password_field_row.ui', '@INPUT@'],
-)
-
-multiline_field_row_ui = custom_target(
-  'multiline-field-row-ui',
-  input: 'blp/fields/multiline_field_row.blp',
-  output: 'multiline_field_row.ui',
-  command: [blueprint, 'compile', '--output', 'assets/fields/multiline_field_row.ui', '@INPUT@'],
-)
-
-array_field_row_ui = custom_target(
-  'array-field-row-ui',
-  input: 'blp/fields/array_field_row.blp',
-  output: 'array_field_row.ui',
-  command: [blueprint, 'compile', '--output', 'assets/fields/array_field_row.ui', '@INPUT@'],
-)
-
-otp_field_row_ui = custom_target(
-  'otp-field-row-ui',
-  input: 'blp/fields/otp_field_row.blp',
-  output: 'otp_field_row.ui',
-  command: [blueprint, 'compile', '--output', 'assets/fields/otp_field_row.ui', '@INPUT@'],
-)
-
-entry_view_ui = custom_target(
-  'entry-view-ui',
-  input: 'blp/entry_view.blp',
-  output: 'entry_view.ui',
-  command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
-)
-
-generate_password_view_ui = custom_target(
-  'generate-password-view-ui',
-  input: 'blp/generate_password_view.blp',
-  output: 'generate_password_view.ui',
-  command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
-)
-
-vault_view_ui = custom_target(
-  'vault-view-ui',
-  input: 'blp/vault_view.blp',
-  output: 'vault_view.ui',
-  command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
-)
-
-changes_view_ui = custom_target(
-  'changes-view-ui',
-  input: 'blp/changes_view.blp',
-  output: 'changes_view.ui',
-  command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
-)
-
-window_ui = custom_target(
-  'window-ui',
-  input: 'blp/window.blp',
-  output: 'window.ui',
-  command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
-)
+subdir('ui')
 
 resources = gnome.compile_resources(
   'resources',
