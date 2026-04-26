@@ -33,42 +33,110 @@ template $MainWindow : Adw.ApplicationWindow {
             }
         }
 
-        content: Paned {
-            orientation: horizontal;
-            wide-handle: true;
-            position: 400;
-            shrink-start-child: false;
-            shrink-end-child: false;
-
-            start-child: Box {
-                orientation: vertical;
-                width-request: 360;
-
-                StackSwitcher {
-                    stack: navigation_stack;
+        content: Stack main_stack {
+            StackPage {
+                name: "setup";
+                child: Box {
+                    orientation: vertical;
                     halign: center;
-                    margin-top: 8;
-                    margin-bottom: 0;
-                }
+                    valign: center;
+                    width-request: 560;
+                    spacing: 18;
+                    margin-top: 24;
+                    margin-bottom: 24;
+                    margin-start: 24;
+                    margin-end: 24;
 
-                Stack navigation_stack {
-                    vexpand: true;
+                    Label {
+                        label: "Create a Vault";
+                        css-classes: ["title-1"];
+                    }
 
-                    StackPage {
-                        name: "vault";
+                    Label {
+                        label: "Choose where to store encrypted entries, configure your GPG recipient, and optionally connect a remote.";
+                        wrap: true;
+                        xalign: 0;
+                        css-classes: ["dim-label"];
+                    }
+
+                    Adw.PreferencesGroup {
                         title: "Vault";
-                        child: $VaultView vault_view {};
+
+                        Adw.EntryRow setup_path_row {
+                            title: "Folder";
+                        }
+
+                        Adw.ComboRow setup_recipient_row {
+                            title: "Signature Key (GPG)";
+                        }
                     }
 
-                    StackPage {
-                        name: "changes";
-                        title: "Changes";
-                        child: $ChangesView changes_view {};
-                    }
-                }
-            };
+                    Adw.PreferencesGroup {
+                        title: "Sync";
 
-            end-child: $EntryView entry_view {};
+                        Adw.ComboRow setup_provider_row {
+                            title: "Provider";
+                        }
+
+                        Adw.EntryRow setup_remote_row {
+                            title: "Remote URL";
+                            sensitive: false;
+                        }
+                    }
+
+                    Box {
+                        orientation: horizontal;
+                        halign: end;
+                        spacing: 12;
+
+                        Button create_vault_button {
+                            label: "Create Vault";
+                            css-classes: ["suggested-action"];
+                        }
+                    }
+                };
+            }
+
+            StackPage {
+                name: "app";
+                child: Paned {
+                    orientation: horizontal;
+                    wide-handle: true;
+                    position: 400;
+                    shrink-start-child: false;
+                    shrink-end-child: false;
+
+                    start-child: Box {
+                        orientation: vertical;
+                        width-request: 360;
+
+                        StackSwitcher {
+                            stack: navigation_stack;
+                            halign: center;
+                            margin-top: 8;
+                            margin-bottom: 0;
+                        }
+
+                        Stack navigation_stack {
+                            vexpand: true;
+
+                            StackPage {
+                                name: "vault";
+                                title: "Vault";
+                                child: $VaultView vault_view {};
+                            }
+
+                            StackPage {
+                                name: "changes";
+                                title: "Changes";
+                                child: $ChangesView changes_view {};
+                            }
+                        }
+                    };
+
+                    end-child: $EntryView entry_view {};
+                };
+            }
         };
     };
 }

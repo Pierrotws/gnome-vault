@@ -65,6 +65,29 @@ fn open_repository(project_dir: &Path) -> Result<Repository, GitError> {
     Repository::open(project_dir).map_err(GitError::from)
 }
 
+/// Returns true when the directory can be opened as a Git repository.
+pub fn is_repository(project_dir: &Path) -> bool {
+    open_repository(project_dir).is_ok()
+}
+
+/// Initializes a Git repository in the directory.
+pub fn init(project_dir: &Path) -> Result<(), GitError> {
+    Repository::init(project_dir)?;
+    Ok(())
+}
+
+/// Adds or updates the origin remote URL.
+pub fn set_origin(project_dir: &Path, remote_url: &str) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    match repo.find_remote("origin") {
+        Ok(_) => repo.remote_set_url("origin", remote_url)?,
+        Err(_) => {
+            repo.remote("origin", remote_url)?;
+        }
+    }
+    Ok(())
+}
+
 /// Returns the repository worktree path.
 fn workdir_path(repo: &Repository) -> Result<&Path, GitError> {
     repo.workdir()

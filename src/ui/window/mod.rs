@@ -9,11 +9,13 @@ use gtk::{gio, glib};
 
 use crate::app::controller::AppController;
 use crate::pass::model::{EntryData, EntryField, PassNode, PassNodeKind};
+use crate::pass::store::{self, VaultSetup};
 use crate::ui::generate_password_view::GeneratePasswordView;
 use crate::ui::vault_view::{build_selection_from_nodes_with_autoexpand, build_tree_factory};
 use crate::ui::EntryView;
 
 const CHANGES_PAGE_SIZE: usize = 50;
+const SETUP_PROVIDER_NONE: u32 = 0;
 
 glib::wrapper! {
     pub struct MainWindow(ObjectSubclass<imp::MainWindow>)
@@ -29,6 +31,7 @@ impl MainWindow {
 
         let _ = obj.imp().controller.set(controller);
         let _ = obj.imp().settings.set(settings);
+        obj.apply_store_dir_setting();
         obj.apply_autopush_setting();
 
         obj.setup_views();
@@ -47,16 +50,21 @@ impl MainWindow {
     fn setup_views(&self) {
         let imp = self.imp();
 
-        if let Err(err) = self.reload_vault_tree() {
-            imp.entry_view.show_error(&err.to_string());
-        }
+        self.setup_vault_setup_view();
         imp.vault_view.set_factory(Some(&build_tree_factory()));
+
+        if let Err(err) = self.reload_vault_tree() {
+            log::debug!("vault unavailable, showing setup view: {err}");
+            self.show_setup_view();
+            return;
+        }
         if let Err(err) = self.reload_changes_view() {
             imp.entry_view.show_error(&err.to_string());
         }
 
         imp.entry_view.display_empty();
         self.set_edit_unlock_state(false, false, false);
+        self.show_app_view();
     }
 
     pub fn setup_callbacks(&self) {
@@ -299,6 +307,48 @@ impl MainWindow {
 
             imp.vault_view.connect_search_changed(move |_| {
                 window.rebuild_vault_tree();
+            });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.setup_path_row.connect_changed(move |_| {
+                window.update_create_vault_button();
+            });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.setup_recipient_row.connect_selected_notify(move |_| {
+                window.update_create_vault_button();
+            });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.setup_remote_row.connect_changed(move |_| {
+                window.update_create_vault_button();
+            });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.setup_provider_row.connect_selected_notify(move |row| {
+                let sync_enabled = row.selected() != SETUP_PROVIDER_NONE;
+                window.imp().setup_remote_row.set_sensitive(sync_enabled);
+                window.update_create_vault_button();
+            });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.create_vault_button.connect_clicked(move |_| {
+                window.create_vault_from_setup();
             });
         }
     }
@@ -588,9 +638,188 @@ impl MainWindow {
             .clone()
     }
 
+    fn settings_has_key(&self, key: &str) -> bool {
+        gio::SettingsSchemaSource::default()
+            .and_then(|source| source.lookup(crate::APP_ID, true))
+            .is_some_and(|schema| schema.has_key(key))
+    }
+
+    fn apply_store_dir_setting(&self) {
+        if std::env::var_os("PASSWORD_STORE_DIR").is_some() {
+            return;
+        }
+
+        if !self.settings_has_key("store-dir") {
+            log::warn!("GSettings schema is missing store-dir; using PASSWORD_STORE_DIR fallback");
+            return;
+        }
+
+        let store_dir = self.settings().string("store-dir");
+        if !store_dir.trim().is_empty() {
+            std::env::set_var("PASSWORD_STORE_DIR", store_dir.as_str());
+        }
+    }
+
     fn apply_autopush_setting(&self) {
         let autopush = self.settings().boolean("autopush");
         self.controller().borrow_mut().set_autopush(autopush);
+    }
+
+    fn setup_vault_setup_view(&self) {
+        let imp = self.imp();
+        let provider_model = gtk::StringList::new(&["No Sync", "GitHub", "GitLab", "Custom"]);
+        imp.setup_provider_row.set_model(Some(&provider_model));
+        imp.setup_provider_row.set_selected(SETUP_PROVIDER_NONE);
+        imp.setup_remote_row.set_sensitive(false);
+        self.setup_recipient_model();
+
+        let configured_store_dir = if self.settings_has_key("store-dir") {
+            self.settings().string("store-dir").to_string()
+        } else {
+            String::new()
+        };
+        let default_store_dir = if configured_store_dir.trim().is_empty() {
+            store::password_store_dir()
+        } else {
+            PathBuf::from(&configured_store_dir)
+        };
+        imp.setup_path_row
+            .set_text(&default_store_dir.to_string_lossy());
+        self.update_create_vault_button();
+    }
+
+    fn show_setup_view(&self) {
+        let imp = self.imp();
+        imp.main_stack.set_visible_child_name("setup");
+        imp.new_entry_button.set_sensitive(false);
+        imp.lock_vault_button.set_sensitive(false);
+        imp.window_title.set_subtitle("Setup");
+    }
+
+    fn show_app_view(&self) {
+        let imp = self.imp();
+        imp.main_stack.set_visible_child_name("app");
+        imp.new_entry_button.set_sensitive(true);
+        imp.lock_vault_button.set_sensitive(false);
+        imp.window_title.set_subtitle("Read-only");
+    }
+
+    fn update_create_vault_button(&self) {
+        let imp = self.imp();
+        let has_path = !imp.setup_path_row.text().trim().is_empty();
+        let has_recipient = imp
+            .setup_recipients
+            .borrow()
+            .get(imp.setup_recipient_row.selected() as usize)
+            .is_some();
+        let needs_remote = imp.setup_provider_row.selected() != SETUP_PROVIDER_NONE;
+        let has_remote = !imp.setup_remote_row.text().trim().is_empty();
+
+        imp.create_vault_button
+            .set_sensitive(has_path && has_recipient && (!needs_remote || has_remote));
+    }
+
+    fn create_vault_from_setup(&self) {
+        let imp = self.imp();
+        let store_dir = PathBuf::from(imp.setup_path_row.text().trim());
+        let Some(recipient) = imp
+            .setup_recipients
+            .borrow()
+            .get(imp.setup_recipient_row.selected() as usize)
+            .map(|recipient| recipient.id.clone())
+        else {
+            self.show_error_dialog("Select a GPG recipient before creating the vault");
+            return;
+        };
+        let remote_url = (imp.setup_provider_row.selected() != SETUP_PROVIDER_NONE)
+            .then(|| imp.setup_remote_row.text().trim().to_string())
+            .filter(|url| !url.is_empty());
+
+        let setup = VaultSetup {
+            store_dir: store_dir.clone(),
+            recipient,
+            remote_url,
+            autopush: self.controller().borrow().autopush(),
+        };
+
+        std::env::set_var("PASSWORD_STORE_DIR", &store_dir);
+
+        let setup_result = {
+            let controller = self.controller();
+            let mut controller = controller.borrow_mut();
+            controller.setup_vault(&setup)
+        };
+
+        match setup_result {
+            Ok(()) => {
+                if self.settings_has_key("store-dir") {
+                    if let Err(err) = self
+                        .settings()
+                        .set_string("store-dir", &store_dir.to_string_lossy())
+                    {
+                        self.show_error_dialog(&err.to_string());
+                        return;
+                    }
+                } else {
+                    log::warn!(
+                        "GSettings schema is missing store-dir; vault path was not persisted"
+                    );
+                }
+                self.rebuild_vault_tree();
+                if let Err(err) = self.reload_changes_view() {
+                    self.show_error_dialog(&err.to_string());
+                }
+                imp.entry_view.display_empty();
+                self.set_edit_unlock_state(false, false, false);
+                self.show_app_view();
+            }
+            Err(err) => self.show_error_dialog(&err.to_string()),
+        }
+    }
+
+    fn setup_recipient_model(&self) {
+        let imp = self.imp();
+        let recipients = match self.controller().borrow().available_recipients() {
+            Ok(recipients) => recipients,
+            Err(err) => {
+                log::warn!("Failed to list GPG recipients: {err}");
+                Vec::new()
+            }
+        };
+
+        if recipients.is_empty() {
+            let model = gtk::StringList::new(&[]);
+            imp.setup_recipient_row.set_model(Some(&model));
+            imp.setup_recipient_row
+                .set_selected(gtk::INVALID_LIST_POSITION);
+            imp.setup_recipient_row
+                .set_subtitle("No usable local secret encryption key found");
+            imp.setup_recipient_row.set_sensitive(false);
+        } else {
+            let labels = recipients
+                .iter()
+                .map(|recipient| recipient.label.as_str())
+                .collect::<Vec<_>>();
+            let model = gtk::StringList::new(&labels);
+            imp.setup_recipient_row.set_model(Some(&model));
+            imp.setup_recipient_row.set_selected(0);
+            imp.setup_recipient_row.set_subtitle("");
+            imp.setup_recipient_row.set_sensitive(true);
+        }
+
+        imp.setup_recipients.replace(recipients);
+        self.update_create_vault_button();
+    }
+
+    fn show_error_dialog(&self, message: &str) {
+        let dialog = adw::AlertDialog::builder()
+            .heading("Error")
+            .body(message)
+            .build();
+        dialog.add_responses(&[("ok", "OK")]);
+        dialog.set_default_response(Some("ok"));
+        dialog.set_close_response("ok");
+        dialog.present(Some(self));
     }
 
     fn show_preferences_dialog(&self) {

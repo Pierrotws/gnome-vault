@@ -15,7 +15,16 @@ use crate::{
     pass::model::{EntryData, PassNode, PassNodeKind},
 };
 
+pub use crate::helpers::pgp::GpgRecipient;
 pub use store_error::StoreError;
+
+#[derive(Debug, Clone)]
+pub struct VaultSetup {
+    pub store_dir: PathBuf,
+    pub recipient: String,
+    pub remote_url: Option<String>,
+    pub autopush: bool,
+}
 
 /// Recursively loads password-store groups and `.gpg` entries.
 fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
@@ -73,10 +82,50 @@ fn relative_path(root: &Path, path: &Path) -> PathBuf {
 pub fn load_password_store() -> io::Result<Vec<PassNode>> {
     let store_dir = password_store_dir();
     log::debug!("Loading password store from: {}", store_dir.display());
+    if !git::is_repository(&store_dir) {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("{} is not a git repository", store_dir.display()),
+        ));
+    }
     let nodes = load_dir(&store_dir, &store_dir)?;
     log::debug!("Top-level nodes: {}", nodes.len());
     //Returns
     Ok(nodes)
+}
+
+/// Initializes a new password-store git repository.
+pub fn setup_vault(setup: &VaultSetup) -> Result<(), StoreError> {
+    let recipient = setup.recipient.trim();
+    if recipient.is_empty() {
+        return Err(StoreError::InvalidRecipient);
+    }
+
+    fs::create_dir_all(&setup.store_dir)?;
+    if !git::is_repository(&setup.store_dir) {
+        git::init(&setup.store_dir)?;
+    }
+
+    let gpg_id_path = setup.store_dir.join(".gpg-id");
+    fs::write(&gpg_id_path, format!("{recipient}\n"))?;
+    git::add(&setup.store_dir, &gpg_id_path)?;
+    git::commit(&setup.store_dir, "Initialize vault")?;
+
+    if let Some(remote_url) = setup.remote_url.as_deref().map(str::trim) {
+        if !remote_url.is_empty() {
+            git::set_origin(&setup.store_dir, remote_url)?;
+            if setup.autopush {
+                git::push(&setup.store_dir)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Lists usable GPG recipients for a newly created vault.
+pub fn available_recipients() -> Result<Vec<GpgRecipient>, StoreError> {
+    Ok(pgp::available_recipients()?)
 }
 
 /// Loads and decrypts a password-store entry from a tree node.
