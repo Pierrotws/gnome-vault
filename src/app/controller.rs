@@ -13,6 +13,7 @@ use crate::{
         model::{EntryData, PassNode},
     },
 };
+use std::path::Path;
 
 pub struct AppController {
     state: AppState,
@@ -105,6 +106,24 @@ impl AppController {
 
         session.replace_current(data.title, data.entry);
         Ok(())
+    }
+
+    /// Creates, saves, caches, and opens a new entry.
+    pub fn create_entry(
+        &mut self,
+        folder_path: &Path,
+        title: &str,
+        entry: EntryData,
+    ) -> Result<EntryViewData, AppError> {
+        let node = pass::store::create_entry_data(folder_path, title, &entry)?;
+        self.state.cache_entry(&node, entry.clone());
+        let session = EntrySession::new(node.clone(), entry.clone());
+        self.state.set_current_session(Some(session));
+
+        Ok(EntryViewData {
+            title: node.name,
+            entry,
+        })
     }
 
     /// Persists the current entry, marks the session clean, and updates cache.

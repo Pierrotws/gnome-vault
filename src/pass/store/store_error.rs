@@ -10,6 +10,7 @@ pub enum StoreError {
     MissingParent(PathBuf),
     EmptyFile(PathBuf),
     InvalidEntryName(String),
+    InvalidFolderPath(PathBuf),
     DestinationExists(PathBuf),
 }
 
@@ -27,6 +28,9 @@ impl std::fmt::Display for StoreError {
             }
             StoreError::InvalidEntryName(name) => {
                 write!(f, "Invalid entry name: {name}")
+            }
+            StoreError::InvalidFolderPath(path) => {
+                write!(f, "Invalid folder path: {}", path.display())
             }
             StoreError::DestinationExists(path) => {
                 write!(f, "Destination already exists: {}", path.display())

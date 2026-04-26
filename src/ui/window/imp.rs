@@ -22,6 +22,9 @@ pub struct MainWindow {
     pub entry_view: TemplateChild<EntryView>,
 
     #[template_child]
+    pub new_entry_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
     pub lock_vault_button: TemplateChild<gtk::Button>,
 
     //App Controller

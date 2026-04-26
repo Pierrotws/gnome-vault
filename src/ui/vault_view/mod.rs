@@ -1,6 +1,6 @@
 mod imp;
 
-use gtk::{gio, glib, ListItemFactory, SelectionModel};
+use gtk::{gdk, gio, glib, ListItemFactory, SelectionModel};
 use gtk::{prelude::*, subclass::prelude::*};
 
 use crate::pass::model::{PassNode, PassNodeKind};
@@ -133,6 +133,22 @@ impl VaultView {
         })
     }
 
+    pub fn connect_create_entry_requested<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self, String) + 'static,
+    {
+        self.connect_local("create-entry-requested", false, move |values| {
+            let obj = values[0]
+                .get::<VaultView>()
+                .expect("create-entry-requested: first arg should be VaultView");
+            let folder_path = values[1]
+                .get::<String>()
+                .expect("create-entry-requested: second arg should be String");
+            f(&obj, folder_path);
+            None
+        })
+    }
+
     pub fn connect_search_changed<F>(&self, f: F) -> glib::SignalHandlerId
     where
         F: Fn(&Self) + 'static,
@@ -189,6 +205,7 @@ pub fn build_tree_factory() -> gtk::SignalListItemFactory {
         row_box.set_margin_bottom(6);
         row_box.set_margin_start(6);
         row_box.set_margin_end(6);
+        install_folder_context_menu(&row_box);
 
         let icon = gtk::Image::new();
         let label = gtk::Label::new(None);
@@ -256,6 +273,67 @@ pub fn build_tree_factory() -> gtk::SignalListItemFactory {
     });
 
     factory
+}
+
+fn install_folder_context_menu(row_box: &gtk::Box) {
+    let gesture = gtk::GestureClick::new();
+    gesture.set_button(gdk::BUTTON_SECONDARY);
+    gesture.connect_pressed(move |gesture, _, x, y| {
+        let Some(widget) = gesture.widget() else {
+            return;
+        };
+        let Some(expander) = widget
+            .ancestor(gtk::TreeExpander::static_type())
+            .and_then(|w| w.downcast::<gtk::TreeExpander>().ok())
+        else {
+            return;
+        };
+        let Some(row) = expander.list_row() else {
+            return;
+        };
+        let Some(row_item) = row.item() else {
+            return;
+        };
+        let Ok(boxed) = row_item.downcast::<glib::BoxedAnyObject>() else {
+            return;
+        };
+        let node = boxed.borrow::<PassNode>();
+        if !node.is_group() {
+            return;
+        }
+
+        let Some(vault_view) = widget
+            .ancestor(VaultView::static_type())
+            .and_then(|w| w.downcast::<VaultView>().ok())
+        else {
+            return;
+        };
+        let folder_path = node.path.to_string_lossy().to_string();
+        let popover = gtk::Popover::new();
+        popover.set_parent(&widget);
+        popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
+
+        let button = gtk::Button::with_label("Create Entry");
+        button.set_margin_top(6);
+        button.set_margin_bottom(6);
+        button.set_margin_start(6);
+        button.set_margin_end(6);
+
+        button.connect_clicked(glib::clone!(
+            #[weak]
+            popover,
+            #[weak]
+            vault_view,
+            move |_| {
+                popover.popdown();
+                vault_view.emit_by_name::<()>("create-entry-requested", &[&folder_path]);
+            }
+        ));
+
+        popover.set_child(Some(&button));
+        popover.popup();
+    });
+    row_box.add_controller(gesture);
 }
 
 pub fn build_store_from_nodes(nodes: &[PassNode]) -> gio::ListStore {

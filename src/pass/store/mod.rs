@@ -4,7 +4,7 @@ mod store_error;
 
 use std::{
     fs, io,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use crate::{
@@ -83,12 +83,34 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
     parser::parse_entry(&content).ok_or_else(|| StoreError::EmptyFile(path))
 }
 
+/// Creates a new entry under a password-store folder.
+pub fn create_entry_data(
+    folder_path: &Path,
+    name: &str,
+    entry: &EntryData,
+) -> Result<PassNode, StoreError> {
+    validate_folder_path(folder_path)?;
+    let name = valid_entry_name(name)?;
+    let node = PassNode {
+        name: name.to_string(),
+        path: folder_path.join(format!("{name}.gpg")),
+        kind: PassNodeKind::Entry,
+        children: Vec::new(),
+    };
+
+    let store_dir = password_store_dir();
+    let output_path = store_dir.join(&node.path);
+    if output_path.exists() {
+        return Err(StoreError::DestinationExists(output_path));
+    }
+
+    write_entry_data(&node, entry, &format!("Add entry {}", node.name))?;
+    Ok(node)
+}
+
 /// Renames an entry file, commits the move, and pushes it.
 pub fn rename_entry(node: &PassNode, new_name: &str) -> Result<PassNode, StoreError> {
-    let new_name = new_name.trim();
-    if new_name.is_empty() || new_name.contains('/') || new_name.contains('\\') {
-        return Err(StoreError::InvalidEntryName(new_name.to_string()));
-    }
+    let new_name = valid_entry_name(new_name)?;
 
     if node.name == new_name {
         return Ok(node.clone());
@@ -118,6 +140,11 @@ pub fn rename_entry(node: &PassNode, new_name: &str) -> Result<PassNode, StoreEr
 
 /// Encrypts, writes, commits, and pushes entry data for a tree node.
 pub fn save_entry_data(node: &PassNode, entry: &EntryData) -> Result<(), StoreError> {
+    let message = format!("Add/update entry {}", node.name);
+    write_entry_data(node, entry, &message)
+}
+
+fn write_entry_data(node: &PassNode, entry: &EntryData, message: &str) -> Result<(), StoreError> {
     let plaintext = parser::format_entry(entry);
     let store_dir = password_store_dir();
     let output_path = store_dir.join(&node.path);
@@ -129,9 +156,27 @@ pub fn save_entry_data(node: &PassNode, entry: &EntryData) -> Result<(), StoreEr
     fs::create_dir_all(parent)?;
     fs::write(&output_path, encrypted)?;
     git::add(&store_dir, &output_path)?;
-    let message = format!("Add/update entry {}", node.name);
-    git::commit(&store_dir, &message)?;
+    git::commit(&store_dir, message)?;
     git::push(&store_dir)?;
+    Ok(())
+}
+
+fn valid_entry_name(name: &str) -> Result<&str, StoreError> {
+    let name = name.trim();
+    if name.is_empty() || name.contains('/') || name.contains('\\') {
+        return Err(StoreError::InvalidEntryName(name.to_string()));
+    }
+    Ok(name)
+}
+
+fn validate_folder_path(path: &Path) -> Result<(), StoreError> {
+    if path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
+    {
+        return Err(StoreError::InvalidFolderPath(path.to_path_buf()));
+    }
     Ok(())
 }
 
@@ -144,5 +189,43 @@ pub fn password_store_dir() -> PathBuf {
     } else {
         let home = std::env::var("HOME").expect("HOME not set");
         PathBuf::from(home).join(".password-store")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::*;
+
+    #[test]
+    fn validates_entry_names() {
+        assert_eq!(valid_entry_name(" example ").unwrap(), "example");
+        assert!(matches!(
+            valid_entry_name(""),
+            Err(StoreError::InvalidEntryName(_))
+        ));
+        assert!(matches!(
+            valid_entry_name("folder/example"),
+            Err(StoreError::InvalidEntryName(_))
+        ));
+        assert!(matches!(
+            valid_entry_name("folder\\example"),
+            Err(StoreError::InvalidEntryName(_))
+        ));
+    }
+
+    #[test]
+    fn validates_relative_folder_paths() {
+        assert!(validate_folder_path(Path::new("")).is_ok());
+        assert!(validate_folder_path(Path::new("email/work")).is_ok());
+        assert!(matches!(
+            validate_folder_path(Path::new("/email/work")),
+            Err(StoreError::InvalidFolderPath(_))
+        ));
+        assert!(matches!(
+            validate_folder_path(Path::new("../email")),
+            Err(StoreError::InvalidFolderPath(_))
+        ));
     }
 }
