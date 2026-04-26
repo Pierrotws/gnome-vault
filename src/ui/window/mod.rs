@@ -39,20 +39,9 @@ impl MainWindow {
     fn setup_views(&self) {
         let imp = self.imp();
 
-        let controller = self.controller();
-
-        let nodes = {
-            let mut controller = controller.borrow_mut();
-            if let Err(err) = controller.reload_tree() {
-                imp.entry_view.show_error(&err.to_string());
-                Vec::new()
-            } else {
-                controller.state().tree().to_vec()
-            }
-        };
-
-        let selection = build_selection_from_nodes(&nodes);
-        imp.vault_view.set_selection_model(&selection);
+        if let Err(err) = self.reload_vault_tree() {
+            imp.entry_view.show_error(&err.to_string());
+        }
         imp.vault_view.set_factory(Some(&build_tree_factory()));
 
         imp.entry_view.display_empty();
@@ -126,6 +115,9 @@ impl MainWindow {
                 match result {
                     Ok(()) => {
                         view.set_editable_mode(false);
+                        if let Err(err) = window.reload_vault_tree() {
+                            view.show_error(&err.to_string());
+                        }
                         window.set_edit_unlock_state(true, false, false);
                         let is_dirty = controller.borrow().has_unsaved_changes();
                         view.set_cancellable(is_dirty);
@@ -177,6 +169,18 @@ impl MainWindow {
 
     pub fn get_entry_view(&self) -> EntryView {
         self.imp().entry_view.clone()
+    }
+
+    fn reload_vault_tree(&self) -> Result<(), crate::app::app_error::AppError> {
+        let controller = self.controller();
+        let nodes = {
+            let mut controller = controller.borrow_mut();
+            controller.reload_tree()?;
+            controller.state().tree().to_vec()
+        };
+        let selection = build_selection_from_nodes(&nodes);
+        self.imp().vault_view.set_selection_model(&selection);
+        Ok(())
     }
 
     fn set_edit_unlock_state(&self, has_entry: bool, editing: bool, is_dirty: bool) {

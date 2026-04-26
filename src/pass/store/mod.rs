@@ -83,6 +83,39 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
     parser::parse_entry(&content).ok_or_else(|| StoreError::EmptyFile(path))
 }
 
+/// Renames an entry file, commits the move, and pushes it.
+pub fn rename_entry(node: &PassNode, new_name: &str) -> Result<PassNode, StoreError> {
+    let new_name = new_name.trim();
+    if new_name.is_empty() || new_name.contains('/') || new_name.contains('\\') {
+        return Err(StoreError::InvalidEntryName(new_name.to_string()));
+    }
+
+    if node.name == new_name {
+        return Ok(node.clone());
+    }
+
+    let store_dir = password_store_dir();
+    let old_path = store_dir.join(&node.path);
+    let new_relative_path = node.path.with_file_name(format!("{new_name}.gpg"));
+    let new_path = store_dir.join(&new_relative_path);
+
+    if new_path.exists() {
+        return Err(StoreError::DestinationExists(new_path));
+    }
+
+    fs::rename(&old_path, &new_path)?;
+    git::rename(&store_dir, &old_path, &new_path)?;
+    git::commit(&store_dir, "rename entry")?;
+    git::push(&store_dir)?;
+
+    Ok(PassNode {
+        name: new_name.to_string(),
+        path: new_relative_path,
+        kind: node.kind.clone(),
+        children: node.children.clone(),
+    })
+}
+
 /// Encrypts, writes, commits, and pushes entry data for a tree node.
 pub fn save_entry_data(node: &PassNode, entry: &EntryData) -> Result<(), StoreError> {
     let plaintext = parser::format_entry(entry);

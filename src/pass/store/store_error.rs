@@ -9,6 +9,8 @@ pub enum StoreError {
     Pgp(pgp::PgpError),
     MissingParent(PathBuf),
     EmptyFile(PathBuf),
+    InvalidEntryName(String),
+    DestinationExists(PathBuf),
 }
 
 impl std::fmt::Display for StoreError {
@@ -22,6 +24,12 @@ impl std::fmt::Display for StoreError {
             }
             StoreError::EmptyFile(path) => {
                 write!(f, "Empty file for path: {}", path.display())
+            }
+            StoreError::InvalidEntryName(name) => {
+                write!(f, "Invalid entry name: {name}")
+            }
+            StoreError::DestinationExists(path) => {
+                write!(f, "Destination already exists: {}", path.display())
             }
         }
     }
