@@ -8,7 +8,14 @@ Written in Rust ❤️
 - Gtk-rs
 - blueprint
 
-## Setup
+## Install
+
+```bash
+meson setup build
+meson install -C build
+```
+
+## Dev
 
 Run only once!
 
@@ -16,14 +23,14 @@ Run only once!
 meson setup build
 ```
 
-## Compile
+### Compile
 
 ```bash
 cd build;
 meson compile
 ```
 
-## Run
+### Run
 
 Dev-only for now:
 ```bash

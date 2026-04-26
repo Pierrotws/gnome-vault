@@ -383,10 +383,13 @@ pub fn build_store_from_nodes(nodes: &[PassNode]) -> gio::ListStore {
     store
 }
 
-pub fn build_selection_from_nodes(nodes: &[PassNode]) -> gtk::SingleSelection {
+pub fn build_selection_from_nodes_with_autoexpand(
+    nodes: &[PassNode],
+    autoexpand: bool,
+) -> gtk::SingleSelection {
     let root_store = build_store_from_nodes(nodes);
 
-    let tree_model = gtk::TreeListModel::new(root_store.clone(), false, false, |obj| {
+    let tree_model = gtk::TreeListModel::new(root_store.clone(), false, autoexpand, |obj| {
         let boxed = obj.downcast_ref::<glib::BoxedAnyObject>()?;
         let node = boxed.borrow::<PassNode>();
 
