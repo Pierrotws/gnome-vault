@@ -3,6 +3,8 @@ mod imp;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::mpsc;
+use std::time::Duration;
 
 use adw::{prelude::*, subclass::prelude::*};
 use gtk::{gio, glib};
@@ -16,6 +18,12 @@ use crate::ui::EntryView;
 
 const CHANGES_PAGE_SIZE: usize = 50;
 const SETUP_PROVIDER_NONE: u32 = 0;
+
+enum AutoloadMessage {
+    Loaded(PassNode, EntryData),
+    Failed(PathBuf, String),
+    Finished,
+}
 
 glib::wrapper! {
     pub struct MainWindow(ObjectSubclass<imp::MainWindow>)
@@ -65,6 +73,7 @@ impl MainWindow {
         imp.entry_view.display_empty();
         self.set_edit_unlock_state(false, false, false);
         self.show_app_view();
+        self.start_autoload_if_enabled();
     }
 
     pub fn setup_callbacks(&self) {
@@ -644,6 +653,14 @@ impl MainWindow {
             .is_some_and(|schema| schema.has_key(key))
     }
 
+    fn setting_boolean(&self, key: &str, default: bool) -> bool {
+        if self.settings_has_key(key) {
+            self.settings().boolean(key)
+        } else {
+            default
+        }
+    }
+
     fn apply_store_dir_setting(&self) {
         if std::env::var_os("PASSWORD_STORE_DIR").is_some() {
             return;
@@ -772,6 +789,7 @@ impl MainWindow {
                 imp.entry_view.display_empty();
                 self.set_edit_unlock_state(false, false, false);
                 self.show_app_view();
+                self.start_autoload_if_enabled();
             }
             Err(err) => self.show_error_dialog(&err.to_string()),
         }
@@ -831,10 +849,16 @@ impl MainWindow {
         let autopush_row = adw::SwitchRow::builder()
             .title("Push changes automatically")
             .subtitle("Push to the remote after every saved change")
-            .active(self.settings().boolean("autopush"))
+            .active(self.setting_boolean("autopush", true))
+            .build();
+        let autoload_row = adw::SwitchRow::builder()
+            .title("Load entries at startup")
+            .subtitle("Decrypt entries in the background so search includes custom field values")
+            .active(self.setting_boolean("autoload", false))
             .build();
 
         group.add(&autopush_row);
+        group.add(&autoload_row);
         page.add(&group);
         dialog.add(&page);
 
@@ -851,7 +875,108 @@ impl MainWindow {
             }
         });
 
+        let settings = self.settings();
+        let window = self.clone();
+        autoload_row.connect_active_notify(move |row| {
+            if !window.settings_has_key("autoload") {
+                window
+                    .imp()
+                    .entry_view
+                    .show_error("GSettings schema is missing autoload");
+                return;
+            }
+            if let Err(err) = settings.set_boolean("autoload", row.is_active()) {
+                window.imp().entry_view.show_error(&err.to_string());
+                return;
+            }
+            if row.is_active() {
+                window.start_autoload_cache();
+            }
+        });
+
         dialog.present(Some(self));
+    }
+
+    fn start_autoload_if_enabled(&self) {
+        if self.setting_boolean("autoload", false) {
+            self.start_autoload_cache();
+        }
+    }
+
+    fn start_autoload_cache(&self) {
+        let imp = self.imp();
+        if imp.autoload_running.get() {
+            return;
+        }
+
+        let nodes = self.controller().borrow().uncached_entry_nodes();
+        if nodes.is_empty() {
+            return;
+        }
+
+        imp.autoload_running.set(true);
+        let (sender, receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            for node in nodes {
+                let message = match AppController::load_entry_for_cache(&node) {
+                    Ok(entry) => AutoloadMessage::Loaded(node, entry),
+                    Err(err) => AutoloadMessage::Failed(node.path.clone(), err.to_string()),
+                };
+                if sender.send(message).is_err() {
+                    return;
+                }
+            }
+            let _ = sender.send(AutoloadMessage::Finished);
+        });
+
+        let window = self.clone();
+        glib::timeout_add_local(Duration::from_millis(100), move || {
+            let mut finished = false;
+            let mut loaded_any = false;
+
+            for _ in 0..32 {
+                match receiver.try_recv() {
+                    Ok(AutoloadMessage::Loaded(node, entry)) => {
+                        window
+                            .controller()
+                            .borrow_mut()
+                            .cache_loaded_entry(&node, entry);
+                        loaded_any = true;
+                    }
+                    Ok(AutoloadMessage::Failed(path, err)) => {
+                        log::warn!("Failed to autoload {}: {err}", path.display());
+                    }
+                    Ok(AutoloadMessage::Finished) => {
+                        finished = true;
+                        break;
+                    }
+                    Err(mpsc::TryRecvError::Empty) => break,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        finished = true;
+                        break;
+                    }
+                }
+            }
+
+            if loaded_any
+                && !window
+                    .imp()
+                    .vault_view
+                    .search_entry()
+                    .text()
+                    .trim()
+                    .is_empty()
+            {
+                window.rebuild_vault_tree();
+            }
+
+            if finished {
+                window.imp().autoload_running.set(false);
+                glib::ControlFlow::Break
+            } else {
+                glib::ControlFlow::Continue
+            }
+        });
     }
 
     fn push_changes(&self) {

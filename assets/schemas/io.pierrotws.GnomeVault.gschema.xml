@@ -11,5 +11,10 @@
       <summary>Password store directory</summary>
       <description>Directory containing the password-store git repository.</description>
     </key>
+    <key name="autoload" type="b">
+      <default>false</default>
+      <summary>Load entries at startup</summary>
+      <description>When enabled, encrypted entries are loaded into the in-memory cache after the vault opens.</description>
+    </key>
   </schema>
 </schemalist>
