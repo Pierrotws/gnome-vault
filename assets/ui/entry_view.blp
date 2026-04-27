@@ -42,15 +42,19 @@ template $EntryView : Adw.Bin {
                     label: "";
                     xalign: 0;
                     halign: center;
-                    css-classes: [ "title-2"];
+                    css-classes: [ "title-1", "heading"];
                 }
 
                 Entry title_entry {
                     placeholder-text: "Entry name";
                     halign: center;
-                    hexpand: true;
+                    xalign: 0.5;
+                    hexpand: false;
+                    width-chars: 1;
+                    max-width-chars: 48;
+                    has-frame: false;
                     visible: false;
-                    css-classes: [ "title-2"];
+                    css-classes: [ "title-3"];
                 }
 
                 Stack primary_field_stack {
