@@ -12,9 +12,13 @@ Uses:
 
 - rust or rustup
 - meson
+
+Optional for UI development:
 - blueprint-compiler
 
 Use rustup if you require multiples rust env (similarly to other tools like pyenv, nvm, rbenv, …)
+
+`blueprint-compiler` is only required when editing `.blp` UI files. Release tarballs ship generated `.ui` files, so they can be built without it.
 
 ## Usage
 
@@ -31,12 +35,18 @@ Consider using `pass` cli for a guaranteed functional git env
 ## Install
 
 ```bash
-meson setup build
+meson setup build --prefix="$HOME/.local"
 meson compile -C build
 meson install -C build
 ```
 
-meson install not tested.
+To force a build that does not use `blueprint-compiler`:
+
+```bash
+meson setup build --prefix="$HOME/.local" -Dblueprint=disabled
+meson compile -C build
+meson install -C build
+```
 
 ## Dev
 
@@ -45,6 +55,8 @@ Run only once!
 ```bash
 meson setup build
 ```
+
+Install `blueprint-compiler` for development so changes to `assets/ui/**/*.blp` are compiled into the GTK templates.
 
 ### Compile
 

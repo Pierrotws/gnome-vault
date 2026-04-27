@@ -9,8 +9,8 @@ gnome-vault/
 |-- assets/
 |   |-- resources.gresource.xml        # GTK resource bundle manifest
 |   |-- schemas/                       # GSettings schema and schema build rules
-|   `-- ui/                            # Blueprint UI definitions
-|       `-- fields/                    # Blueprint templates for entry field rows
+|   `-- ui/                            # Blueprint UI sources and generated .ui fallbacks
+|       `-- fields/                    # Entry field row UI sources and generated fallbacks
 |-- src/
 |   |-- main.rs                        # Application startup, resources, schema lookup
 |   |-- app/                           # UI-facing application controller and state
@@ -192,13 +192,13 @@ Purpose: Avoids reopening and decrypting a `.gpg` file after an entry has alread
 
 Cloud Provider: None. This is a local desktop application.
 
-Build system: Meson orchestrates Blueprint compilation, schema compilation, resource bundling, and Cargo builds.
+Build system: Meson orchestrates optional Blueprint compilation, schema compilation, resource bundling, and Cargo builds. When `blueprint-compiler` is unavailable or `-Dblueprint=disabled` is set, Meson uses the checked-in generated `.ui` files.
 
 Runtime artifact: Rust binary plus compiled assets/schemas.
 
 Development run path: The current development workflow runs the Cargo-built binary from `build/target/debug/gnome-vault`.
 
-Installation: `meson install -C build` is intended to install the application, resources, and schemas, but the README currently notes that installation has not been fully tested.
+Installation: `meson install -C build` installs the Cargo-built binary, resources, and schemas.
 
 Logging: `env_logger` is initialized in `src/main.rs`; default filter is `warn`. Debug logs are available with `RUST_LOG=debug`.
 

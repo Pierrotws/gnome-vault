@@ -1,0 +1,6 @@
+option(
+  'blueprint',
+  type: 'feature',
+  value: 'auto',
+  description: 'Compile Blueprint .blp files when blueprint-compiler is available',
+)
