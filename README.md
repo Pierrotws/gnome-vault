@@ -3,10 +3,24 @@
 GTK4 + Adwaita app for [pass](https://www.passwordstore.org/).
 Written in Rust ❤️
 
-## Uses
-
+Uses:
+- Adwaita
 - Gtk-rs
 - blueprint
+
+## Requirements (build or dev)
+
+- rust or rustup
+- meson
+
+Use rustup if you require multiples rust env (similarly to other tools like pyenv, nvm, rbenv, …)
+
+## Usage
+
+- User must have GPG Key in their wallet.
+  Use Gnome `Seahorse` to create one if none appears.
+- User should install `pass` cli tool before,
+  although not required.
 
 ## Install
 
@@ -15,6 +29,8 @@ meson setup build
 meson compile -C build
 meson install -C build
 ```
+
+meson install not tested.
 
 ## Dev
 
@@ -39,6 +55,23 @@ cd build;
 ./target/debug/gnome-vault
 ```
 
+### Test
+
+```bash
+cd build
+cargo test
+```
+
+### Doc
+
+```bash
+cd build
+cargo doc
+```
+
+
 ## Thanks
 
-zx2c4 for the great standard unix password manager
+- zx2c4 for the great standard unix password
+  manager
+- The Gnome Project ❤️
