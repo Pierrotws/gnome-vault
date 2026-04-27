@@ -1,4 +1,6 @@
-blueprint = find_program('blueprint-compiler')
+blueprint_option = get_option('blueprint')
+blueprint = find_program('blueprint-compiler', required: blueprint_option.enabled())
+use_blueprint = blueprint.found() and not blueprint_option.disabled()
 
 subdir('schemas')
 subdir('ui')

@@ -16,3 +16,5 @@ pkgdatadir = datadir / meson.project_name()
 
 subdir('assets')
 subdir('src')
+
+gnome.post_install(glib_compile_schemas: true)
