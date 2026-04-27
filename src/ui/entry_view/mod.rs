@@ -88,6 +88,7 @@ impl EntryView {
         });
         let this = self.clone();
         imp.title_entry.connect_changed(move |_| {
+            this.resize_title_entry();
             this.imp()
                 .title_label
                 .set_text(&this.imp().title_entry.text());
@@ -118,6 +119,7 @@ impl EntryView {
         imp.content_stack.set_visible_child_name("content");
         imp.title_label.set_text(&data.title);
         imp.title_entry.set_text(&data.title);
+        self.resize_title_entry();
 
         self.set_primary_field(&data.entry.password);
 
@@ -181,6 +183,8 @@ impl EntryView {
         imp.title_entry.set_visible(editable);
         imp.title_entry.set_editable(editable);
         imp.title_entry.set_can_focus(editable);
+        gtk::prelude::EditableExt::set_alignment(&imp.title_entry.get(), 0.5);
+        imp.title_entry.set_has_frame(false);
         imp.password_field_row.set_editable_mode(editable);
         imp.primary_otp_field_row.set_editable_mode(editable);
         imp.add_field_row.set_visible(editable);
@@ -367,6 +371,13 @@ impl EntryView {
                 imp.primary_field_stack.set_visible_child_name("password");
             }
         }
+    }
+
+    fn resize_title_entry(&self) {
+        let width = self.imp().title_entry.text().chars().count().clamp(1, 48) as i32;
+        let title_entry = &self.imp().title_entry;
+        title_entry.set_width_chars(width);
+        title_entry.set_max_width_chars(width);
     }
 
     fn primary_entry_field(&self) -> EntryField {

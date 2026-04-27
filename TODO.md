@@ -1,12 +1,6 @@
 # (Possible) TODO List
 
-## Documentation
-
-:)
-
-## Improve changes view
-
-Add time info on changes.
+I think application is kind of ugly. Vault/Changes switch is not great, and not future proof (3-pane view with 2-pane tree / separate Entries of Groups).
 
 ## Better labelling / wording in UI
 
