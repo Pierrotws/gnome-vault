@@ -179,22 +179,31 @@ impl AppController {
     /// decrypts the `.gpg` file; later opens reuse the cached [`EntryData`].
     pub fn open_node(&mut self, node: PassNode) -> Result<EntryViewData, AppError> {
         let title = node.name.clone();
-        let entry = match self.state.cached_entry(&node.path) {
-            Some(entry) => {
-                log::debug!("entry cache hit: {}", node.path.display());
-                entry.clone()
-            }
-            None => {
-                log::debug!("entry cache miss: {}", node.path.display());
-                let entry = pass::store::load_entry_from_node(&node)?;
-                self.state.cache_entry(&node, entry.clone());
-                entry
-            }
-        };
+        let entry = self.load_entry_data(&node)?;
         let session = EntrySession::new(node, entry.clone());
         self.state.set_current_session(Some(session));
 
         Ok(EntryViewData { title, entry })
+    }
+
+    /// Loads an entry for list previews without changing the active edit session.
+    pub fn preview_entry(&mut self, node: &PassNode) -> Result<EntryData, AppError> {
+        self.load_entry_data(node)
+    }
+
+    fn load_entry_data(&mut self, node: &PassNode) -> Result<EntryData, AppError> {
+        match self.state.cached_entry(&node.path) {
+            Some(entry) => {
+                log::debug!("entry cache hit: {}", node.path.display());
+                Ok(entry.clone())
+            }
+            None => {
+                log::debug!("entry cache miss: {}", node.path.display());
+                let entry = pass::store::load_entry_from_node(node)?;
+                self.state.cache_entry(node, entry.clone());
+                Ok(entry)
+            }
+        }
     }
 
     /// Replaces the currently edited entry with values read from the UI.

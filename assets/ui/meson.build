@@ -23,6 +23,13 @@ if use_blueprint
     command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
   )
 
+  group_view_ui = custom_target(
+    'group-view-ui',
+    input: 'group_view.blp',
+    output: 'group_view.ui',
+    command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
+  )
+
   changes_view_ui = custom_target(
     'changes-view-ui',
     input: 'changes_view.blp',
@@ -59,6 +66,12 @@ else
   vault_view_ui = configure_file(
     input: 'vault_view.ui',
     output: 'vault_view.ui',
+    copy: true,
+  )
+
+  group_view_ui = configure_file(
+    input: 'group_view.ui',
+    output: 'group_view.ui',
     copy: true,
   )
 

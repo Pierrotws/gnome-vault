@@ -1,0 +1,37 @@
+using Gtk 4.0;
+
+template $GroupView : Box {
+    orientation: vertical;
+
+    Box {
+        orientation: vertical;
+        spacing: 3;
+        margin-top: 12;
+        margin-bottom: 10;
+        margin-start: 12;
+        margin-end: 12;
+
+        Label group_title_label {
+            label: "Group";
+            xalign: 0;
+            ellipsize: end;
+            css-classes: ["heading"];
+        }
+
+        Label group_count_label {
+            label: "No entries";
+            xalign: 0;
+            css-classes: ["dim-label"];
+        }
+    }
+
+    ScrolledWindow {
+        vexpand: true;
+        hscrollbar-policy: never;
+
+        ListBox entries_list {
+            selection-mode: none;
+            css-classes: ["navigation-sidebar"];
+        }
+    }
+}

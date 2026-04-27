@@ -19,6 +19,12 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 <property name="subtitle">Decrypt entries in the background so search includes custom field values</property>
               </object>
             </child>
+            <child>
+              <object class="AdwSwitchRow" id="show_group_view_row">
+                <property name="title">Show group view</property>
+                <property name="subtitle">Use a group-only tree with a separate entries pane</property>
+              </object>
+            </child>
           </object>
         </child>
         <child>

@@ -7,7 +7,7 @@ use gtk::{gio, glib};
 use once_cell::unsync::OnceCell;
 
 use crate::app::controller::AppController;
-use crate::ui::{ChangesView, EntryView, VaultView};
+use crate::ui::{ChangesView, EntryView, GroupView, VaultView};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/window.ui")]
@@ -22,7 +22,31 @@ pub struct MainWindow {
     pub content_stack: TemplateChild<gtk::Stack>,
 
     #[template_child]
+    pub selection_stack: TemplateChild<gtk::Stack>,
+
+    #[template_child]
+    pub main_paned: TemplateChild<gtk::Paned>,
+
+    #[template_child]
+    pub selection_zone: TemplateChild<gtk::Box>,
+
+    #[template_child]
+    pub simple_vault_bin: TemplateChild<adw::Bin>,
+
+    #[template_child]
+    pub group_vault_bin: TemplateChild<adw::Bin>,
+
+    #[template_child]
+    pub selection_paned: TemplateChild<gtk::Paned>,
+
+    #[template_child]
+    pub entry_bin: TemplateChild<adw::Bin>,
+
+    #[template_child]
     pub vault_view: TemplateChild<VaultView>,
+
+    #[template_child]
+    pub group_view: TemplateChild<GroupView>,
 
     #[template_child]
     pub changes_view: TemplateChild<ChangesView>,
