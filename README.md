@@ -12,6 +12,7 @@ Uses:
 
 - rust or rustup
 - meson
+- blueprint-compiler
 
 Use rustup if you require multiples rust env (similarly to other tools like pyenv, nvm, rbenv, …)
 
