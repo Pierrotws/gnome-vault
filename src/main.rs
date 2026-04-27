@@ -22,10 +22,13 @@ fn main() -> glib::ExitCode {
     configure_local_schema_dir();
 
     let resource_path = resource_file();
-    let resource = match gio::Resource::load(resource_path) {
+    let resource = match gio::Resource::load(&resource_path) {
         Ok(res) => res,
         Err(err) => {
-            log::error!("Failed to load resources from {resource_path}: {err}");
+            log::error!(
+                "Failed to load resources from {}: {err}",
+                resource_path.display()
+            );
             return glib::ExitCode::FAILURE;
         }
     };
@@ -47,8 +50,15 @@ fn main() -> glib::ExitCode {
     app.run()
 }
 
-fn resource_file() -> &'static str {
-    option_env!("RESOURCES_FILE").unwrap_or("assets/resources.gresource")
+fn resource_file() -> std::path::PathBuf {
+    let local_resource = Path::new("assets/resources.gresource");
+    if local_resource.exists() {
+        return local_resource.to_path_buf();
+    }
+
+    option_env!("RESOURCES_FILE")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| local_resource.to_path_buf())
 }
 
 fn configure_local_schema_dir() {

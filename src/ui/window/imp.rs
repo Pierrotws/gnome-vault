@@ -19,7 +19,7 @@ pub struct MainWindow {
     pub main_stack: TemplateChild<gtk::Stack>,
 
     #[template_child]
-    pub navigation_stack: TemplateChild<gtk::Stack>,
+    pub content_stack: TemplateChild<gtk::Stack>,
 
     #[template_child]
     pub vault_view: TemplateChild<VaultView>,
@@ -32,6 +32,9 @@ pub struct MainWindow {
 
     #[template_child]
     pub new_entry_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub changes_button: TemplateChild<gtk::Button>,
 
     #[template_child]
     pub lock_vault_button: TemplateChild<gtk::Button>,

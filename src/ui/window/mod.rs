@@ -71,6 +71,7 @@ impl MainWindow {
         }
 
         imp.entry_view.display_empty();
+        self.show_entry_content();
         self.set_edit_unlock_state(false, false, false);
         self.show_app_view();
         self.start_autoload_if_enabled();
@@ -144,14 +145,20 @@ impl MainWindow {
         {
             let window = self.clone();
 
-            imp.navigation_stack
-                .connect_visible_child_name_notify(move |stack| {
-                    if stack.visible_child_name().as_deref() == Some("changes") {
-                        if let Err(err) = window.reload_changes_view() {
-                            window.imp().entry_view.show_error(&err.to_string());
-                        }
-                    }
-                });
+            imp.changes_button.connect_clicked(move |_| {
+                if window.controller().borrow().has_unsaved_changes() {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error("Save or cancel current changes before viewing changes");
+                    return;
+                }
+                if let Err(err) = window.reload_changes_view() {
+                    window.imp().entry_view.show_error(&err.to_string());
+                    return;
+                }
+                window.show_changes_content();
+            });
         }
 
         {
@@ -187,6 +194,7 @@ impl MainWindow {
                 match result {
                     Ok(data) => {
                         entry_view.set_entry_data(&data);
+                        window.show_entry_content();
                         window.set_edit_unlock_state(true, false, false);
                         let is_dirty = controller.borrow().has_unsaved_changes();
                         entry_view.set_cancellable(is_dirty);
@@ -476,6 +484,7 @@ impl MainWindow {
                             entry_view.show_error(&err.to_string());
                         }
                         entry_view.set_entry_data(&entry_data);
+                        window.show_entry_content();
                         window.set_edit_unlock_state(true, false, false);
                         dialog.close();
                     }
@@ -505,6 +514,7 @@ impl MainWindow {
 
         if deleted_current {
             self.imp().entry_view.display_empty();
+            self.show_entry_content();
             self.set_edit_unlock_state(false, false, false);
         }
         if let Err(err) = self.reload_vault_tree() {
@@ -529,6 +539,7 @@ impl MainWindow {
         }
 
         self.imp().entry_view.display_empty();
+        self.show_entry_content();
         self.set_edit_unlock_state(false, false, false);
         if let Err(err) = self.reload_vault_tree() {
             self.imp().entry_view.show_error(&err.to_string());
@@ -575,6 +586,7 @@ impl MainWindow {
         };
 
         self.imp().entry_view.display_empty();
+        self.show_entry_content();
         self.set_edit_unlock_state(false, false, false);
         if let Err(err) = self.reload_vault_tree() {
             self.imp().entry_view.show_error(&err.to_string());
@@ -710,6 +722,7 @@ impl MainWindow {
         imp.main_stack.set_visible_child_name("setup");
         imp.new_entry_button.set_sensitive(false);
         imp.lock_vault_button.set_sensitive(false);
+        imp.changes_button.set_sensitive(false);
         imp.window_title.set_subtitle("Setup");
     }
 
@@ -717,8 +730,25 @@ impl MainWindow {
         let imp = self.imp();
         imp.main_stack.set_visible_child_name("app");
         imp.new_entry_button.set_sensitive(true);
+        imp.changes_button.set_sensitive(true);
         imp.lock_vault_button.set_sensitive(false);
         imp.window_title.set_subtitle("Read-only");
+    }
+
+    fn show_entry_content(&self) {
+        let imp = self.imp();
+        imp.content_stack.set_visible_child_name("entry");
+        let has_entry = self.controller().borrow().current_session().is_some();
+        let editing = imp.entry_view.is_editable_mode();
+        let is_dirty = self.controller().borrow().has_unsaved_changes();
+        self.set_edit_unlock_state(has_entry, editing, is_dirty);
+    }
+
+    fn show_changes_content(&self) {
+        let imp = self.imp();
+        imp.content_stack.set_visible_child_name("changes");
+        imp.lock_vault_button.set_sensitive(false);
+        imp.window_title.set_subtitle("Changes");
     }
 
     fn update_create_vault_button(&self) {
@@ -787,6 +817,7 @@ impl MainWindow {
                     self.show_error_dialog(&err.to_string());
                 }
                 imp.entry_view.display_empty();
+                self.show_entry_content();
                 self.set_edit_unlock_state(false, false, false);
                 self.show_app_view();
                 self.start_autoload_if_enabled();
