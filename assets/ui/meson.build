@@ -29,6 +29,13 @@ changes_view_ui = custom_target(
   command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
 )
 
+preferences_dialog_ui = custom_target(
+  'preferences-dialog-ui',
+  input: 'preferences_dialog.blp',
+  output: 'preferences_dialog.ui',
+  command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
+)
+
 window_ui = custom_target(
   'window-ui',
   input: 'window.blp',

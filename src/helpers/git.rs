@@ -14,6 +14,8 @@ pub struct GitChange {
     pub short_id: String,
     pub summary: String,
     pub author: String,
+    pub author_time_seconds: i64,
+    pub author_time_offset_minutes: i32,
     pub parent_count: usize,
     pub is_pushed: bool,
 }
@@ -224,6 +226,7 @@ pub fn current_branch_changes_page(
                 .name()
                 .map(str::to_string)
                 .unwrap_or_else(|| "Unknown author".to_string());
+            let author_time = commit.author().when();
             let is_pushed = pushed_head
                 .map(|pushed_head| {
                     pushed_head == oid
@@ -235,6 +238,8 @@ pub fn current_branch_changes_page(
                 id,
                 summary,
                 author,
+                author_time_seconds: author_time.seconds(),
+                author_time_offset_minutes: author_time.offset_minutes(),
                 parent_count: commit.parent_count(),
                 is_pushed,
             })
@@ -589,7 +594,7 @@ mod tests {
     fn lists_current_branch_changes_newest_first() {
         let dir = temp_dir("git-log");
         fs::create_dir_all(&dir).unwrap();
-        let _repo = init_repo(&dir);
+        let repo = init_repo(&dir);
 
         let file_path = dir.join("entry.gpg");
         fs::write(&file_path, "first").unwrap();
@@ -606,6 +611,13 @@ mod tests {
         assert_eq!(changes[0].summary, "Second entry");
         assert_eq!(changes[1].summary, "First entry");
         assert_eq!(changes[0].short_id.len(), 8);
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        let head_author_time = head.author().when();
+        assert_eq!(changes[0].author_time_seconds, head_author_time.seconds());
+        assert_eq!(
+            changes[0].author_time_offset_minutes,
+            head_author_time.offset_minutes()
+        );
 
         let second_page = current_branch_changes_page(&dir, 1, 1).unwrap();
         assert_eq!(second_page.len(), 1);

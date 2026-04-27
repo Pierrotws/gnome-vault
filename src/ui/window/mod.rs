@@ -841,26 +841,20 @@ impl MainWindow {
     }
 
     fn show_preferences_dialog(&self) {
-        let dialog = adw::PreferencesDialog::builder()
-            .title("Preferences")
-            .build();
-        let page = adw::PreferencesPage::new();
-        let group = adw::PreferencesGroup::builder().title("Git").build();
-        let autopush_row = adw::SwitchRow::builder()
-            .title("Push changes automatically")
-            .subtitle("Push to the remote after every saved change")
-            .active(self.setting_boolean("autopush", true))
-            .build();
-        let autoload_row = adw::SwitchRow::builder()
-            .title("Load entries at startup")
-            .subtitle("Decrypt entries in the background so search includes custom field values")
-            .active(self.setting_boolean("autoload", false))
-            .build();
+        let builder =
+            gtk::Builder::from_resource("/io/pierrotws/GnomeVault/ui/preferences_dialog.ui");
+        let dialog = builder
+            .object::<adw::PreferencesDialog>("preferences_dialog")
+            .expect("preferences_dialog must exist in preferences_dialog.ui");
+        let autopush_row = builder
+            .object::<adw::SwitchRow>("autopush_row")
+            .expect("autopush_row must exist in preferences_dialog.ui");
+        let autoload_row = builder
+            .object::<adw::SwitchRow>("autoload_row")
+            .expect("autoload_row must exist in preferences_dialog.ui");
 
-        group.add(&autopush_row);
-        group.add(&autoload_row);
-        page.add(&group);
-        dialog.add(&page);
+        autopush_row.set_active(self.setting_boolean("autopush", true));
+        autoload_row.set_active(self.setting_boolean("autoload", false));
 
         let settings = self.settings();
         let window = self.clone();

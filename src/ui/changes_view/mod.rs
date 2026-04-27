@@ -1,5 +1,7 @@
 mod imp;
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use adw::subclass::prelude::*;
 use gtk::{gdk, glib, prelude::*};
 
@@ -148,7 +150,12 @@ impl ChangesView {
             ));
         }
 
-        let meta = gtk::Label::new(Some(&format!("{} · {}", change.short_id, change.author)));
+        let meta = gtk::Label::new(Some(&format!(
+            "{} · {} · {}",
+            change.short_id,
+            change.author,
+            format_author_time(change)
+        )));
         meta.set_xalign(0.0);
         meta.add_css_class("dim-label");
 
@@ -238,8 +245,81 @@ impl ChangesView {
     }
 }
 
+fn format_author_time(change: &GitChange) -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(change.author_time_seconds);
+
+    format_relative_time(change.author_time_seconds, now)
+}
+
+fn format_relative_time(timestamp: i64, now: i64) -> String {
+    let (seconds, is_future) = if timestamp > now {
+        (timestamp - now, true)
+    } else {
+        (now - timestamp, false)
+    };
+
+    if seconds < 5 {
+        return "just now".to_string();
+    }
+
+    let (value, unit) = if seconds < 60 {
+        (seconds, "second")
+    } else if seconds < 60 * 60 {
+        (seconds / 60, "minute")
+    } else if seconds < 60 * 60 * 24 {
+        (seconds / (60 * 60), "hour")
+    } else if seconds < 60 * 60 * 24 * 30 {
+        (seconds / (60 * 60 * 24), "day")
+    } else if seconds < 60 * 60 * 24 * 365 {
+        (seconds / (60 * 60 * 24 * 30), "month")
+    } else {
+        (seconds / (60 * 60 * 24 * 365), "year")
+    };
+
+    let unit = if value == 1 {
+        unit.to_string()
+    } else {
+        format!("{unit}s")
+    };
+
+    if is_future {
+        format!("in {value} {unit}")
+    } else {
+        format!("{value} {unit} ago")
+    }
+}
+
 impl Default for ChangesView {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_relative_time;
+
+    #[test]
+    fn formats_recent_times_as_just_now() {
+        assert_eq!(format_relative_time(98, 100), "just now");
+    }
+
+    #[test]
+    fn formats_past_relative_times() {
+        assert_eq!(format_relative_time(40, 100), "1 minute ago");
+        assert_eq!(format_relative_time(100, 100 + 60 * 3), "3 minutes ago");
+        assert_eq!(format_relative_time(100, 100 + 60 * 60 * 2), "2 hours ago");
+        assert_eq!(
+            format_relative_time(100, 100 + 60 * 60 * 24 * 2),
+            "2 days ago"
+        );
+    }
+
+    #[test]
+    fn formats_future_relative_times() {
+        assert_eq!(format_relative_time(100 + 60 * 2, 100), "in 2 minutes");
     }
 }

@@ -1,0 +1,25 @@
+using Gtk 4.0;
+using Adw 1;
+
+Adw.PreferencesDialog preferences_dialog {
+    title: "Preferences";
+
+    Adw.PreferencesPage {
+        Adw.PreferencesGroup {
+            title: "App";
+
+            Adw.SwitchRow autoload_row {
+                title: "Load entries at startup";
+                subtitle: "Decrypt entries in the background so search includes custom field values";
+            }
+        }
+        Adw.PreferencesGroup {
+            title: "Git";
+
+            Adw.SwitchRow autopush_row {
+                title: "Push changes automatically";
+                subtitle: "Push to the remote after every saved change";
+            }
+        }
+    }
+}
