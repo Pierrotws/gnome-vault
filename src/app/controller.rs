@@ -117,6 +117,25 @@ impl AppController {
             .collect()
     }
 
+    /// Returns entry nodes that are not present in the decrypted cache.
+    pub fn uncached_entry_nodes(&self) -> Vec<PassNode> {
+        self.state
+            .tree()
+            .iter()
+            .flat_map(|node| self.uncached_entry_nodes_from(node))
+            .collect()
+    }
+
+    /// Loads an entry for background cache warming.
+    pub fn load_entry_for_cache(node: &PassNode) -> Result<EntryData, AppError> {
+        Ok(pass::store::load_entry_from_node(node)?)
+    }
+
+    /// Stores an entry loaded by the background cache warmer.
+    pub fn cache_loaded_entry(&mut self, node: &PassNode, entry: EntryData) {
+        self.state.cache_entry(node, entry);
+    }
+
     /// Lists commits reachable from the current password-store branch.
     pub fn load_changes(&self) -> Result<Vec<GitChange>, AppError> {
         Ok(pass::store::load_changes()?)
@@ -322,13 +341,32 @@ impl AppController {
             return Some(node);
         }
 
-        self.state.cached_entry(&node.path).and_then(|entry| {
-            entry
-                .fields
-                .iter()
-                .any(|(key, _)| key.to_lowercase().contains(query))
-                .then(|| node.clone())
+        self.state
+            .cached_entry(&node.path)
+            .and_then(|entry| self.entry_matches_query(entry, query).then(|| node.clone()))
+    }
+
+    fn entry_matches_query(&self, entry: &EntryData, query: &str) -> bool {
+        entry.fields.iter().any(|(key, value)| {
+            key.to_lowercase().contains(query)
+                || value.display_value().to_lowercase().contains(query)
         })
+    }
+
+    fn uncached_entry_nodes_from(&self, node: &PassNode) -> Vec<PassNode> {
+        if node.is_group() {
+            return node
+                .children
+                .iter()
+                .flat_map(|child| self.uncached_entry_nodes_from(child))
+                .collect();
+        }
+
+        if self.state.cached_entry(&node.path).is_none() {
+            vec![node.clone()]
+        } else {
+            Vec::new()
+        }
     }
 }
 
@@ -362,6 +400,13 @@ mod tests {
         EntryData {
             password: EntryField::Password("secret".into()),
             fields: vec![(key.into(), EntryField::Plain("value".into()))],
+        }
+    }
+
+    fn entry_with_value(value: EntryField) -> EntryData {
+        EntryData {
+            password: EntryField::Password("secret".into()),
+            fields: vec![("note".into(), value)],
         }
     }
 
@@ -408,6 +453,37 @@ mod tests {
             .cache_entry(&node, entry_with_key("username"));
 
         let filtered = controller.filtered_tree("user");
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "Server");
+    }
+
+    #[test]
+    fn filters_cached_entries_by_plain_field_value() {
+        let mut controller = AppController::new();
+        let node = entry_node("Server", "Server.gpg");
+        controller.state_mut().set_tree(vec![node.clone()]);
+        controller
+            .state_mut()
+            .cache_entry(&node, entry_with_value(EntryField::Plain("admin".into())));
+
+        let filtered = controller.filtered_tree("admin");
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "Server");
+    }
+
+    #[test]
+    fn filters_cached_entries_by_array_field_value() {
+        let mut controller = AppController::new();
+        let node = entry_node("Server", "Server.gpg");
+        controller.state_mut().set_tree(vec![node.clone()]);
+        controller.state_mut().cache_entry(
+            &node,
+            entry_with_value(EntryField::Array(vec!["primary".into(), "backup".into()])),
+        );
+
+        let filtered = controller.filtered_tree("backup");
 
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].name, "Server");

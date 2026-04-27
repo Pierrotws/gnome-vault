@@ -58,6 +58,7 @@ pub struct MainWindow {
     pub controller: OnceCell<Rc<RefCell<AppController>>>,
     pub settings: OnceCell<gio::Settings>,
     pub loaded_changes_count: Cell<usize>,
+    pub autoload_running: Cell<bool>,
     pub setup_recipients: RefCell<Vec<crate::pass::store::GpgRecipient>>,
 }
 
