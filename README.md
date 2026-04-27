@@ -22,6 +22,11 @@ Use rustup if you require multiples rust env (similarly to other tools like pyen
 - User should install `pass` cli tool before,
   although not required.
 
+If user want to sync, it requires a private git remote project, with working git access (git-credential configured, or ssh access).
+Project will default on `~/.password-store`, yet configurable with env var `PASSWORD_STORE_DIR`.
+
+Consider using `pass` cli for a guaranteed functional git env
+
 ## Install
 
 ```bash
