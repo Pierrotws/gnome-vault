@@ -13,7 +13,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     <property name="margin-bottom">12</property>
     <property name="margin-start">12</property>
     <property name="margin-end">12</property>
-    <property name="width-request">360</property>
+    <property name="hexpand">true</property>
     <child>
       <object class="GtkLabel">
         <property name="label">Changes</property>

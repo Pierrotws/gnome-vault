@@ -110,31 +110,47 @@ template $MainWindow : Adw.ApplicationWindow {
                         orientation: vertical;
                         width-request: 360;
 
-                        StackSwitcher {
-                            stack: navigation_stack;
-                            halign: center;
-                            margin-top: 8;
-                            margin-bottom: 0;
+                        $VaultView vault_view {
+                            vexpand: true;
                         }
 
-                        Stack navigation_stack {
-                            vexpand: true;
+                        Separator {
+                            orientation: horizontal;
+                        }
 
-                            StackPage {
-                                name: "vault";
-                                title: "Vault";
-                                child: $VaultView vault_view {};
-                            }
+                        Box {
+                            orientation: vertical;
+                            margin-top: 8;
+                            margin-bottom: 8;
+                            margin-start: 8;
+                            margin-end: 8;
 
-                            StackPage {
-                                name: "changes";
-                                title: "Changes";
-                                child: $ChangesView changes_view {};
+                            Button changes_button {
+                                halign: fill;
+                                css-classes: ["flat"];
+
+                                child: Adw.ButtonContent {
+                                    icon-name: "view-list-symbolic";
+                                    label: "Changes";
+                                };
                             }
                         }
                     };
 
-                    end-child: $EntryView entry_view {};
+                    end-child: Stack content_stack {
+                        vexpand: true;
+                        hexpand: true;
+
+                        StackPage {
+                            name: "entry";
+                            child: $EntryView entry_view {};
+                        }
+
+                        StackPage {
+                            name: "changes";
+                            child: $ChangesView changes_view {};
+                        }
+                    };
                 };
             }
         };
