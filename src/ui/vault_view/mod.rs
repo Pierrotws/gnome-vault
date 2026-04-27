@@ -1,5 +1,7 @@
 mod imp;
 
+use std::path::PathBuf;
+
 use gtk::{gdk, gio, glib, ListItemFactory, SelectionModel};
 use gtk::{prelude::*, subclass::prelude::*};
 
@@ -398,6 +400,43 @@ pub fn build_selection_from_nodes_with_autoexpand(
         }
 
         let child_store = build_store_from_nodes(&node.children);
+        Some(child_store.upcast::<gio::ListModel>())
+    });
+
+    let selection = gtk::SingleSelection::new(Some(tree_model));
+    selection.set_can_unselect(true);
+    selection.set_autoselect(false);
+    selection.set_selected(gtk::INVALID_LIST_POSITION);
+    selection
+}
+
+pub fn build_group_selection_with_root(
+    nodes: &[PassNode],
+    autoexpand: bool,
+) -> gtk::SingleSelection {
+    let root = PassNode {
+        name: "Vault".to_string(),
+        path: PathBuf::new(),
+        kind: PassNodeKind::Group,
+        children: nodes.to_vec(),
+    };
+    let root_store = build_store_from_nodes(&[root]);
+
+    let tree_model = gtk::TreeListModel::new(root_store.clone(), false, autoexpand, |obj| {
+        let boxed = obj.downcast_ref::<glib::BoxedAnyObject>()?;
+        let node = boxed.borrow::<PassNode>();
+
+        if !node.is_group() {
+            return None;
+        }
+
+        let child_groups = node
+            .children
+            .iter()
+            .filter(|child| child.is_group())
+            .cloned()
+            .collect::<Vec<_>>();
+        let child_store = build_store_from_nodes(&child_groups);
         Some(child_store.upcast::<gio::ListModel>())
     });
 

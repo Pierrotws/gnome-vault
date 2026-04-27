@@ -13,8 +13,10 @@ use crate::app::controller::AppController;
 use crate::pass::model::{EntryData, EntryField, PassNode, PassNodeKind};
 use crate::pass::store::{self, VaultSetup};
 use crate::ui::generate_password_view::GeneratePasswordView;
-use crate::ui::vault_view::{build_selection_from_nodes_with_autoexpand, build_tree_factory};
-use crate::ui::EntryView;
+use crate::ui::vault_view::{
+    build_group_selection_with_root, build_selection_from_nodes_with_autoexpand, build_tree_factory,
+};
+use crate::ui::{EntryView, GroupEntry};
 
 const CHANGES_PAGE_SIZE: usize = 50;
 const SETUP_PROVIDER_NONE: u32 = 0;
@@ -71,7 +73,11 @@ impl MainWindow {
         }
 
         imp.entry_view.display_empty();
-        self.show_entry_content();
+        if self.show_group_view_enabled() {
+            self.show_root_group_content();
+        } else {
+            self.show_empty_content();
+        }
         self.set_edit_unlock_state(false, false, false);
         self.show_app_view();
         self.start_autoload_if_enabled();
@@ -177,8 +183,6 @@ impl MainWindow {
         }
 
         {
-            let controller = self.controller();
-            let entry_view = imp.entry_view.clone();
             let window = self.clone();
 
             imp.vault_view.connect_entry_selected(move |nav| {
@@ -186,23 +190,31 @@ impl MainWindow {
                     return;
                 };
 
-                let result = {
-                    let mut controller = controller.borrow_mut();
-                    controller.open_node(node)
+                window.open_entry_node(node);
+            });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.vault_view.connect_group_activated(move |nav| {
+                if !window.show_group_view_enabled() {
+                    return;
+                }
+
+                let Some(node) = nav.selected_node() else {
+                    return;
                 };
 
-                match result {
-                    Ok(data) => {
-                        entry_view.set_entry_data(&data);
-                        window.show_entry_content();
-                        window.set_edit_unlock_state(true, false, false);
-                        let is_dirty = controller.borrow().has_unsaved_changes();
-                        entry_view.set_cancellable(is_dirty);
-                        let is_valid = controller.borrow().has_valid_changes();
-                        entry_view.set_saveable(is_valid);
-                    }
-                    Err(err) => entry_view.show_error(&err.to_string()),
+                if window.controller().borrow().has_unsaved_changes() {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error("Save or cancel current changes before selecting a group");
+                    return;
                 }
+
+                window.show_group_content(&node);
             });
         }
 
@@ -232,6 +244,14 @@ impl MainWindow {
                     }
                     Err(err) => view.show_error(&err.to_string()),
                 }
+            });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.group_view.connect_entry_activated(move |_, node| {
+                window.open_entry_node(node);
             });
         }
 
@@ -279,6 +299,7 @@ impl MainWindow {
                         if let Err(err) = window.reload_changes_view() {
                             entry_view.show_error(&err.to_string());
                         }
+                        window.show_empty_content();
                         window.set_edit_unlock_state(false, false, false);
                     }
                     Err(err) => entry_view.show_error(&err.to_string()),
@@ -496,6 +517,24 @@ impl MainWindow {
         dialog.present();
     }
 
+    fn open_entry_node(&self, node: PassNode) {
+        let result = self.controller().borrow_mut().open_node(node);
+        let entry_view = self.imp().entry_view.clone();
+
+        match result {
+            Ok(data) => {
+                entry_view.set_entry_data(&data);
+                self.show_entry_content();
+                self.set_edit_unlock_state(true, false, false);
+                let is_dirty = self.controller().borrow().has_unsaved_changes();
+                entry_view.set_cancellable(is_dirty);
+                let is_valid = self.controller().borrow().has_valid_changes();
+                entry_view.set_saveable(is_valid);
+            }
+            Err(err) => entry_view.show_error(&err.to_string()),
+        }
+    }
+
     fn delete_entry(&self, node: PassNode) {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
@@ -514,7 +553,7 @@ impl MainWindow {
 
         if deleted_current {
             self.imp().entry_view.display_empty();
-            self.show_entry_content();
+            self.show_empty_content();
             self.set_edit_unlock_state(false, false, false);
         }
         if let Err(err) = self.reload_vault_tree() {
@@ -539,7 +578,7 @@ impl MainWindow {
         }
 
         self.imp().entry_view.display_empty();
-        self.show_entry_content();
+        self.show_empty_content();
         self.set_edit_unlock_state(false, false, false);
         if let Err(err) = self.reload_vault_tree() {
             self.imp().entry_view.show_error(&err.to_string());
@@ -586,7 +625,7 @@ impl MainWindow {
         };
 
         self.imp().entry_view.display_empty();
-        self.show_entry_content();
+        self.show_empty_content();
         self.set_edit_unlock_state(false, false, false);
         if let Err(err) = self.reload_vault_tree() {
             self.imp().entry_view.show_error(&err.to_string());
@@ -616,10 +655,14 @@ impl MainWindow {
     }
 
     fn rebuild_vault_tree(&self) {
+        self.update_selection_layout();
         let search_text = self.imp().vault_view.search_entry().text().to_string();
         let nodes = self.controller().borrow().filtered_tree(&search_text);
-        let selection =
-            build_selection_from_nodes_with_autoexpand(&nodes, !search_text.trim().is_empty());
+        let selection = if self.show_group_view_enabled() {
+            build_group_selection_with_root(&nodes, true)
+        } else {
+            build_selection_from_nodes_with_autoexpand(&nodes, !search_text.trim().is_empty())
+        };
         self.imp().vault_view.set_selection_model(&selection);
     }
 
@@ -671,6 +714,10 @@ impl MainWindow {
         } else {
             default
         }
+    }
+
+    fn show_group_view_enabled(&self) -> bool {
+        self.setting_boolean("show-group-view", false)
     }
 
     fn apply_store_dir_setting(&self) {
@@ -728,9 +775,17 @@ impl MainWindow {
 
     fn show_app_view(&self) {
         let imp = self.imp();
+        self.update_selection_layout();
         imp.main_stack.set_visible_child_name("app");
         imp.new_entry_button.set_sensitive(true);
         imp.changes_button.set_sensitive(true);
+        imp.lock_vault_button.set_sensitive(false);
+        imp.window_title.set_subtitle("Read-only");
+    }
+
+    fn show_empty_content(&self) {
+        let imp = self.imp();
+        imp.content_stack.set_visible_child_name("empty");
         imp.lock_vault_button.set_sensitive(false);
         imp.window_title.set_subtitle("Read-only");
     }
@@ -742,6 +797,97 @@ impl MainWindow {
         let editing = imp.entry_view.is_editable_mode();
         let is_dirty = self.controller().borrow().has_unsaved_changes();
         self.set_edit_unlock_state(has_entry, editing, is_dirty);
+    }
+
+    fn show_group_content(&self, node: &PassNode) {
+        let imp = self.imp();
+        let entries = self.group_entries_for(node);
+        imp.group_view.set_group(node, &entries);
+        imp.content_stack.set_visible_child_name("empty");
+        imp.lock_vault_button.set_sensitive(false);
+        imp.window_title.set_subtitle("Group");
+    }
+
+    fn show_root_group_content(&self) {
+        let root = self.root_group_node();
+        self.show_group_content(&root);
+    }
+
+    fn update_selection_layout(&self) {
+        if self.show_group_view_enabled() {
+            self.show_split_selection_layout();
+        } else {
+            self.show_tree_selection_layout();
+        }
+    }
+
+    fn show_tree_selection_layout(&self) {
+        let imp = self.imp();
+        if imp.simple_vault_bin.child().is_none() {
+            imp.group_vault_bin.set_child(Option::<&gtk::Widget>::None);
+            imp.simple_vault_bin.set_child(Some(&imp.vault_view.get()));
+        }
+        imp.selection_zone.set_width_request(200);
+        imp.selection_stack.set_visible_child_name("tree");
+    }
+
+    fn show_split_selection_layout(&self) {
+        let imp = self.imp();
+        if imp.group_vault_bin.child().is_none() {
+            imp.simple_vault_bin.set_child(Option::<&gtk::Widget>::None);
+            imp.group_vault_bin.set_child(Some(&imp.vault_view.get()));
+        }
+        imp.selection_zone.set_width_request(480);
+        imp.selection_paned.set_position(200);
+        if imp.main_paned.position() < 200 {
+            imp.main_paned.set_position(200);
+        }
+        imp.selection_stack.set_visible_child_name("group");
+    }
+
+    fn root_group_node(&self) -> PassNode {
+        let search_text = self.imp().vault_view.search_entry().text().to_string();
+        let children = self.controller().borrow().filtered_tree(&search_text);
+        PassNode {
+            name: "Vault".to_string(),
+            path: PathBuf::new(),
+            kind: PassNodeKind::Group,
+            children,
+        }
+    }
+
+    fn group_entries_for(&self, node: &PassNode) -> Vec<GroupEntry> {
+        node.children
+            .iter()
+            .filter(|child| child.is_entry())
+            .map(|child| GroupEntry {
+                node: child.clone(),
+                subtitle: self.entry_subtitle(child),
+            })
+            .collect()
+    }
+
+    fn entry_subtitle(&self, node: &PassNode) -> Option<String> {
+        let entry = match self.controller().borrow_mut().preview_entry(node) {
+            Ok(entry) => entry,
+            Err(err) => {
+                log::warn!(
+                    "Failed to load entry preview for {}: {err}",
+                    node.path.display()
+                );
+                return None;
+            }
+        };
+
+        let (key, value) = entry.fields.first()?;
+        let value = value.display_value();
+        let first_line = value.lines().next().unwrap_or("").trim();
+
+        Some(if first_line.is_empty() {
+            format!("{key}:")
+        } else {
+            format!("{key}: {first_line}")
+        })
     }
 
     fn show_changes_content(&self) {
@@ -817,7 +963,7 @@ impl MainWindow {
                     self.show_error_dialog(&err.to_string());
                 }
                 imp.entry_view.display_empty();
-                self.show_entry_content();
+                self.show_empty_content();
                 self.set_edit_unlock_state(false, false, false);
                 self.show_app_view();
                 self.start_autoload_if_enabled();
@@ -883,9 +1029,13 @@ impl MainWindow {
         let autoload_row = builder
             .object::<adw::SwitchRow>("autoload_row")
             .expect("autoload_row must exist in preferences_dialog.ui");
+        let show_group_view_row = builder
+            .object::<adw::SwitchRow>("show_group_view_row")
+            .expect("show_group_view_row must exist in preferences_dialog.ui");
 
         autopush_row.set_active(self.setting_boolean("autopush", true));
         autoload_row.set_active(self.setting_boolean("autoload", false));
+        show_group_view_row.set_active(self.show_group_view_enabled());
 
         let settings = self.settings();
         let window = self.clone();
@@ -916,6 +1066,27 @@ impl MainWindow {
             }
             if row.is_active() {
                 window.start_autoload_cache();
+            }
+        });
+
+        let settings = self.settings();
+        let window = self.clone();
+        show_group_view_row.connect_active_notify(move |row| {
+            if !window.settings_has_key("show-group-view") {
+                window
+                    .imp()
+                    .entry_view
+                    .show_error("GSettings schema is missing show-group-view");
+                return;
+            }
+            if let Err(err) = settings.set_boolean("show-group-view", row.is_active()) {
+                window.imp().entry_view.show_error(&err.to_string());
+                return;
+            }
+            window.update_selection_layout();
+            window.rebuild_vault_tree();
+            if row.is_active() {
+                window.show_root_group_content();
             }
         });
 

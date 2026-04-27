@@ -1,20 +1,29 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <schemalist>
   <schema id="io.pierrotws.GnomeVault" path="/io/pierrotws/GnomeVault/">
     <key name="autopush" type="b">
       <default>true</default>
       <summary>Push changes automatically</summary>
-      <description>When enabled, password-store commits are pushed after each change.</description>
+      <description
+            >When enabled, password-store commits are pushed after each change.</description>
     </key>
     <key name="store-dir" type="s">
       <default>''</default>
       <summary>Password store directory</summary>
-      <description>Directory containing the password-store git repository.</description>
+      <description
+            >Directory containing the password-store git repository.</description>
     </key>
     <key name="autoload" type="b">
       <default>false</default>
       <summary>Load entries at startup</summary>
-      <description>When enabled, encrypted entries are loaded into the in-memory cache after the vault opens.</description>
+      <description
+            >When enabled, encrypted entries are loaded into the in-memory cache after the vault opens.</description>
+    </key>
+    <key name="show-group-view" type="b">
+      <default>true</default>
+      <summary>Show group view</summary>
+      <description
+            >When enabled, the vault tree shows groups only and selected groups open an entries pane.</description>
     </key>
   </schema>
 </schemalist>

@@ -99,19 +99,45 @@ template $MainWindow : Adw.ApplicationWindow {
 
             StackPage {
                 name: "app";
-                child: Paned {
+                child: Paned main_paned {
                     orientation: horizontal;
                     wide-handle: true;
-                    position: 400;
-                    shrink-start-child: false;
+                    position: 260;
+                    shrink-start-child: true;
                     shrink-end-child: false;
 
-                    start-child: Box {
+                    start-child: Box selection_zone {
                         orientation: vertical;
-                        width-request: 360;
+                        width-request: 200;
 
-                        $VaultView vault_view {
+                        Stack selection_stack {
                             vexpand: true;
+
+                            StackPage {
+                                name: "tree";
+                                child: Adw.Bin simple_vault_bin {
+                                    child: $VaultView vault_view {};
+                                };
+                            }
+
+                            StackPage {
+                                name: "group";
+                                child: Paned selection_paned {
+                                    orientation: horizontal;
+                                    wide-handle: true;
+                                    position: 200;
+                                    shrink-start-child: false;
+                                    shrink-end-child: true;
+
+                                    start-child: Adw.Bin group_vault_bin {
+                                        width-request: 200;
+                                    };
+
+                                    end-child: $GroupView group_view {
+                                        width-request: 280;
+                                    };
+                                };
+                            }
                         }
 
                         Separator {
@@ -142,8 +168,34 @@ template $MainWindow : Adw.ApplicationWindow {
                         hexpand: true;
 
                         StackPage {
+                            name: "empty";
+                            child: Box {
+                                orientation: vertical;
+                                halign: center;
+                                valign: center;
+                                spacing: 8;
+                                margin-top: 24;
+                                margin-bottom: 24;
+                                margin-start: 24;
+                                margin-end: 24;
+
+                                Label {
+                                    label: "No entry selected";
+                                    css-classes: ["title-3"];
+                                }
+
+                                Label {
+                                    label: "Select an entry";
+                                    css-classes: ["dim-label"];
+                                }
+                            };
+                        }
+
+                        StackPage {
                             name: "entry";
-                            child: $EntryView entry_view {};
+                            child: Adw.Bin entry_bin {
+                                child: $EntryView entry_view {};
+                            };
                         }
 
                         StackPage {
