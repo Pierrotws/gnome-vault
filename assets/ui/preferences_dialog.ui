@@ -31,6 +31,18 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
           <object class="AdwPreferencesGroup">
             <property name="title">Git</property>
             <child>
+              <object class="AdwEntryRow" id="store_dir_row">
+                <property name="title">Vault directory</property>
+                <property name="show-apply-button">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwEntryRow" id="branch_row">
+                <property name="title">Branch</property>
+                <property name="show-apply-button">true</property>
+              </object>
+            </child>
+            <child>
               <object class="AdwSwitchRow" id="autopush_row">
                 <property name="title">Push changes automatically</property>
                 <property name="subtitle">Push to the remote after every saved change</property>

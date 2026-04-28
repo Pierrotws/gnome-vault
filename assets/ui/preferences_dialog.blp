@@ -21,6 +21,16 @@ Adw.PreferencesDialog preferences_dialog {
         Adw.PreferencesGroup {
             title: "Git";
 
+            Adw.EntryRow store_dir_row {
+                title: "Vault directory";
+                show-apply-button: true;
+            }
+
+            Adw.EntryRow branch_row {
+                title: "Branch";
+                show-apply-button: true;
+            }
+
             Adw.SwitchRow autopush_row {
                 title: "Push changes automatically";
                 subtitle: "Push to the remote after every saved change";

@@ -38,6 +38,7 @@ impl MainWindow {
         let _ = obj.imp().settings.set(settings);
         obj.apply_store_dir_setting();
         obj.apply_autopush_setting();
+        obj.apply_branch_setting();
 
         obj.setup_views();
         obj.setup_callbacks();
@@ -705,6 +706,14 @@ impl MainWindow {
         }
     }
 
+    fn setting_string(&self, key: &str, default: &str) -> String {
+        if self.settings_has_key(key) {
+            self.settings().string(key).into()
+        } else {
+            default.to_string()
+        }
+    }
+
     fn show_group_view_enabled(&self) -> bool {
         self.setting_boolean("show-group-view", false)
     }
@@ -852,17 +861,19 @@ impl MainWindow {
         // reload_changes_view that follows is fast (filesystem only) and
         // happens back on the main loop.
         let window = self.clone();
+        let branch = self.controller().borrow().branch().map(str::to_string);
         glib::spawn_future_local(async move {
-            let result = match gio::spawn_blocking(store::push_changes).await {
-                Ok(r) => r,
-                Err(_) => {
-                    window
-                        .imp()
-                        .entry_view
-                        .show_error("Push task panicked unexpectedly");
-                    return;
-                }
-            };
+            let result =
+                match gio::spawn_blocking(move || store::push_changes(branch.as_deref())).await {
+                    Ok(r) => r,
+                    Err(_) => {
+                        window
+                            .imp()
+                            .entry_view
+                            .show_error("Push task panicked unexpectedly");
+                        return;
+                    }
+                };
             if let Err(err) = result {
                 window.imp().entry_view.show_error(&err.to_string());
                 return;

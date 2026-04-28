@@ -200,14 +200,20 @@ pub fn commit(project_dir: &Path, message: &str) -> Result<(), GitError> {
     Ok(())
 }
 
-/// Lists commits reachable from the current branch head.
-pub fn current_branch_changes(project_dir: &Path) -> Result<Vec<GitChange>, GitError> {
-    current_branch_changes_page(project_dir, 0, usize::MAX)
+/// Lists commits reachable from `branch`'s head, or the working tree's
+/// current branch when `branch` is `None`.
+pub fn branch_changes(
+    project_dir: &Path,
+    branch: Option<&str>,
+) -> Result<Vec<GitChange>, GitError> {
+    branch_changes_page(project_dir, branch, 0, usize::MAX)
 }
 
-/// Lists a page of commits reachable from the current branch head.
-pub fn current_branch_changes_page(
+/// Lists a page of commits from `branch`'s head, or the working tree's
+/// current branch when `branch` is `None`.
+pub fn branch_changes_page(
     project_dir: &Path,
+    branch: Option<&str>,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<GitChange>, GitError> {
@@ -215,7 +221,11 @@ pub fn current_branch_changes_page(
     let pushed_head = pushed_head(&repo).ok();
     let mut revwalk = repo.revwalk()?;
 
-    if let Err(err) = revwalk.push_head() {
+    let push_result = match branch {
+        Some(branch) => revwalk.push_ref(&format!("refs/heads/{branch}")),
+        None => revwalk.push_head(),
+    };
+    if let Err(err) = push_result {
         if err.code() == ErrorCode::UnbornBranch || err.code() == ErrorCode::NotFound {
             return Ok(Vec::new());
         }
@@ -357,16 +367,25 @@ pub fn rollback_to_commit(project_dir: &Path, commit_id: &str) -> Result<String,
 ///
 /// If the branch has no upstream configuration, this falls back to pushing to
 /// `origin` using the same local branch name.
-pub fn push(project_dir: &Path) -> Result<(), GitError> {
+/// Pushes the given local branch to its tracked remote.
+///
+/// When `branch` is `None`, the working tree's current branch is pushed
+/// (the original behavior). When `Some`, that branch is pushed instead;
+/// the local branch must exist or the call errors.
+pub fn push(project_dir: &Path, branch: Option<&str>) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
-    let branch = current_branch(&repo)?;
+    let branch = match branch {
+        Some(name) => name.to_string(),
+        None => current_branch(&repo)?,
+    };
     let remote_name = remote_name_for_branch(&repo, &branch)?;
     let remote_ref = remote_ref_for_branch(&repo, &branch)?;
     let refspec = format!("refs/heads/{branch}:{remote_ref}");
-    let head_oid = repo.head()?.target().ok_or(GitError::NoHeadTarget)?;
+    let local_ref = repo.find_reference(&format!("refs/heads/{branch}"))?;
+    let local_oid = local_ref.target().ok_or(GitError::NoHeadTarget)?;
 
     push_refspec(&repo, &remote_name, &refspec, false)?;
-    update_tracking_ref(&repo, &remote_name, &remote_ref, head_oid)?;
+    update_tracking_ref(&repo, &remote_name, &remote_ref, local_oid)?;
 
     Ok(())
 }
@@ -610,7 +629,7 @@ mod tests {
         let refname = repo.head().unwrap().name().unwrap().to_string();
         repo.remote("origin", remote_dir.to_str().unwrap()).unwrap();
 
-        push(&dir).unwrap();
+        push(&dir, None).unwrap();
 
         let remote_repo = Repository::open_bare(&remote_dir).unwrap();
         let remote_ref = remote_repo.find_reference(&refname).unwrap();
@@ -673,7 +692,7 @@ mod tests {
     }
 
     #[test]
-    fn lists_current_branch_changes_newest_first() {
+    fn lists_branch_changes_newest_first() {
         let dir = temp_dir("git-log");
         fs::create_dir_all(&dir).unwrap();
         let repo = init_repo(&dir);
@@ -687,7 +706,7 @@ mod tests {
         add(&dir, &file_path).unwrap();
         commit(&dir, "Second entry").unwrap();
 
-        let changes = current_branch_changes(&dir).unwrap();
+        let changes = branch_changes(&dir, None).unwrap();
 
         assert_eq!(changes.len(), 2);
         assert_eq!(changes[0].summary, "Second entry");
@@ -701,7 +720,7 @@ mod tests {
             head_author_time.offset_minutes()
         );
 
-        let second_page = current_branch_changes_page(&dir, 1, 1).unwrap();
+        let second_page = branch_changes_page(&dir, None, 1, 1).unwrap();
         assert_eq!(second_page.len(), 1);
         assert_eq!(second_page[0].summary, "First entry");
 
@@ -763,7 +782,7 @@ mod tests {
             .unwrap()
             .id()
             .to_string();
-        push(&dir).unwrap();
+        push(&dir, None).unwrap();
 
         fs::write(&file_path, "second").unwrap();
         add(&dir, &file_path).unwrap();
@@ -775,7 +794,7 @@ mod tests {
             .unwrap()
             .id()
             .to_string();
-        push(&dir).unwrap();
+        push(&dir, None).unwrap();
 
         let backup_branch = rollback_to_commit(&dir, &first_commit).unwrap();
         let remote_repo = Repository::open_bare(&remote_dir).unwrap();
@@ -842,7 +861,7 @@ mod tests {
             .unwrap()
             .id()
             .to_string();
-        push(&dir).unwrap();
+        push(&dir, None).unwrap();
 
         fs::write(&file_path, "second").unwrap();
         add(&dir, &file_path).unwrap();
@@ -854,7 +873,7 @@ mod tests {
             .unwrap()
             .id()
             .to_string();
-        push(&dir).unwrap();
+        push(&dir, None).unwrap();
 
         // Repoint origin at a non-existent path so the backup push fails.
         let bad_remote = temp_dir("git-rollback-no-destroy-bad");

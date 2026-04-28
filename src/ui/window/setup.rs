@@ -12,15 +12,18 @@ use super::{MainWindow, SETUP_PROVIDER_NONE};
 
 impl MainWindow {
     pub(super) fn apply_store_dir_setting(&self) {
-        if std::env::var_os("PASSWORD_STORE_DIR").is_some() {
-            return;
-        }
-
         if !self.settings_has_key("store-dir") {
-            log::warn!("GSettings schema is missing store-dir; using PASSWORD_STORE_DIR fallback");
+            if std::env::var_os("PASSWORD_STORE_DIR").is_none() {
+                log::warn!(
+                    "GSettings schema is missing store-dir; using PASSWORD_STORE_DIR fallback"
+                );
+            }
             return;
         }
 
+        // A non-empty configured store-dir is authoritative — it wins over
+        // any pre-existing PASSWORD_STORE_DIR so that changing the setting
+        // in preferences immediately retargets subsequent store ops.
         let store_dir = self.settings().string("store-dir");
         if !store_dir.trim().is_empty() {
             std::env::set_var("PASSWORD_STORE_DIR", store_dir.as_str());
@@ -30,6 +33,20 @@ impl MainWindow {
     pub(super) fn apply_autopush_setting(&self) {
         let autopush = self.settings().boolean("autopush");
         self.controller().borrow_mut().set_autopush(autopush);
+    }
+
+    pub(super) fn apply_branch_setting(&self) {
+        if !self.settings_has_key("branch") {
+            return;
+        }
+        let raw = self.settings().string("branch").to_string();
+        let branch = raw.trim();
+        let value = if branch.is_empty() {
+            None
+        } else {
+            Some(branch.to_string())
+        };
+        self.controller().borrow_mut().set_branch(value);
     }
 
     pub(super) fn setup_vault_setup_view(&self) {
