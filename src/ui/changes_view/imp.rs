@@ -2,9 +2,9 @@ use std::cell::Cell;
 
 use adw::subclass::prelude::*;
 use gtk::glib;
+use gtk::prelude::*;
 use gtk::{
     glib::{subclass::InitializingObject, subclass::Signal},
-    prelude::StaticType,
     CompositeTemplate, TemplateChild,
 };
 
@@ -60,6 +60,13 @@ impl ObjectImpl for ChangesView {
     fn constructed(&self) {
         self.parent_constructed();
         self.obj().setup_callbacks();
+    }
+
+    fn dispose(&self) {
+        let obj = self.obj();
+        while let Some(child) = obj.first_child() {
+            child.unparent();
+        }
     }
 }
 

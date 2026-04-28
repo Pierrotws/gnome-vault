@@ -2,6 +2,7 @@ use std::cell::Cell;
 
 use adw::subclass::prelude::*;
 use glib::subclass::*;
+use gtk::prelude::*;
 use gtk::{glib, CompositeTemplate};
 
 use super::fields::{OtpFieldRow, PasswordFieldRow};
@@ -101,6 +102,13 @@ impl ObjectImpl for EntryView {
                 Signal::builder("delete-requested").build(),
             ]
         })
+    }
+
+    fn dispose(&self) {
+        let obj = self.obj();
+        while let Some(child) = obj.first_child() {
+            child.unparent();
+        }
     }
 }
 

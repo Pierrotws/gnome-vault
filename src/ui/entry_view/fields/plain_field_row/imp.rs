@@ -1,5 +1,6 @@
 use adw::subclass::prelude::*;
 use gtk::glib;
+use gtk::prelude::*;
 
 use gtk::{Button, CompositeTemplate, Entry, Image, TemplateChild};
 
@@ -40,7 +41,13 @@ impl ObjectSubclass for PlainFieldRow {
 impl ObjectImpl for PlainFieldRow {
     fn constructed(&self) {
         self.parent_constructed();
-        // let obj = self.obj();
+    }
+
+    fn dispose(&self) {
+        let obj = self.obj();
+        while let Some(child) = obj.first_child() {
+            child.unparent();
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 use adw::subclass::prelude::*;
 use gtk::glib;
+use gtk::prelude::*;
 
 use gtk::{Button, CompositeTemplate, TemplateChild};
 
@@ -31,6 +32,13 @@ impl ObjectSubclass for PasswordFieldRow {
     }
 }
 
-impl ObjectImpl for PasswordFieldRow {}
+impl ObjectImpl for PasswordFieldRow {
+    fn dispose(&self) {
+        let obj = self.obj();
+        while let Some(child) = obj.first_child() {
+            child.unparent();
+        }
+    }
+}
 impl BinImpl for PasswordFieldRow {}
 impl WidgetImpl for PasswordFieldRow {}
