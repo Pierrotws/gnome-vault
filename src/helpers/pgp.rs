@@ -4,6 +4,7 @@ use std::{
 };
 
 use gpgme::{Context, Data, Key, Protocol};
+use zeroize::{Zeroize, Zeroizing};
 
 /// Secret key identity that can decrypt password-store entries.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,7 +51,10 @@ impl std::fmt::Display for PgpError {
 }
 
 /// Decrypts an encrypted password-store file into UTF-8 plaintext.
-pub fn decrypt(path: &Path) -> Result<String, PgpError> {
+///
+/// The returned plaintext is wrapped in [`Zeroizing`] so its memory is wiped
+/// when dropped.
+pub fn decrypt(path: &Path) -> Result<Zeroizing<String>, PgpError> {
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)
         .map_err(|e| PgpError::ContextError(e.to_string()))?;
 
@@ -60,12 +64,19 @@ pub fn decrypt(path: &Path) -> Result<String, PgpError> {
 
     let mut cipher = Data::load(path_str).map_err(|e| PgpError::LoadingError(e.to_string()))?;
 
-    let mut plain = Vec::<u8>::new();
+    let mut plain = Zeroizing::new(Vec::<u8>::new());
 
-    ctx.decrypt(&mut cipher, &mut plain)
+    ctx.decrypt(&mut cipher, &mut *plain)
         .map_err(|e| PgpError::DecryptError(e.to_string()))?;
 
-    String::from_utf8(plain).map_err(|e| PgpError::Utf8Error(e.to_string()))
+    let plain_vec: Vec<u8> = std::mem::take(&mut *plain);
+    String::from_utf8(plain_vec)
+        .map(Zeroizing::new)
+        .map_err(|e| {
+            let mut bytes = e.into_bytes();
+            bytes.zeroize();
+            PgpError::Utf8Error("decrypted content is not valid UTF-8".to_string())
+        })
 }
 
 /// Encrypts plaintext for the configured recipient key IDs.
