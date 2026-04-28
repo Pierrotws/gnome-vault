@@ -116,7 +116,7 @@ impl MainWindow {
 
             imp.changes_view
                 .connect_revert_change_requested(move |_, commit_id| {
-                    window.revert_change(&commit_id);
+                    window.confirm_revert_change(&commit_id);
                 });
         }
 
@@ -591,11 +591,41 @@ impl MainWindow {
         }
     }
 
+    fn confirm_revert_change(&self, commit_id: &str) {
+        if self.controller().borrow().has_unsaved_changes() {
+            self.imp()
+                .entry_view
+                .show_error("Save or cancel current changes before undoing a change");
+            return;
+        }
+
+        let dialog = adw::AlertDialog::builder()
+            .heading("Undo this change?")
+            .body(
+                "A new change will be recorded that reverses the selected one. \
+                 The original change is kept in history.",
+            )
+            .build();
+        dialog.add_responses(&[("cancel", "Cancel"), ("revert", "Undo")]);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        dialog.set_response_appearance("revert", adw::ResponseAppearance::Destructive);
+
+        let window = self.clone();
+        let commit_id = commit_id.to_string();
+        dialog.connect_response(None, move |_, response| {
+            if response == "revert" {
+                window.revert_change(&commit_id);
+            }
+        });
+        dialog.present(Some(self));
+    }
+
     fn revert_change(&self, commit_id: &str) {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
-                .show_error("Save or cancel current changes before reverting a commit");
+                .show_error("Save or cancel current changes before undoing a change");
             return;
         }
 
