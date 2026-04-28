@@ -29,55 +29,105 @@ impl OtpFieldRow {
     pub fn setup_callbacks(&self, entry_view: &EntryView) {
         let imp = self.imp();
 
-        let this = self.clone();
-        let parent = entry_view.clone();
-        imp.key_entry.connect_changed(move |entry| {
-            this.imp().title_label.set_text(&entry.text());
-            parent.mark_changed();
-        });
+        // Guard against double-registration of signal handlers if setup_callbacks
+        // is ever called more than once for the same row.
+        if imp.already_setup.replace(true) {
+            return;
+        }
 
-        let this = self.clone();
-        let parent = entry_view.clone();
-        imp.url_entry.connect_changed(move |_| {
-            this.update_url_validation();
-            this.update_otp_display();
-            parent.mark_changed();
-        });
+        imp.key_entry.connect_changed(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            entry_view,
+            move |entry| {
+                this.imp().title_label.set_text(&entry.text());
+                entry_view.mark_changed();
+            }
+        ));
 
-        let this = self.clone();
-        imp.copy_code_button.connect_clicked(move |_| {
-            clipboard::copy_secret(&this.current_code());
-        });
+        imp.url_entry.connect_changed(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            entry_view,
+            move |_| {
+                this.update_url_validation();
+                this.update_otp_display();
+                entry_view.mark_changed();
+            }
+        ));
 
-        let this = self.clone();
-        imp.copy_url_button.connect_clicked(move |_| {
-            clipboard::copy_secret(&this.url());
-        });
+        imp.copy_code_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                clipboard::copy_secret(&this.current_code());
+            }
+        ));
 
-        let this = self.clone();
-        imp.reveal_url_button.connect_toggled(move |button| {
-            this.set_url_revealed(button.is_active());
-        });
+        imp.copy_url_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                clipboard::copy_secret(&this.url());
+            }
+        ));
 
-        let this = self.clone();
-        let parent = entry_view.clone();
-        imp.delete_button.connect_clicked(move |_| {
-            if let Some(list) = this.parent() {
-                if let Ok(container) = list.downcast::<gtk::Box>() {
-                    container.remove(&this);
-                    parent.mark_changed();
+        imp.reveal_url_button.connect_toggled(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |button| {
+                this.set_url_revealed(button.is_active());
+            }
+        ));
+
+        imp.delete_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            entry_view,
+            move |_| {
+                if let Some(list) = this.parent() {
+                    if let Ok(container) = list.downcast::<gtk::Box>() {
+                        container.remove(&this);
+                        entry_view.mark_changed();
+                    }
                 }
             }
+        ));
+
+        // Tie the 1Hz OTP refresh tick to map/unmap so it only runs while
+        // the row is on screen. This avoids wasted wakeups and ensures the
+        // timer never outlives the widget (dispose also clears it).
+        self.connect_map(|row| {
+            let imp = row.imp();
+            // Replace any prior source with the new one; if a previous timer
+            // somehow survived, remove it before installing a fresh tick.
+            let existing = imp.timer_source.take();
+            if let Some(source) = existing {
+                source.remove();
+            }
+            let source = glib::timeout_add_seconds_local(
+                1,
+                glib::clone!(
+                    #[weak]
+                    row,
+                    #[upgrade_or]
+                    glib::ControlFlow::Break,
+                    move || {
+                        row.update_otp_display();
+                        glib::ControlFlow::Continue
+                    }
+                ),
+            );
+            imp.timer_source.set(Some(source));
         });
 
-        let weak_row = self.downgrade();
-        glib::timeout_add_seconds_local(1, move || {
-            let Some(row) = weak_row.upgrade() else {
-                return glib::ControlFlow::Break;
-            };
-
-            row.update_otp_display();
-            glib::ControlFlow::Continue
+        self.connect_unmap(|row| {
+            if let Some(source) = row.imp().timer_source.take() {
+                source.remove();
+            }
         });
 
         self.update_url_validation();
