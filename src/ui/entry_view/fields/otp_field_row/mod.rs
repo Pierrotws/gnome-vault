@@ -55,6 +55,11 @@ impl OtpFieldRow {
         });
 
         let this = self.clone();
+        imp.reveal_url_button.connect_toggled(move |button| {
+            this.set_url_revealed(button.is_active());
+        });
+
+        let this = self.clone();
         let parent = entry_view.clone();
         imp.delete_button.connect_clicked(move |_| {
             if let Some(list) = this.parent() {
@@ -132,6 +137,23 @@ impl OtpFieldRow {
         imp.url_entry.set_has_frame(editable);
         imp.drag_handle.set_visible(row_controls_visible);
         imp.delete_button.set_visible(row_controls_visible);
+
+        if !editable {
+            imp.reveal_url_button.set_active(false);
+            self.set_url_revealed(false);
+        }
+    }
+
+    fn set_url_revealed(&self, revealed: bool) {
+        let imp = self.imp();
+        imp.url_entry.set_visibility(revealed);
+        if revealed {
+            imp.reveal_url_button.set_icon_name("view-conceal-symbolic");
+            imp.reveal_url_button.set_tooltip_text(Some("Hide URL"));
+        } else {
+            imp.reveal_url_button.set_icon_name("view-reveal-symbolic");
+            imp.reveal_url_button.set_tooltip_text(Some("Show URL"));
+        }
     }
 
     pub fn drag_handle(&self) -> gtk::Widget {
