@@ -102,20 +102,22 @@ template $MainWindow : Adw.ApplicationWindow {
                 child: Paned main_paned {
                     orientation: horizontal;
                     wide-handle: true;
-                    position: 260;
+                    position: 520;
                     shrink-start-child: true;
                     shrink-end-child: false;
 
                     start-child: Box selection_zone {
                         orientation: vertical;
-                        width-request: 200;
 
                         Stack selection_stack {
                             vexpand: true;
+                            hexpand: true;
 
                             StackPage {
                                 name: "tree";
                                 child: Adw.Bin simple_vault_bin {
+                                    vexpand: true;
+                                    hexpand: true;
                                     child: $VaultView vault_view {};
                                 };
                             }
@@ -123,18 +125,22 @@ template $MainWindow : Adw.ApplicationWindow {
                             StackPage {
                                 name: "group";
                                 child: Paned selection_paned {
+                                    vexpand: true;
+                                    hexpand: true;
                                     orientation: horizontal;
                                     wide-handle: true;
-                                    position: 200;
+                                    position: 180;
                                     shrink-start-child: false;
                                     shrink-end-child: true;
 
                                     start-child: Adw.Bin group_vault_bin {
-                                        width-request: 200;
+                                        vexpand: true;
+                                        width-request: 180;
                                     };
 
                                     end-child: $GroupView group_view {
-                                        width-request: 280;
+                                        vexpand: true;
+                                        hexpand: true;
                                     };
                                 };
                             }

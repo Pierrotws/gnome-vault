@@ -21,6 +21,9 @@ use crate::ui::{EntryView, GroupEntry};
 
 const CHANGES_PAGE_SIZE: usize = 50;
 const SETUP_PROVIDER_NONE: u32 = 0;
+const SIMPLE_SELECTION_WIDTH: i32 = 220;
+const GROUP_TREE_WIDTH: i32 = 180;
+const GROUP_SELECTION_WIDTH: i32 = 520;
 
 glib::wrapper! {
     pub struct MainWindow(ObjectSubclass<imp::MainWindow>)
@@ -95,6 +98,24 @@ impl MainWindow {
 
             imp.preferences_button.connect_clicked(move |_| {
                 window.show_preferences_dialog();
+            });
+        }
+
+        {
+            let window = self.clone();
+
+            imp.main_paned.connect_position_notify(move |paned| {
+                if window.show_group_view_enabled() && paned.position() < GROUP_TREE_WIDTH {
+                    paned.set_position(GROUP_TREE_WIDTH);
+                }
+            });
+        }
+
+        {
+            imp.selection_paned.connect_position_notify(move |paned| {
+                if paned.position() < GROUP_TREE_WIDTH {
+                    paned.set_position(GROUP_TREE_WIDTH);
+                }
             });
         }
 
@@ -645,7 +666,7 @@ impl MainWindow {
     }
 
     fn rebuild_vault_tree(&self) {
-        self.update_selection_layout();
+        self.update_selection_layout(false);
         let search_text = self.imp().vault_view.search_entry().text().to_string();
         let nodes = self.controller().borrow().filtered_tree(&search_text);
         let selection = if self.show_group_view_enabled() {
@@ -720,7 +741,7 @@ impl MainWindow {
 
     fn show_app_view(&self) {
         let imp = self.imp();
-        self.update_selection_layout();
+        self.update_selection_layout(true);
         imp.main_stack.set_visible_child_name("app");
         imp.new_entry_button.set_sensitive(true);
         imp.changes_button.set_sensitive(true);
@@ -758,34 +779,39 @@ impl MainWindow {
         self.show_group_content(&root);
     }
 
-    fn update_selection_layout(&self) {
+    fn update_selection_layout(&self, reset_position: bool) {
         if self.show_group_view_enabled() {
-            self.show_split_selection_layout();
+            self.show_split_selection_layout(reset_position);
         } else {
-            self.show_tree_selection_layout();
+            self.show_tree_selection_layout(reset_position);
         }
     }
 
-    fn show_tree_selection_layout(&self) {
+    fn show_tree_selection_layout(&self, reset_position: bool) {
         let imp = self.imp();
         if imp.simple_vault_bin.child().is_none() {
             imp.group_vault_bin.set_child(Option::<&gtk::Widget>::None);
             imp.simple_vault_bin.set_child(Some(&imp.vault_view.get()));
         }
-        imp.selection_zone.set_width_request(200);
+        imp.selection_zone.set_width_request(-1);
+        if reset_position {
+            imp.main_paned.set_position(SIMPLE_SELECTION_WIDTH);
+        }
         imp.selection_stack.set_visible_child_name("tree");
     }
 
-    fn show_split_selection_layout(&self) {
+    fn show_split_selection_layout(&self, reset_position: bool) {
         let imp = self.imp();
         if imp.group_vault_bin.child().is_none() {
             imp.simple_vault_bin.set_child(Option::<&gtk::Widget>::None);
             imp.group_vault_bin.set_child(Some(&imp.vault_view.get()));
         }
-        imp.selection_zone.set_width_request(480);
-        imp.selection_paned.set_position(200);
-        if imp.main_paned.position() < 200 {
-            imp.main_paned.set_position(200);
+        imp.selection_zone.set_width_request(-1);
+        if reset_position {
+            imp.main_paned.set_position(GROUP_SELECTION_WIDTH);
+            imp.selection_paned.set_position(GROUP_TREE_WIDTH);
+        } else if imp.main_paned.position() < GROUP_TREE_WIDTH {
+            imp.main_paned.set_position(GROUP_TREE_WIDTH);
         }
         imp.selection_stack.set_visible_child_name("group");
     }
