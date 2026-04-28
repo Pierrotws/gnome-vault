@@ -7,12 +7,14 @@ mod setup;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::mpsc;
+use std::time::Duration;
 
 use adw::{prelude::*, subclass::prelude::*};
 use gtk::{gio, glib};
 
 use crate::app::controller::AppController;
-use crate::pass::model::{PassNode, PassNodeKind};
+use crate::pass::model::{EntryData, PassNode, PassNodeKind};
 use crate::pass::store;
 use crate::ui::vault_view::{
     build_group_selection_with_root, build_selection_from_nodes_with_autoexpand, build_tree_factory,
@@ -24,6 +26,12 @@ const SETUP_PROVIDER_NONE: u32 = 0;
 const SIMPLE_SELECTION_WIDTH: i32 = 220;
 const GROUP_TREE_WIDTH: i32 = 180;
 const GROUP_SELECTION_WIDTH: i32 = 520;
+
+enum GroupPreviewMessage {
+    Loaded(usize, PassNode, EntryData),
+    Failed(PassNode, String),
+    Finished,
+}
 
 glib::wrapper! {
     pub struct MainWindow(ObjectSubclass<imp::MainWindow>)
@@ -67,10 +75,6 @@ impl MainWindow {
             self.show_setup_view();
             return;
         }
-        if let Err(err) = self.reload_changes_view() {
-            imp.entry_view.show_error(&err.to_string());
-        }
-
         imp.entry_view.display_empty();
         if self.show_group_view_enabled() {
             self.show_root_group_content();
@@ -772,6 +776,7 @@ impl MainWindow {
         imp.content_stack.set_visible_child_name("empty");
         imp.lock_vault_button.set_sensitive(false);
         imp.window_title.set_subtitle("Group");
+        self.start_group_subtitle_load(node);
     }
 
     fn show_root_group_content(&self) {
@@ -833,32 +838,73 @@ impl MainWindow {
             .filter(|child| child.is_entry())
             .map(|child| GroupEntry {
                 node: child.clone(),
-                subtitle: self.entry_subtitle(child),
+                subtitle: None,
             })
             .collect()
     }
 
-    fn entry_subtitle(&self, node: &PassNode) -> Option<String> {
-        let entry = match self.controller().borrow_mut().preview_entry(node) {
-            Ok(entry) => entry,
-            Err(err) => {
-                log::warn!(
-                    "Failed to load entry preview for {}: {err}",
-                    node.path.display()
-                );
-                return None;
+    fn start_group_subtitle_load(&self, group: &PassNode) {
+        let nodes = group
+            .children
+            .iter()
+            .filter(|child| child.is_entry())
+            .cloned()
+            .collect::<Vec<_>>();
+        if nodes.is_empty() {
+            return;
+        }
+
+        let generation = self.imp().group_preview_generation.get().wrapping_add(1);
+        self.imp().group_preview_generation.set(generation);
+
+        let (sender, receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            for (index, node) in nodes.into_iter().enumerate() {
+                let message = match AppController::load_entry_for_cache(&node) {
+                    Ok(entry) => GroupPreviewMessage::Loaded(index, node, entry),
+                    Err(err) => GroupPreviewMessage::Failed(node, err.to_string()),
+                };
+                if sender.send(message).is_err() {
+                    return;
+                }
             }
-        };
+            let _ = sender.send(GroupPreviewMessage::Finished);
+        });
 
-        let (key, value) = entry.fields.first()?;
-        let value = value.display_value();
-        let first_line = value.lines().next().unwrap_or("").trim();
+        let window = self.clone();
+        glib::timeout_add_local(Duration::from_millis(50), move || {
+            if window.imp().group_preview_generation.get() != generation {
+                return glib::ControlFlow::Break;
+            }
 
-        Some(if first_line.is_empty() {
-            format!("{key}:")
-        } else {
-            format!("{key}: {first_line}")
-        })
+            for _ in 0..16 {
+                match receiver.try_recv() {
+                    Ok(GroupPreviewMessage::Loaded(index, node, entry)) => {
+                        let subtitle = entry_subtitle(&entry);
+                        window
+                            .controller()
+                            .borrow_mut()
+                            .cache_loaded_entry(&node, entry);
+                        window.imp().group_view.update_entry_subtitle(
+                            index,
+                            &node,
+                            subtitle.as_deref(),
+                        );
+                    }
+                    Ok(GroupPreviewMessage::Failed(node, err)) => {
+                        log::warn!(
+                            "Failed to load entry preview for {}: {err}",
+                            node.path.display()
+                        );
+                    }
+                    Ok(GroupPreviewMessage::Finished) => return glib::ControlFlow::Break,
+                    Err(mpsc::TryRecvError::Empty) => break,
+                    Err(mpsc::TryRecvError::Disconnected) => return glib::ControlFlow::Break,
+                }
+            }
+
+            glib::ControlFlow::Continue
+        });
     }
 
     fn show_changes_content(&self) {
@@ -926,4 +972,16 @@ impl MainWindow {
         imp.window_title
             .set_subtitle(if editing { "Editing" } else { "Read-only" });
     }
+}
+
+fn entry_subtitle(entry: &EntryData) -> Option<String> {
+    let (key, value) = entry.fields.first()?;
+    let value = value.display_value();
+    let first_line = value.lines().next().unwrap_or("").trim();
+
+    Some(if first_line.is_empty() {
+        format!("{key}:")
+    } else {
+        format!("{key}: {first_line}")
+    })
 }
