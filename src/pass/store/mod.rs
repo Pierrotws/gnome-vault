@@ -268,9 +268,13 @@ fn write_entry_data(
     let parent = output_path
         .parent()
         .ok_or_else(|| StoreError::MissingParent(output_path.clone()))?;
-    let recipient_ids = pgp::recipient_ids(&store_dir)?;
-    let encrypted = pgp::encrypt(&plaintext, &recipient_ids)?;
+    // Create the parent first so we can canonicalize it. Creating the directory
+    // tree is idempotent; we abort before writing the entry file if the
+    // resolved parent escapes the store root (e.g. via a symlink).
     fs::create_dir_all(parent)?;
+    ensure_inside_store(&store_dir, parent)?;
+    let recipient_ids = pgp::recipient_ids_for(&store_dir, parent)?;
+    let encrypted = pgp::encrypt(&plaintext, &recipient_ids)?;
     fs::write(&output_path, encrypted)?;
     git::add(&store_dir, &output_path)?;
     git::commit(&store_dir, message)?;
@@ -280,9 +284,46 @@ fn write_entry_data(
     Ok(())
 }
 
+/// Canonicalizes the deepest existing ancestor of `parent` and asserts it lies
+/// inside `store_dir`. Guards against folder-symlink escapes from the store.
+fn ensure_inside_store(store_dir: &Path, parent: &Path) -> Result<(), StoreError> {
+    let canonical_root = store_dir
+        .canonicalize()
+        .map_err(|_| StoreError::InvalidFolderPath(parent.to_path_buf()))?;
+
+    // Walk up until we find a path that exists (and can therefore be
+    // canonicalized). At minimum this terminates at `store_dir` itself.
+    let mut probe: &Path = parent;
+    let canonical_parent = loop {
+        if let Ok(resolved) = probe.canonicalize() {
+            break resolved;
+        }
+        match probe.parent() {
+            Some(p) => probe = p,
+            None => return Err(StoreError::InvalidFolderPath(parent.to_path_buf())),
+        }
+    };
+
+    if !canonical_parent.starts_with(&canonical_root) {
+        return Err(StoreError::InvalidFolderPath(parent.to_path_buf()));
+    }
+
+    Ok(())
+}
+
 fn valid_entry_name(name: &str) -> Result<&str, StoreError> {
     let name = name.trim();
-    if name.is_empty() || name.contains('/') || name.contains('\\') {
+    if name.is_empty()
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('\0')
+        || name.starts_with('-')
+        || name == "."
+        || name == ".."
+        || name == ".gpg-id"
+        || name == ".gpg-id.gpg"
+        || name == ".gitattributes"
+    {
         return Err(StoreError::InvalidEntryName(name.to_string()));
     }
     Ok(name)
@@ -314,8 +355,20 @@ pub fn password_store_dir() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "gnome-vault-{name}-{}-{unique}",
+            std::process::id()
+        ))
+    }
 
     #[test]
     fn validates_entry_names() {
@@ -332,6 +385,34 @@ mod tests {
             valid_entry_name("folder\\example"),
             Err(StoreError::InvalidEntryName(_))
         ));
+        assert!(matches!(
+            valid_entry_name("."),
+            Err(StoreError::InvalidEntryName(_))
+        ));
+        assert!(matches!(
+            valid_entry_name(".."),
+            Err(StoreError::InvalidEntryName(_))
+        ));
+        assert!(matches!(
+            valid_entry_name("foo\0bar"),
+            Err(StoreError::InvalidEntryName(_))
+        ));
+        assert!(matches!(
+            valid_entry_name(".gpg-id"),
+            Err(StoreError::InvalidEntryName(_))
+        ));
+        assert!(matches!(
+            valid_entry_name(".gpg-id.gpg"),
+            Err(StoreError::InvalidEntryName(_))
+        ));
+        assert!(matches!(
+            valid_entry_name(".gitattributes"),
+            Err(StoreError::InvalidEntryName(_))
+        ));
+        assert!(matches!(
+            valid_entry_name("-rf"),
+            Err(StoreError::InvalidEntryName(_))
+        ));
     }
 
     #[test]
@@ -346,5 +427,32 @@ mod tests {
             validate_folder_path(Path::new("../email")),
             Err(StoreError::InvalidFolderPath(_))
         ));
+    }
+
+    #[test]
+    fn ensure_inside_store_rejects_traversal_outside_root() {
+        let root = temp_dir("ensure-inside-root");
+        let outside = temp_dir("ensure-inside-outside");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+
+        // A `..`-laced parent that resolves outside the store via canonicalize.
+        let traversal = root.join("inner").join("..").join("..").join(
+            outside
+                .file_name()
+                .expect("outside dir should have a file name"),
+        );
+        fs::create_dir_all(&traversal).unwrap();
+
+        let result = ensure_inside_store(&root, &traversal);
+        assert!(matches!(result, Err(StoreError::InvalidFolderPath(_))));
+
+        // A nested directory that DOES live under the store should pass.
+        let inside = root.join("ok").join("nested");
+        fs::create_dir_all(&inside).unwrap();
+        ensure_inside_store(&root, &inside).expect("nested in-store dir should be accepted");
+
+        fs::remove_dir_all(&root).unwrap();
+        fs::remove_dir_all(&outside).unwrap();
     }
 }
