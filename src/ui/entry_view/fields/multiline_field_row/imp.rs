@@ -1,5 +1,6 @@
 use adw::subclass::prelude::*;
 use gtk::glib;
+use gtk::prelude::*;
 
 use gtk::{
     Button, CompositeTemplate, Entry, Image, Label, ScrolledWindow, TemplateChild, TextView,
@@ -45,6 +46,13 @@ impl ObjectSubclass for MultilineFieldRow {
     }
 }
 
-impl ObjectImpl for MultilineFieldRow {}
+impl ObjectImpl for MultilineFieldRow {
+    fn dispose(&self) {
+        let obj = self.obj();
+        while let Some(child) = obj.first_child() {
+            child.unparent();
+        }
+    }
+}
 impl WidgetImpl for MultilineFieldRow {}
 impl ListBoxRowImpl for MultilineFieldRow {}

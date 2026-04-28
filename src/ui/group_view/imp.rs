@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 
 use adw::subclass::prelude::*;
+use gtk::prelude::*;
 use gtk::{
     glib,
     glib::{subclass::InitializingObject, subclass::Signal},
-    prelude::StaticType,
     CompositeTemplate, TemplateChild,
 };
 
@@ -54,6 +54,13 @@ impl ObjectImpl for GroupView {
     fn constructed(&self) {
         self.parent_constructed();
         self.obj().setup_callbacks();
+    }
+
+    fn dispose(&self) {
+        let obj = self.obj();
+        while let Some(child) = obj.first_child() {
+            child.unparent();
+        }
     }
 }
 

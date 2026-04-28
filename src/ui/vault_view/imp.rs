@@ -1,7 +1,7 @@
+use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{
     glib::{self, subclass::*},
-    prelude::StaticType,
     CompositeTemplate, TemplateChild,
 };
 
@@ -54,6 +54,13 @@ impl ObjectImpl for VaultView {
 
         let obj = self.obj();
         obj.setup_callbacks();
+    }
+
+    fn dispose(&self) {
+        let obj = self.obj();
+        while let Some(child) = obj.first_child() {
+            child.unparent();
+        }
     }
 }
 

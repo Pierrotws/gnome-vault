@@ -1,5 +1,6 @@
 use adw::subclass::prelude::*;
 use glib::subclass::InitializingObject;
+use gtk::prelude::*;
 use gtk::{glib, CompositeTemplate, TemplateChild};
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -37,6 +38,13 @@ impl ObjectImpl for GeneratePasswordView {
     fn constructed(&self) {
         self.parent_constructed();
         self.obj().setup();
+    }
+
+    fn dispose(&self) {
+        let obj = self.obj();
+        while let Some(child) = obj.first_child() {
+            child.unparent();
+        }
     }
 }
 
