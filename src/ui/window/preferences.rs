@@ -4,6 +4,8 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
 
+use crate::pass::store;
+
 use super::MainWindow;
 
 impl MainWindow {
@@ -33,7 +35,16 @@ impl MainWindow {
         autoload_row.set_active(self.setting_boolean("autoload", false));
         show_group_view_row.set_active(self.show_group_view_enabled());
         store_dir_row.set_text(&self.setting_string("store-dir", ""));
-        branch_row.set_text(&self.setting_string("branch", ""));
+        // Prefer an explicit user override; otherwise fall back to whatever
+        // branch the working tree currently has checked out, so the field is
+        // never blank if the repo is in a sensible state.
+        let branch_setting = self.setting_string("branch", "");
+        let branch_text = if branch_setting.trim().is_empty() {
+            store::current_branch_name().unwrap_or_default()
+        } else {
+            branch_setting
+        };
+        branch_row.set_text(&branch_text);
 
         autopush_row.connect_active_notify(glib::clone!(
             #[weak(rename_to = window)]

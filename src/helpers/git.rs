@@ -398,6 +398,13 @@ fn current_branch(repo: &Repository) -> Result<String, GitError> {
         .ok_or(GitError::NoHeadName)
 }
 
+/// Returns the working tree's current branch name, or `None` for an unborn
+/// branch / detached HEAD / repository that cannot be opened.
+pub fn current_branch_name(project_dir: &Path) -> Option<String> {
+    let repo = open_repository(project_dir).ok()?;
+    current_branch(&repo).ok()
+}
+
 fn remote_name_for_branch(repo: &Repository, branch: &str) -> Result<String, GitError> {
     let config = repo.config()?;
     Ok(config

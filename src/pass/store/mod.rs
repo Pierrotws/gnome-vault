@@ -184,6 +184,12 @@ pub fn rollback_to_change(commit_id: &str) -> Result<String, StoreError> {
     Ok(git::rollback_to_commit(&password_store_dir(), commit_id)?)
 }
 
+/// Returns the working tree's current branch name, if the repository is
+/// readable and on a named branch.
+pub fn current_branch_name() -> Option<String> {
+    git::current_branch_name(&password_store_dir())
+}
+
 /// Deletes an entry file, commits the deletion, and pushes it.
 pub fn delete_entry(node: &PassNode, autopush: bool) -> Result<(), StoreError> {
     let store_dir = password_store_dir();
