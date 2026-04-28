@@ -22,10 +22,18 @@ impl MainWindow {
         let show_group_view_row = builder
             .object::<adw::SwitchRow>("show_group_view_row")
             .expect("show_group_view_row must exist in preferences_dialog.ui");
+        let store_dir_row = builder
+            .object::<adw::EntryRow>("store_dir_row")
+            .expect("store_dir_row must exist in preferences_dialog.ui");
+        let branch_row = builder
+            .object::<adw::EntryRow>("branch_row")
+            .expect("branch_row must exist in preferences_dialog.ui");
 
         autopush_row.set_active(self.setting_boolean("autopush", true));
         autoload_row.set_active(self.setting_boolean("autoload", false));
         show_group_view_row.set_active(self.show_group_view_enabled());
+        store_dir_row.set_text(&self.setting_string("store-dir", ""));
+        branch_row.set_text(&self.setting_string("branch", ""));
 
         autopush_row.connect_active_notify(glib::clone!(
             #[weak(rename_to = window)]
@@ -85,6 +93,59 @@ impl MainWindow {
                 window.rebuild_vault_tree();
                 if row.is_active() {
                     window.show_root_group_content();
+                }
+            }
+        ));
+
+        store_dir_row.connect_apply(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |row| {
+                if !window.settings_has_key("store-dir") {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error("GSettings schema is missing store-dir");
+                    return;
+                }
+                let value = row.text().trim().to_string();
+                let settings = window.settings();
+                if let Err(err) = settings.set_string("store-dir", &value) {
+                    window.imp().entry_view.show_error(&err.to_string());
+                    return;
+                }
+                // Update the env var so subsequent store ops resolve to the
+                // new directory. The currently-loaded tree, opened entry,
+                // and decrypted cache still reflect the old vault until the
+                // user reloads or restarts.
+                window.apply_store_dir_setting();
+                window
+                    .imp()
+                    .entry_view
+                    .show_error("Vault directory updated; restart the app to load it");
+            }
+        ));
+
+        branch_row.connect_apply(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |row| {
+                if !window.settings_has_key("branch") {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error("GSettings schema is missing branch");
+                    return;
+                }
+                let value = row.text().trim().to_string();
+                let settings = window.settings();
+                if let Err(err) = settings.set_string("branch", &value) {
+                    window.imp().entry_view.show_error(&err.to_string());
+                    return;
+                }
+                window.apply_branch_setting();
+                if let Err(err) = window.reload_changes_view() {
+                    window.imp().entry_view.show_error(&err.to_string());
                 }
             }
         ));

@@ -20,6 +20,10 @@ use std::path::Path;
 pub struct AppController {
     state: AppState,
     autopush: bool,
+    /// User-configured branch name. `None` means "use the working tree's
+    /// current branch" (whatever HEAD points at). When `Some`, push and
+    /// history operations target this branch instead.
+    branch: Option<String>,
 }
 
 impl AppController {
@@ -28,6 +32,7 @@ impl AppController {
         Self {
             state: AppState::new(),
             autopush: true,
+            branch: None,
         }
     }
 
@@ -72,6 +77,17 @@ impl AppController {
 
     pub fn set_autopush(&mut self, autopush: bool) {
         self.autopush = autopush;
+    }
+
+    /// Returns the configured branch override, or `None` if push and history
+    /// should follow the working tree's current branch.
+    pub fn branch(&self) -> Option<&str> {
+        self.branch.as_deref()
+    }
+
+    /// Sets the configured branch. An empty string is treated as "no override".
+    pub fn set_branch(&mut self, branch: Option<String>) {
+        self.branch = branch.filter(|b| !b.trim().is_empty());
     }
 
     /// Initializes a new password-store vault and reloads application state.
@@ -136,18 +152,23 @@ impl AppController {
         self.state.cache_entry(node, entry);
     }
 
-    /// Lists commits reachable from the current password-store branch.
+    /// Lists commits reachable from the configured branch (or HEAD if none).
     pub fn load_changes(&self) -> Result<Vec<GitChange>, AppError> {
-        Ok(pass::store::load_changes()?)
+        Ok(pass::store::load_changes(self.branch())?)
     }
 
-    /// Lists one page of commits reachable from the current password-store branch.
+    /// Lists one page of commits reachable from the configured branch
+    /// (or HEAD if none).
     pub fn load_changes_page(
         &self,
         offset: usize,
         limit: usize,
     ) -> Result<Vec<GitChange>, AppError> {
-        Ok(pass::store::load_changes_page(offset, limit)?)
+        Ok(pass::store::load_changes_page(
+            offset,
+            limit,
+            self.branch(),
+        )?)
     }
 
     /// Reverts a password-store commit, then clears stale entry state.
@@ -170,7 +191,7 @@ impl AppController {
 
     /// Pushes committed local password-store changes.
     pub fn push_changes(&self) -> Result<(), AppError> {
-        Ok(pass::store::push_changes()?)
+        Ok(pass::store::push_changes(self.branch())?)
     }
 
     /// Opens an entry node and returns view data for the UI.

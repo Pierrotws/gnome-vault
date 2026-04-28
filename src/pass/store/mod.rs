@@ -116,7 +116,7 @@ pub fn setup_vault(setup: &VaultSetup) -> Result<(), StoreError> {
         if !remote_url.is_empty() {
             git::set_origin(&setup.store_dir, remote_url)?;
             if setup.autopush {
-                git::push(&setup.store_dir)?;
+                git::push(&setup.store_dir, None)?;
             }
         }
     }
@@ -136,15 +136,26 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
     parser::parse_entry(&content).ok_or_else(|| StoreError::EmptyFile(path))
 }
 
-/// Lists the current branch commit history for the password store repository.
-pub fn load_changes() -> Result<Vec<GitChange>, StoreError> {
-    Ok(git::current_branch_changes(&password_store_dir())?)
+/// Lists commit history for the password store repository.
+///
+/// When `branch` is `Some`, history is read from that local branch; otherwise
+/// the working tree's current branch is used.
+pub fn load_changes(branch: Option<&str>) -> Result<Vec<GitChange>, StoreError> {
+    Ok(git::branch_changes(&password_store_dir(), branch)?)
 }
 
-/// Lists one page from the current branch commit history.
-pub fn load_changes_page(offset: usize, limit: usize) -> Result<Vec<GitChange>, StoreError> {
-    Ok(git::current_branch_changes_page(
+/// Lists one page from the password store commit history.
+///
+/// When `branch` is `Some`, that local branch is walked; otherwise the
+/// working tree's current branch is used.
+pub fn load_changes_page(
+    offset: usize,
+    limit: usize,
+    branch: Option<&str>,
+) -> Result<Vec<GitChange>, StoreError> {
+    Ok(git::branch_changes_page(
         &password_store_dir(),
+        branch,
         offset,
         limit,
     )?)
@@ -155,14 +166,17 @@ pub fn revert_change(commit_id: &str, autopush: bool) -> Result<(), StoreError> 
     let store_dir = password_store_dir();
     git::revert_commit(&store_dir, commit_id)?;
     if autopush {
-        git::push(&store_dir)?;
+        git::push(&store_dir, None)?;
     }
     Ok(())
 }
 
 /// Pushes committed local password-store changes.
-pub fn push_changes() -> Result<(), StoreError> {
-    Ok(git::push(&password_store_dir())?)
+///
+/// When `branch` is `Some`, that local branch is pushed; otherwise the
+/// working tree's current branch is used.
+pub fn push_changes(branch: Option<&str>) -> Result<(), StoreError> {
+    Ok(git::push(&password_store_dir(), branch)?)
 }
 
 /// Backs up the current branch, resets it to a commit, and pushes the reset.
@@ -179,7 +193,7 @@ pub fn delete_entry(node: &PassNode, autopush: bool) -> Result<(), StoreError> {
     git::remove(&store_dir, &entry_path)?;
     git::commit(&store_dir, &format!("Delete entry {}", node.name))?;
     if autopush {
-        git::push(&store_dir)?;
+        git::push(&store_dir, None)?;
     }
 
     Ok(())
@@ -236,7 +250,7 @@ pub fn rename_entry(
     git::rename(&store_dir, &old_path, &new_path)?;
     git::commit(&store_dir, "rename entry")?;
     if autopush {
-        git::push(&store_dir)?;
+        git::push(&store_dir, None)?;
     }
 
     Ok(PassNode {
@@ -311,7 +325,7 @@ fn write_entry_data(
         // PushFailed so the UI can tell the user "saved locally, retry push"
         // rather than implying the entire save failed. Do NOT roll back the
         // committed file: the local state is the new value the user wanted.
-        if let Err(err) = git::push(&store_dir) {
+        if let Err(err) = git::push(&store_dir, None) {
             return Err(StoreError::PushFailed(err.to_string()));
         }
     }
@@ -621,7 +635,7 @@ mod tests {
 
         // Mirror the autopush tail of write_entry_data to confirm the
         // mapping: any push error becomes StoreError::PushFailed.
-        let push_result = crate::helpers::git::push(&dir);
+        let push_result = crate::helpers::git::push(&dir, None);
         let mapped: Result<(), StoreError> = match push_result {
             Ok(()) => Ok(()),
             Err(err) => Err(StoreError::PushFailed(err.to_string())),

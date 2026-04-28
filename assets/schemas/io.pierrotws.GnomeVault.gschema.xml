@@ -13,6 +13,12 @@
       <description
             >Directory containing the password-store git repository.</description>
     </key>
+    <key name="branch" type="s">
+      <default>''</default>
+      <summary>Branch to operate on</summary>
+      <description
+            >Local branch the app pushes to and reads history from. When empty, the working tree's current branch is used.</description>
+    </key>
     <key name="autoload" type="b">
       <default>false</default>
       <summary>Load entries at startup</summary>
