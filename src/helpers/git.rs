@@ -1,5 +1,7 @@
 use std::{
+    cell::{Cell, RefCell},
     path::{Path, PathBuf},
+    rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -7,6 +9,12 @@ use git2::{
     build::CheckoutBuilder, Cred, CredentialType, ErrorCode, Oid, PushOptions, RemoteCallbacks,
     Repository, ResetType, Sort,
 };
+
+/// Maximum number of times the credential callback is allowed to fire for a
+/// single push before we give up. libgit2 invokes the callback in a loop until
+/// authentication succeeds or the callback returns an error, so without a cap
+/// a permanently-rejected SSH key from `ssh-agent` would hang the app forever.
+const MAX_CREDENTIAL_ATTEMPTS: u32 = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitChange {
@@ -23,12 +31,18 @@ pub struct GitChange {
 #[derive(Debug)]
 pub enum GitError {
     Git(git2::Error),
-    InvalidPath { path: PathBuf, base: PathBuf },
+    InvalidPath {
+        path: PathBuf,
+        base: PathBuf,
+    },
     MissingWorkdir(PathBuf),
     NoHeadName,
     NoHeadTarget,
     NoChanges,
     Conflicts(String),
+    /// The remote rejected a push for a ref that we required to succeed before
+    /// taking a destructive action (e.g. the rollback safety backup ref).
+    BackupRejected(String),
 }
 
 impl std::fmt::Display for GitError {
@@ -49,6 +63,9 @@ impl std::fmt::Display for GitError {
             GitError::NoChanges => write!(f, "No changes to commit"),
             GitError::Conflicts(commit_id) => {
                 write!(f, "Reverting commit {commit_id} produced conflicts")
+            }
+            GitError::BackupRejected(reason) => {
+                write!(f, "Remote rejected rollback backup ref: {reason}")
             }
         }
     }
@@ -304,12 +321,20 @@ pub fn rollback_to_commit(project_dir: &Path, commit_id: &str) -> Result<String,
     let remote_name = remote_name_for_branch(&repo, &branch)?;
 
     repo.reference(&backup_ref, head_oid, false, "Create reset backup branch")?;
-    push_refspec(
-        &repo,
-        &remote_name,
-        &format!("{backup_ref}:{backup_ref}"),
-        false,
-    )?;
+    // libgit2's `Remote::push` returns `Ok(())` even when the server rejects
+    // an individual ref. Capture per-ref status via `push_update_reference` and
+    // refuse to perform the destructive reset/force-push if the backup was not
+    // accepted, otherwise we would destroy remote history with no recovery.
+    let backup_refspec = format!("{backup_ref}:{backup_ref}");
+    let backup_status = push_refspec_verified(&repo, &remote_name, &backup_refspec, false)?;
+    if let Some(reason) = backup_status {
+        // Roll back the local backup ref so we don't leak it on retry, then
+        // surface a typed error so callers can present a recovery message.
+        let _ = repo
+            .find_reference(&backup_ref)
+            .and_then(|mut reference| reference.delete());
+        return Err(GitError::BackupRejected(reason));
+    }
 
     repo.reset(&target, ResetType::Hard, None)?;
     repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
@@ -393,22 +418,43 @@ fn push_refspec(
     refspec: &str,
     force: bool,
 ) -> Result<(), GitError> {
+    push_refspec_verified(repo, remote_name, refspec, force).map(|_| ())
+}
+
+/// Pushes a single refspec and returns the per-ref status reported by the
+/// server.
+///
+/// Returns `Ok(None)` when the server accepted the update, `Ok(Some(reason))`
+/// when the server rejected it, and `Err(..)` for transport-level failures.
+/// Use this in places where a silent server-side rejection would be unsafe
+/// (e.g. before performing a destructive force-push).
+fn push_refspec_verified(
+    repo: &Repository,
+    remote_name: &str,
+    refspec: &str,
+    force: bool,
+) -> Result<Option<String>, GitError> {
     let config = repo.config()?;
     let mut callbacks = RemoteCallbacks::new();
+    install_credentials_callback(&mut callbacks, &config);
 
-    // Try SSH agent credentials first, then fall back to libgit2's configured
-    // credential helpers for HTTPS or custom credential setups.
-    callbacks.credentials(move |url, username_from_url, allowed_types| {
-        if allowed_types.contains(CredentialType::SSH_KEY) {
-            if let Some(username) = username_from_url {
-                if let Ok(cred) = Cred::ssh_key_from_agent(username) {
-                    return Ok(cred);
-                }
+    // libgit2's `Remote::push` does not surface per-ref rejections in its
+    // return value; it only reports transport errors. Capture rejection
+    // reasons via `push_update_reference`, which fires once per pushed ref
+    // with `None` for accepted updates and `Some(reason)` when the remote
+    // refused.
+    let rejections: Rc<RefCell<Vec<(String, String)>>> = Rc::new(RefCell::new(Vec::new()));
+    {
+        let rejections = Rc::clone(&rejections);
+        callbacks.push_update_reference(move |refname, status| {
+            if let Some(reason) = status {
+                rejections
+                    .borrow_mut()
+                    .push((refname.to_string(), reason.to_string()));
             }
-        }
-
-        Cred::credential_helper(&config, url, username_from_url)
-    });
+            Ok(())
+        });
+    }
 
     let mut push_options = PushOptions::new();
     push_options.remote_callbacks(callbacks);
@@ -421,7 +467,43 @@ fn push_refspec(
     repo.find_remote(remote_name)?
         .push(&[refspec.as_str()], Some(&mut push_options))?;
 
-    Ok(())
+    let mut rejections = rejections.borrow_mut();
+    if let Some((refname, reason)) = rejections.pop() {
+        return Ok(Some(format!("{refname}: {reason}")));
+    }
+
+    Ok(None)
+}
+
+/// Wires up the credential callback used for every push.
+///
+/// Tries SSH agent credentials first, then falls back to libgit2's configured
+/// credential helpers for HTTPS or custom credential setups. libgit2 invokes
+/// this callback in a tight loop until it returns `Err` or auth succeeds, so a
+/// permanently-rejected key from `ssh-agent` would otherwise hang the app —
+/// cap the number of attempts to fail fast in that case.
+fn install_credentials_callback<'a>(callbacks: &mut RemoteCallbacks<'a>, config: &'a git2::Config) {
+    let attempts = Cell::new(0u32);
+    callbacks.credentials(move |url, username_from_url, allowed_types| {
+        let attempt = attempts.get();
+        attempts.set(attempt + 1);
+        if attempt >= MAX_CREDENTIAL_ATTEMPTS {
+            return Err(git2::Error::from_str(
+                "Authentication failed after repeated credential attempts; \
+                 check your SSH agent or stored credentials",
+            ));
+        }
+
+        if allowed_types.contains(CredentialType::SSH_KEY) {
+            if let Some(username) = username_from_url {
+                if let Ok(cred) = Cred::ssh_key_from_agent(username) {
+                    return Ok(cred);
+                }
+            }
+        }
+
+        Cred::credential_helper(config, url, username_from_url)
+    });
 }
 
 fn update_tracking_ref(
@@ -722,6 +804,105 @@ mod tests {
 
         fs::remove_dir_all(dir).unwrap();
         fs::remove_dir_all(remote_dir).unwrap();
+    }
+
+    #[test]
+    fn rollback_does_not_destroy_remote_when_backup_push_fails() {
+        // End-to-end safety: if the backup push fails for any reason — here
+        // we point origin at a non-existent path so the backup push errors
+        // out — the local HEAD, working copy, and the remote branch must
+        // all be unchanged. The destructive reset + force-push must never
+        // run when the backup step did not succeed.
+        //
+        // Note: this exercises the transport-error path. The
+        // `BackupRejected` path (where libgit2's `Remote::push` returns
+        // Ok(()) but the per-ref status reported via
+        // `push_update_reference` is `Some(reason)`) is hard to trigger
+        // cleanly with libgit2's "local" transport, which mostly fails
+        // bad pushes client-side. The branch is exercised by the same
+        // safety logic and surfaced via `GitError::BackupRejected` in
+        // production, where the smart HTTP/SSH protocols populate per-ref
+        // status messages from the actual remote.
+        let dir = temp_dir("git-rollback-no-destroy");
+        let remote_dir = temp_dir("git-rollback-no-destroy-remote");
+        fs::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(&remote_dir).unwrap();
+        let repo = init_repo(&dir);
+        let remote_repo = Repository::init_bare(&remote_dir).unwrap();
+        repo.remote("origin", remote_dir.to_str().unwrap()).unwrap();
+
+        let file_path = dir.join("entry.gpg");
+        fs::write(&file_path, "first").unwrap();
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "First entry").unwrap();
+        let first_commit = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id()
+            .to_string();
+        push(&dir).unwrap();
+
+        fs::write(&file_path, "second").unwrap();
+        add(&dir, &file_path).unwrap();
+        commit(&dir, "Second entry").unwrap();
+        let second_commit = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id()
+            .to_string();
+        push(&dir).unwrap();
+
+        // Repoint origin at a non-existent path so the backup push fails.
+        let bad_remote = temp_dir("git-rollback-no-destroy-bad");
+        repo.remote_set_url("origin", bad_remote.to_str().unwrap())
+            .unwrap();
+
+        let result = rollback_to_commit(&dir, &first_commit);
+        assert!(
+            result.is_err(),
+            "rollback must fail when the backup push fails"
+        );
+
+        // Local HEAD must still point at the second commit — the destructive
+        // reset must not have run.
+        let head_after = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id()
+            .to_string();
+        assert_eq!(head_after, second_commit);
+        assert_eq!(fs::read_to_string(&file_path).unwrap(), "second");
+
+        // Restore origin so we can inspect what was/wasn't pushed.
+        repo.remote_set_url("origin", remote_dir.to_str().unwrap())
+            .unwrap();
+
+        // The original remote branch must still point at the second commit
+        // (i.e. we did not silently force-push a rolled-back history).
+        let branch_ref = repo.head().unwrap().name().unwrap().to_string();
+        let remote_branch = remote_repo.find_reference(&branch_ref).unwrap();
+        assert_eq!(remote_branch.target().unwrap().to_string(), second_commit);
+
+        fs::remove_dir_all(dir).unwrap();
+        fs::remove_dir_all(remote_dir).unwrap();
+    }
+
+    #[test]
+    fn backup_rejected_error_displays_reason() {
+        // Make sure the new typed error round-trips its reason string so the
+        // UI layer can show the user a recoverable message instead of a
+        // generic "git failed".
+        let err = GitError::BackupRejected("refs/heads/foo: denied by server".to_string());
+        let message = err.to_string();
+        assert!(matches!(err, GitError::BackupRejected(_)));
+        assert!(message.contains("rollback backup"));
+        assert!(message.contains("denied by server"));
     }
 
     #[test]
