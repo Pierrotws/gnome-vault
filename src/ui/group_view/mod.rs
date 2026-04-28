@@ -51,6 +51,27 @@ impl GroupView {
         }
     }
 
+    pub fn update_entry_subtitle(&self, index: usize, node: &PassNode, subtitle: Option<&str>) {
+        let imp = self.imp();
+        let entries = imp.entries.borrow();
+        let Some(current) = entries.get(index) else {
+            return;
+        };
+        if current.path != node.path {
+            return;
+        }
+        drop(entries);
+
+        let Some(row) = imp.entries_list.row_at_index(index as i32) else {
+            return;
+        };
+        let Ok(row) = row.downcast::<adw::ActionRow>() else {
+            return;
+        };
+
+        row.set_subtitle(subtitle.unwrap_or(""));
+    }
+
     pub fn connect_entry_activated<F>(&self, f: F) -> glib::SignalHandlerId
     where
         F: Fn(&Self, PassNode) + 'static,

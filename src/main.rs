@@ -51,14 +51,19 @@ fn main() -> glib::ExitCode {
 }
 
 fn resource_file() -> std::path::PathBuf {
-    let local_resource = Path::new("assets/resources.gresource");
-    if local_resource.exists() {
-        return local_resource.to_path_buf();
+    for path in [
+        "assets/resources.gresource",
+        "build/assets/resources.gresource",
+    ] {
+        let resource = Path::new(path);
+        if resource.exists() {
+            return resource.to_path_buf();
+        }
     }
 
     option_env!("RESOURCES_FILE")
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| local_resource.to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from("assets/resources.gresource"))
 }
 
 fn configure_local_schema_dir() {

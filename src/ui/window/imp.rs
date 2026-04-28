@@ -86,6 +86,7 @@ pub struct MainWindow {
     pub settings: OnceCell<gio::Settings>,
     pub loaded_changes_count: Cell<usize>,
     pub autoload_running: Cell<bool>,
+    pub group_preview_generation: Cell<u64>,
     pub setup_recipients: RefCell<Vec<crate::pass::store::GpgRecipient>>,
 }
 
