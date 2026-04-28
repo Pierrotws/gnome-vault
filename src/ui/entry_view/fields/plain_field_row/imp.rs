@@ -2,7 +2,7 @@ use adw::subclass::prelude::*;
 use gtk::glib;
 use gtk::prelude::*;
 
-use gtk::{Button, CompositeTemplate, Entry, Image, TemplateChild};
+use gtk::{Button, CompositeTemplate, Entry, Image, LinkButton, TemplateChild};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/fields/plain_field_row.ui")]
@@ -15,6 +15,9 @@ pub struct PlainFieldRow {
 
     #[template_child]
     pub value_entry: TemplateChild<Entry>,
+
+    #[template_child]
+    pub value_link_button: TemplateChild<LinkButton>,
 
     #[template_child]
     pub copy_button: TemplateChild<Button>,

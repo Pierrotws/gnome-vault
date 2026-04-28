@@ -44,6 +44,13 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
           </object>
         </child>
         <child>
+          <object class="GtkLinkButton" id="value_link_button">
+            <property name="visible">false</property>
+            <property name="hexpand">true</property>
+            <property name="halign">1</property>
+          </object>
+        </child>
+        <child>
           <object class="GtkButton" id="copy_button">
             <property name="icon-name">edit-copy-symbolic</property>
             <property name="tooltip-text" translatable="yes">Copy value</property>

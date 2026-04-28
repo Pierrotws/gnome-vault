@@ -33,6 +33,12 @@ template $PlainFieldRow : ListBoxRow {
             placeholder-text: _("Value");
         }
 
+        LinkButton value_link_button {
+            visible: false;
+            hexpand: true;
+            halign: start;
+        }
+
         Button copy_button {
             icon-name: "edit-copy-symbolic";
             tooltip-text: _("Copy value");
