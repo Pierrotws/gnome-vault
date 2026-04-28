@@ -68,7 +68,8 @@ heading</property>
                     <property name="max-width-chars">48</property>
                     <property name="has-frame">false</property>
                     <property name="visible">false</property>
-                    <property name="css-classes">title-3</property>
+                    <property name="css-classes">title-1
+heading</property>
                   </object>
                 </child>
                 <child>
