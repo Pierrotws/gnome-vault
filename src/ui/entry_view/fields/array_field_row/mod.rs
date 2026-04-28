@@ -19,33 +19,47 @@ impl ArrayFieldRow {
         let obj: Self = glib::Object::new();
         let imp = obj.imp();
 
-        let parent = entry_view.clone();
-        imp.title_entry.connect_changed(move |_| {
-            parent.mark_changed();
-        });
+        imp.title_entry.connect_changed(glib::clone!(
+            #[weak]
+            entry_view,
+            move |_| {
+                entry_view.mark_changed();
+            }
+        ));
 
-        let this = obj.clone();
-        let parent = entry_view.clone();
-        imp.add_item_button.connect_clicked(move |_| {
-            this.append_value_entry("", Some(&parent));
-            parent.mark_changed();
-        });
+        imp.add_item_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            obj,
+            #[weak]
+            entry_view,
+            move |_| {
+                this.append_value_entry("", Some(&entry_view));
+                entry_view.mark_changed();
+            }
+        ));
 
-        let this = obj.clone();
-        imp.copy_button.connect_clicked(move |_| {
-            clipboard::copy_secret(&this.values().join("\n"));
-        });
+        imp.copy_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            obj,
+            move |_| {
+                clipboard::copy_secret(&this.values().join("\n"));
+            }
+        ));
 
-        let this = obj.clone();
-        let parent = entry_view.clone();
-        imp.delete_button.connect_clicked(move |_| {
-            if let Some(list) = this.parent() {
-                if let Ok(container) = list.downcast::<gtk::Box>() {
-                    container.remove(&this);
-                    parent.mark_changed();
+        imp.delete_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            obj,
+            #[weak]
+            entry_view,
+            move |_| {
+                if let Some(list) = this.parent() {
+                    if let Ok(container) = list.downcast::<gtk::Box>() {
+                        container.remove(&this);
+                        entry_view.mark_changed();
+                    }
                 }
             }
-        });
+        ));
 
         obj
     }
@@ -145,19 +159,26 @@ impl ArrayFieldRow {
             .build();
 
         if let Some(entry_view) = entry_view {
-            let parent = entry_view.clone();
-            entry.connect_changed(move |_| {
-                parent.mark_changed();
-            });
+            entry.connect_changed(glib::clone!(
+                #[weak]
+                entry_view,
+                move |_| {
+                    entry_view.mark_changed();
+                }
+            ));
         }
 
+        // The per-value delete button captures `row` strongly because the row
+        // is a freshly-created local widget owned only by `value_list`; the
+        // closure needs to keep the row reference for `.parent()` lookup. The
+        // EntryView reference, however, is captured weakly to avoid a cycle.
         let row_to_delete = row.clone();
-        let parent = entry_view.cloned();
+        let entry_view_weak = entry_view.map(|view| view.downgrade());
         delete_button.connect_clicked(move |_| {
             if let Some(list) = row_to_delete.parent() {
                 if let Ok(listbox) = list.downcast::<gtk::ListBox>() {
                     listbox.remove(&row_to_delete);
-                    if let Some(parent) = &parent {
+                    if let Some(parent) = entry_view_weak.as_ref().and_then(|w| w.upgrade()) {
                         parent.mark_changed();
                     }
                 }

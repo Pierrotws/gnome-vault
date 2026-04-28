@@ -2,6 +2,7 @@ use std::cell::Cell;
 
 use adw::subclass::prelude::*;
 use gtk::glib;
+use gtk::prelude::*;
 
 use gtk::{
     Box, Button, CompositeTemplate, Entry, Image, Label, ProgressBar, TemplateChild, ToggleButton,
@@ -48,6 +49,8 @@ pub struct OtpFieldRow {
 
     pub show_row_controls: Cell<bool>,
     pub key_editable: Cell<bool>,
+    pub already_setup: Cell<bool>,
+    pub timer_source: Cell<Option<glib::SourceId>>,
 }
 
 #[glib::object_subclass]
@@ -65,6 +68,16 @@ impl ObjectSubclass for OtpFieldRow {
     }
 }
 
-impl ObjectImpl for OtpFieldRow {}
+impl ObjectImpl for OtpFieldRow {
+    fn dispose(&self) {
+        if let Some(source) = self.timer_source.take() {
+            source.remove();
+        }
+        let obj = self.obj();
+        while let Some(child) = obj.first_child() {
+            child.unparent();
+        }
+    }
+}
 impl WidgetImpl for OtpFieldRow {}
 impl ListBoxRowImpl for OtpFieldRow {}

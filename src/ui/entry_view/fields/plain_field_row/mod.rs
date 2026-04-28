@@ -19,29 +19,44 @@ impl PlainFieldRow {
         let obj: Self = glib::Object::new();
         let imp = obj.imp();
 
-        let parent = entry_view.clone();
-        imp.key_entry.connect_changed(move |_| {
-            parent.mark_changed();
-        });
-        let parent = entry_view.clone();
-        imp.value_entry.connect_changed(move |_| {
-            parent.mark_changed();
-        });
+        imp.key_entry.connect_changed(glib::clone!(
+            #[weak]
+            entry_view,
+            move |_| {
+                entry_view.mark_changed();
+            }
+        ));
+        imp.value_entry.connect_changed(glib::clone!(
+            #[weak]
+            entry_view,
+            move |_| {
+                entry_view.mark_changed();
+            }
+        ));
+        // The copy button captures the template's value_entry strongly, but
+        // value_entry is owned by `obj` (which holds the imp). The closure
+        // lives on a button that is also owned by `obj`. This is a sibling
+        // capture via the same root, not a parent->child cycle, so a strong
+        // reference is fine.
         let value_entry = imp.value_entry.clone();
         imp.copy_button.connect_clicked(move |_| {
             clipboard::copy_secret(&value_entry.text());
         });
 
-        let this = obj.clone();
-        let parent = entry_view.clone();
-        imp.delete_button.connect_clicked(move |_| {
-            if let Some(list) = this.parent() {
-                if let Ok(container) = list.downcast::<gtk::Box>() {
-                    container.remove(&this);
-                    parent.mark_changed();
+        imp.delete_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            obj,
+            #[weak]
+            entry_view,
+            move |_| {
+                if let Some(list) = this.parent() {
+                    if let Ok(container) = list.downcast::<gtk::Box>() {
+                        container.remove(&this);
+                        entry_view.mark_changed();
+                    }
                 }
             }
-        });
+        ));
         obj
     }
 

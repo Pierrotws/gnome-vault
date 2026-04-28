@@ -38,60 +38,94 @@ impl EntryView {
 
         imp.primary_otp_field_row.setup_callbacks(self);
         imp.primary_otp_field_row.configure_as_primary_field();
+        // password_field_row is a TemplateChild owned by self; capturing it
+        // strongly into its own copy-button closure does not form a cycle
+        // through self.
         imp.password_field_row.connect_copy_clicked({
             let password_field_row = imp.password_field_row.clone();
             move |_| {
                 clipboard::copy_secret(&password_field_row.text());
             }
         });
-        let this = self.clone();
-        imp.password_field_row.connect_generate_clicked(move |_| {
-            this.show_generate_password_dialog();
-        });
-        let this = self.clone();
-        imp.add_plain_field_button.connect_clicked(move |_| {
-            let row = PlainFieldRow::new_empty(&this);
-            this.append_custom_field_row(&row);
-        });
-        let this = self.clone();
-        imp.add_array_field_button.connect_clicked(move |_| {
-            let row = ArrayFieldRow::new(&this, "List", &[]);
-            this.append_custom_field_row(&row);
-        });
-        let this = self.clone();
-        imp.add_otp_field_button.connect_clicked(move |_| {
-            let row = OtpFieldRow::new(&this, "OTP", "");
-            this.append_custom_field_row(&row);
-        });
-        let this = self.clone();
-        imp.add_multiline_field_button.connect_clicked(move |_| {
-            let row = MultilineFieldRow::new(&this, "Notes", "");
-            this.append_custom_field_row(&row);
-        });
-        let this = self.clone();
-        imp.cancel_button.connect_clicked(move |_| {
-            this.emit_by_name::<()>("revert-requested", &[]);
-        });
-        let this = self.clone();
-        imp.save_button.connect_clicked(move |_| {
-            this.emit_by_name::<()>("save-requested", &[]);
-        });
-        let this = self.clone();
-        imp.delete_button.connect_clicked(move |_| {
-            this.emit_by_name::<()>("delete-requested", &[]);
-        });
-        let this = self.clone();
-        imp.password_field_row.connect_changed(move |_| {
-            this.mark_changed();
-        });
-        let this = self.clone();
-        imp.title_entry.connect_changed(move |_| {
-            this.resize_title_entry();
-            this.imp()
-                .title_label
-                .set_text(&this.imp().title_entry.text());
-            this.mark_changed();
-        });
+        imp.password_field_row
+            .connect_generate_clicked(glib::clone!(
+                #[weak(rename_to = this)]
+                self,
+                move |_| {
+                    this.show_generate_password_dialog();
+                }
+            ));
+        imp.add_plain_field_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                let row = PlainFieldRow::new_empty(&this);
+                this.append_custom_field_row(&row);
+            }
+        ));
+        imp.add_array_field_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                let row = ArrayFieldRow::new(&this, "List", &[]);
+                this.append_custom_field_row(&row);
+            }
+        ));
+        imp.add_otp_field_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                let row = OtpFieldRow::new(&this, "OTP", "");
+                this.append_custom_field_row(&row);
+            }
+        ));
+        imp.add_multiline_field_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                let row = MultilineFieldRow::new(&this, "Notes", "");
+                this.append_custom_field_row(&row);
+            }
+        ));
+        imp.cancel_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                this.emit_by_name::<()>("revert-requested", &[]);
+            }
+        ));
+        imp.save_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                this.emit_by_name::<()>("save-requested", &[]);
+            }
+        ));
+        imp.delete_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                this.emit_by_name::<()>("delete-requested", &[]);
+            }
+        ));
+        imp.password_field_row.connect_changed(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                this.mark_changed();
+            }
+        ));
+        imp.title_entry.connect_changed(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                this.resize_title_entry();
+                this.imp()
+                    .title_label
+                    .set_text(&this.imp().title_entry.text());
+                this.mark_changed();
+            }
+        ));
     }
 
     pub fn display_empty(&self) {
@@ -325,16 +359,23 @@ impl EntryView {
         }
 
         {
-            let this = self.clone();
-            let dialog = dialog.clone();
-            let content = content.clone();
-
-            ok_button.connect_clicked(move |_| {
-                let password = content.password();
-                this.imp().password_field_row.set_text(&password);
-                this.mark_changed();
-                dialog.close();
-            });
+            // The OK closure captures the dialog and the GeneratePasswordView
+            // strongly, but neither is owned by `self`. `this` is held weakly
+            // so the dialog cannot keep this EntryView alive.
+            ok_button.connect_clicked(glib::clone!(
+                #[weak(rename_to = this)]
+                self,
+                #[strong]
+                dialog,
+                #[strong]
+                content,
+                move |_| {
+                    let password = content.password();
+                    this.imp().password_field_row.set_text(&password);
+                    this.mark_changed();
+                    dialog.close();
+                }
+            ));
         }
 
         dialog.present();
@@ -495,6 +536,10 @@ impl EntryView {
         let drag_source = gtk::DragSource::builder()
             .actions(gtk::gdk::DragAction::MOVE)
             .build();
+        // `list_for_drag` is the custom_fields_list TemplateChild; it is
+        // owned by `self`. Capturing it strongly into a controller attached
+        // to a child of `self` does not form a cycle through `self`. Same
+        // for the row reference.
         let list_for_drag = self.imp().custom_fields_list.get();
         let row_for_drag = row.clone();
         drag_source.connect_prepare(move |_, _, _| {
@@ -506,15 +551,20 @@ impl EntryView {
         handle.add_controller(drag_source);
 
         let drop_target = gtk::DropTarget::new(i32::static_type(), gtk::gdk::DragAction::MOVE);
-        let this = self.clone();
         let target_row = row.clone();
-        drop_target.connect_drop(move |_, value, _, y| {
-            let Ok(source_index) = value.get::<i32>() else {
-                return false;
-            };
+        drop_target.connect_drop(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[upgrade_or]
+            false,
+            move |_, value, _, y| {
+                let Ok(source_index) = value.get::<i32>() else {
+                    return false;
+                };
 
-            this.move_custom_field_row(source_index, &target_row, y)
-        });
+                this.move_custom_field_row(source_index, &target_row, y)
+            }
+        ));
         row.add_controller(drop_target);
     }
 

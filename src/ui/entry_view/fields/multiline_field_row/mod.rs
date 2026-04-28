@@ -19,34 +19,48 @@ impl MultilineFieldRow {
         let obj: Self = glib::Object::new();
         let imp = obj.imp();
 
-        let parent = entry_view.clone();
-        imp.title_entry.connect_changed(move |_| {
-            parent.mark_changed();
-        });
+        imp.title_entry.connect_changed(glib::clone!(
+            #[weak]
+            entry_view,
+            move |_| {
+                entry_view.mark_changed();
+            }
+        ));
 
         let buffer = imp.value_text_view.buffer();
-        let this = obj.clone();
-        let parent = entry_view.clone();
-        buffer.connect_changed(move |_| {
-            this.sync_value_label();
-            parent.mark_changed();
-        });
+        buffer.connect_changed(glib::clone!(
+            #[weak(rename_to = this)]
+            obj,
+            #[weak]
+            entry_view,
+            move |_| {
+                this.sync_value_label();
+                entry_view.mark_changed();
+            }
+        ));
 
-        let this = obj.clone();
-        imp.copy_button.connect_clicked(move |_| {
-            clipboard::copy_secret(&this.value());
-        });
+        imp.copy_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            obj,
+            move |_| {
+                clipboard::copy_secret(&this.value());
+            }
+        ));
 
-        let this = obj.clone();
-        let parent = entry_view.clone();
-        imp.delete_button.connect_clicked(move |_| {
-            if let Some(list) = this.parent() {
-                if let Ok(container) = list.downcast::<gtk::Box>() {
-                    container.remove(&this);
-                    parent.mark_changed();
+        imp.delete_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            obj,
+            #[weak]
+            entry_view,
+            move |_| {
+                if let Some(list) = this.parent() {
+                    if let Ok(container) = list.downcast::<gtk::Box>() {
+                        container.remove(&this);
+                        entry_view.mark_changed();
+                    }
                 }
             }
-        });
+        ));
 
         obj
     }

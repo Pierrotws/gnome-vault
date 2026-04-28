@@ -20,15 +20,18 @@ impl ChangesView {
 
     pub fn setup_callbacks(&self) {
         let adjustment = self.imp().changes_scrolled_window.vadjustment();
-        let this = self.clone();
-        adjustment.connect_value_changed(move |adjustment| {
-            if !this.should_request_more(adjustment) {
-                return;
-            }
+        adjustment.connect_value_changed(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |adjustment| {
+                if !this.should_request_more(adjustment) {
+                    return;
+                }
 
-            this.imp().is_loading_more.set(true);
-            this.emit_by_name::<()>("load-more-requested", &[]);
-        });
+                this.imp().is_loading_more.set(true);
+                this.emit_by_name::<()>("load-more-requested", &[]);
+            }
+        ));
     }
 
     pub fn set_changes(&self, changes: &[GitChange]) {
@@ -166,10 +169,13 @@ impl ChangesView {
 
         let commit_id = change.id.clone();
         let is_pushed = change.is_pushed;
-        let this = self.clone();
+        let this_weak = self.downgrade();
         let gesture = gtk::GestureClick::new();
         gesture.set_button(gdk::BUTTON_SECONDARY);
         gesture.connect_pressed(move |gesture, _, x, y| {
+            let Some(this) = this_weak.upgrade() else {
+                return;
+            };
             let Some(widget) = gesture.widget() else {
                 return;
             };
