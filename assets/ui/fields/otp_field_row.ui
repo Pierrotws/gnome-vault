@@ -84,6 +84,16 @@ numeric</property>
                 <property name="hexpand">true</property>
                 <property name="width-chars">32</property>
                 <property name="placeholder-text" translatable="yes">otpauth://totp/...</property>
+                <property name="visibility">false</property>
+                <property name="input-purpose">8</property>
+                <property name="input-hints">private|no-emoji|no-spellcheck</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="reveal_url_button">
+                <property name="icon-name">view-reveal-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Show URL</property>
+                <property name="valign">3</property>
               </object>
             </child>
             <child>

@@ -67,6 +67,15 @@ template $OtpFieldRow : ListBoxRow {
                 hexpand: true;
                 width-chars: 32;
                 placeholder-text: _("otpauth://totp/...");
+                visibility: false;
+                input-purpose: password;
+                input-hints: private | no_emoji | no_spellcheck;
+            }
+
+            ToggleButton reveal_url_button {
+                icon-name: "view-reveal-symbolic";
+                tooltip-text: _("Show URL");
+                valign: center;
             }
 
             Button copy_url_button {

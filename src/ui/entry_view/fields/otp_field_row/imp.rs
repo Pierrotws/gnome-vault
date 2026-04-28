@@ -3,7 +3,9 @@ use std::cell::Cell;
 use adw::subclass::prelude::*;
 use gtk::glib;
 
-use gtk::{Box, Button, CompositeTemplate, Entry, Image, Label, ProgressBar, TemplateChild};
+use gtk::{
+    Box, Button, CompositeTemplate, Entry, Image, Label, ProgressBar, TemplateChild, ToggleButton,
+};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/fields/otp_field_row.ui")]
@@ -34,6 +36,9 @@ pub struct OtpFieldRow {
 
     #[template_child]
     pub copy_code_button: TemplateChild<Button>,
+
+    #[template_child]
+    pub reveal_url_button: TemplateChild<ToggleButton>,
 
     #[template_child]
     pub copy_url_button: TemplateChild<Button>,
