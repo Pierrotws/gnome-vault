@@ -140,12 +140,55 @@ pub fn available_recipients() -> Result<Vec<GpgRecipient>, PgpError> {
     Ok(recipients)
 }
 
-/// Reads recipient key IDs from the password-store `.gpg-id` file.
+/// Reads recipient key IDs from the password-store root `.gpg-id` file.
 ///
-/// Empty lines and comment lines beginning with `#` are ignored.
+/// Empty lines and comment lines beginning with `#` are ignored. Entry-write
+/// code paths should prefer [`recipient_ids_for`], which honors per-folder
+/// `.gpg-id` overrides like `pass(1)`.
+#[allow(dead_code)]
 pub fn recipient_ids(store_dir: &Path) -> Result<Vec<String>, PgpError> {
-    let gpg_id_path = store_dir.join(".gpg-id");
-    let content = fs::read_to_string(&gpg_id_path).map_err(|source| PgpError::ReadError {
+    read_gpg_id_file(&store_dir.join(".gpg-id"))
+}
+
+/// Reads recipient key IDs by walking from `entry_parent` upward, taking the
+/// first `.gpg-id` found and stopping at (and including) `store_root`.
+///
+/// This mirrors `pass(1)` semantics, where each subdirectory may override its
+/// recipients by providing its own `.gpg-id` file.
+pub fn recipient_ids_for(store_root: &Path, entry_parent: &Path) -> Result<Vec<String>, PgpError> {
+    // Use canonicalized variants when both sides exist so that ancestor checks
+    // are robust against path quirks (trailing components, `.` segments, etc.).
+    let canonical_root = store_root
+        .canonicalize()
+        .unwrap_or_else(|_| store_root.to_path_buf());
+
+    let start = if entry_parent.exists() {
+        entry_parent
+            .canonicalize()
+            .unwrap_or_else(|_| entry_parent.to_path_buf())
+    } else {
+        entry_parent.to_path_buf()
+    };
+
+    let mut current: Option<&Path> = Some(start.as_path());
+    while let Some(dir) = current {
+        let candidate = dir.join(".gpg-id");
+        if candidate.is_file() {
+            return read_gpg_id_file(&candidate);
+        }
+        if dir == canonical_root || dir == store_root {
+            break;
+        }
+        current = dir.parent();
+    }
+
+    // Fallback to the root `.gpg-id` (will produce a useful ReadError if
+    // missing).
+    read_gpg_id_file(&store_root.join(".gpg-id"))
+}
+
+fn read_gpg_id_file(gpg_id_path: &Path) -> Result<Vec<String>, PgpError> {
+    let content = fs::read_to_string(gpg_id_path).map_err(|source| PgpError::ReadError {
         path: gpg_id_path.to_path_buf(),
         source,
     })?;
@@ -220,6 +263,36 @@ mod tests {
         let err = recipient_ids(&dir).unwrap_err();
 
         assert!(matches!(err, PgpError::ReadError { .. }));
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn per_folder_gpg_id_overrides_root() {
+        let dir = temp_dir("pgp-per-folder-recipients");
+        let sub = dir.join("sub");
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(dir.join(".gpg-id"), "root@example.invalid\n").unwrap();
+        fs::write(sub.join(".gpg-id"), "sub@example.invalid\n").unwrap();
+
+        let from_sub = recipient_ids_for(&dir, &sub).unwrap();
+        assert_eq!(from_sub, vec!["sub@example.invalid"]);
+
+        let from_root = recipient_ids_for(&dir, &dir).unwrap();
+        assert_eq!(from_root, vec!["root@example.invalid"]);
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn per_folder_walks_up_to_root_when_subfolder_has_none() {
+        let dir = temp_dir("pgp-walk-up-recipients");
+        let sub = dir.join("a").join("b");
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(dir.join(".gpg-id"), "root@example.invalid\n").unwrap();
+
+        let ids = recipient_ids_for(&dir, &sub).unwrap();
+        assert_eq!(ids, vec!["root@example.invalid"]);
 
         fs::remove_dir_all(dir).unwrap();
     }
