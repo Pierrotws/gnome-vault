@@ -1,9 +1,10 @@
 use adw::subclass::prelude::*;
 use gtk::glib;
 use gtk::prelude::*;
+use once_cell::unsync::OnceCell;
 
 use gtk::{
-    Button, CompositeTemplate, Entry, Image, Label, ScrolledWindow, TemplateChild, TextView,
+    gio, Box, Button, CompositeTemplate, Entry, Image, ScrolledWindow, TemplateChild, TextView,
 };
 
 #[derive(Default, CompositeTemplate)]
@@ -16,7 +17,7 @@ pub struct MultilineFieldRow {
     pub title_entry: TemplateChild<Entry>,
 
     #[template_child]
-    pub value_label: TemplateChild<Label>,
+    pub value_view_box: TemplateChild<Box>,
 
     #[template_child]
     pub value_scrolled_window: TemplateChild<ScrolledWindow>,
@@ -29,6 +30,8 @@ pub struct MultilineFieldRow {
 
     #[template_child]
     pub delete_button: TemplateChild<Button>,
+
+    pub settings: OnceCell<gio::Settings>,
 }
 
 #[glib::object_subclass]

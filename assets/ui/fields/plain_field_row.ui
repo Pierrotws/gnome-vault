@@ -28,7 +28,8 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
             <property name="hexpand">false</property>
             <property name="width-chars">18</property>
             <property name="placeholder-text" translatable="yes">Key</property>
-            <property name="css-classes">heading</property>
+            <property name="css-classes">title-2
+heading</property>
           </object>
         </child>
         <child>

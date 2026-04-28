@@ -31,7 +31,8 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
               <object class="GtkEntry" id="title_entry">
                 <property name="placeholder-text" translatable="yes">Key</property>
                 <property name="hexpand">true</property>
-                <property name="css-classes">heading</property>
+                <property name="css-classes">title-2
+heading</property>
               </object>
             </child>
             <child>

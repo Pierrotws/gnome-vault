@@ -23,7 +23,7 @@ template $MultilineFieldRow : ListBoxRow {
             Entry title_entry {
                 placeholder-text: _("Key");
                 hexpand: true;
-                css-classes: ["heading"];
+                css-classes: ["title-2", "heading"];
             }
 
             Button copy_button {
@@ -39,10 +39,9 @@ template $MultilineFieldRow : ListBoxRow {
             }
         }
 
-        Label value_label {
-            wrap: true;
-            xalign: 0;
-            selectable: true;
+        Box value_view_box {
+            orientation: vertical;
+            spacing: 6;
             margin-top: 8;
             margin-bottom: 8;
             margin-start: 8;
@@ -50,9 +49,10 @@ template $MultilineFieldRow : ListBoxRow {
         }
 
         ScrolledWindow value_scrolled_window {
-            min-content-height: 96;
-            max-content-height: 220;
+            min-content-height: 160;
+            max-content-height: 480;
             propagate-natural-height: true;
+            vexpand: true;
 
             child: TextView value_text_view {
                 wrap-mode: word_char;
