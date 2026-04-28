@@ -682,10 +682,14 @@ impl MainWindow {
         }
 
         let dialog = adw::AlertDialog::builder()
-            .heading("Rollback Branch?")
-            .body("This will create and push a reset backup branch, hard-reset the current branch to this action, and push the reset branch state.")
+            .heading("Discard changes after this point?")
+            .body(
+                "Every change after the selected one will be removed from the \
+                 vault. A backup is saved to the remote first so you can \
+                 recover if something goes wrong.",
+            )
             .build();
-        dialog.add_responses(&[("cancel", "Cancel"), ("rollback", "Rollback")]);
+        dialog.add_responses(&[("cancel", "Cancel"), ("rollback", "Discard later changes")]);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
         dialog.set_response_appearance("rollback", adw::ResponseAppearance::Destructive);
@@ -743,8 +747,11 @@ impl MainWindow {
             }
 
             let dialog = adw::AlertDialog::builder()
-                .heading("Rollback Complete")
-                .body(format!("Backup branch pushed: {backup_branch}"))
+                .heading("Changes discarded")
+                .body(format!(
+                    "A backup was saved to the remote as \"{backup_branch}\" \
+                     in case you need to recover."
+                ))
                 .build();
             dialog.add_responses(&[("ok", "OK")]);
             dialog.set_default_response(Some("ok"));
