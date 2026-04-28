@@ -560,6 +560,7 @@ dependencies = [
  "git2",
  "glib-build-tools",
  "gpgme",
+ "gtk-markdown",
  "gtk4",
  "hmac",
  "libadwaita",
@@ -673,6 +674,13 @@ dependencies = [
  "libc",
  "pango-sys",
  "system-deps 7.0.8",
+]
+
+[[package]]
+name = "gtk-markdown"
+version = "0.1.0"
+dependencies = [
+ "gtk4",
 ]
 
 [[package]]
