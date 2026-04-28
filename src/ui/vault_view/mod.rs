@@ -1,6 +1,6 @@
 mod imp;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use gtk::{gdk, gio, glib, ListItemFactory, SelectionModel};
 use gtk::{prelude::*, subclass::prelude::*};
@@ -202,6 +202,84 @@ impl VaultView {
 
         Some(node.clone())
     }
+
+    /// Selects the row matching `target_path`, expanding ancestors as needed.
+    ///
+    /// Walks the tree by ancestor path from the root toward the target;
+    /// each ancestor's row is forced expanded so its children become visible
+    /// in the flat `TreeListModel` for the next iteration. Returns true if
+    /// the target was found and selected.
+    pub fn select_node_by_path(&self, target_path: &Path) -> bool {
+        let Some(model) = self.imp().tree_view.model() else {
+            return false;
+        };
+        let Ok(selection) = model.downcast::<gtk::SingleSelection>() else {
+            return false;
+        };
+        let Some(tree_model) = selection
+            .model()
+            .and_then(|m| m.downcast::<gtk::TreeListModel>().ok())
+        else {
+            return false;
+        };
+
+        let mut ancestors: Vec<PathBuf> = Vec::new();
+        let mut current = target_path.parent();
+        while let Some(parent) = current {
+            ancestors.push(parent.to_path_buf());
+            current = parent.parent();
+        }
+        ancestors.reverse();
+
+        for ancestor in &ancestors {
+            if let Some(row) = find_tree_row_by_path(&tree_model, ancestor) {
+                if !row.is_expanded() {
+                    row.set_expanded(true);
+                }
+            }
+        }
+
+        let Some(position) = find_tree_position_by_path(&tree_model, target_path) else {
+            return false;
+        };
+        selection.set_selected(position);
+        true
+    }
+}
+
+fn find_tree_row_by_path(model: &gtk::TreeListModel, target: &Path) -> Option<gtk::TreeListRow> {
+    for index in 0..model.n_items() {
+        let Some(row) = model.row(index) else {
+            continue;
+        };
+        if tree_row_path_matches(&row, target) {
+            return Some(row);
+        }
+    }
+    None
+}
+
+fn find_tree_position_by_path(model: &gtk::TreeListModel, target: &Path) -> Option<u32> {
+    for index in 0..model.n_items() {
+        let Some(row) = model.row(index) else {
+            continue;
+        };
+        if tree_row_path_matches(&row, target) {
+            return Some(index);
+        }
+    }
+    None
+}
+
+fn tree_row_path_matches(row: &gtk::TreeListRow, target: &Path) -> bool {
+    let Some(item) = row.item() else {
+        return false;
+    };
+    let Ok(boxed) = item.downcast::<glib::BoxedAnyObject>() else {
+        return false;
+    };
+    let node = boxed.borrow::<PassNode>();
+    node.path == target
 }
 
 impl Default for VaultView {

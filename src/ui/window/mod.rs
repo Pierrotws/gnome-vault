@@ -228,6 +228,20 @@ impl MainWindow {
                     return;
                 }
 
+                // While searching, the right pane belongs to the search
+                // results; programmatic and manual group selection both
+                // leave it untouched.
+                if !window
+                    .imp()
+                    .vault_view
+                    .search_entry()
+                    .text()
+                    .trim()
+                    .is_empty()
+                {
+                    return;
+                }
+
                 window.show_group_content(&node);
             });
         }
@@ -271,7 +285,20 @@ impl MainWindow {
             let window = self.clone();
 
             imp.group_view.connect_entry_activated(move |_, node| {
+                let search_active = !window
+                    .imp()
+                    .vault_view
+                    .search_entry()
+                    .text()
+                    .trim()
+                    .is_empty();
+                let parent_path = node.path.parent().map(|p| p.to_path_buf());
                 window.open_entry_node(node);
+                if search_active {
+                    if let Some(parent) = parent_path {
+                        window.imp().vault_view.select_node_by_path(&parent);
+                    }
+                }
             });
         }
 
@@ -651,12 +678,16 @@ impl MainWindow {
         self.update_selection_layout(false);
         let search_text = self.imp().vault_view.search_entry().text().to_string();
         let nodes = self.controller().borrow().filtered_tree(&search_text);
-        let selection = if self.show_group_view_enabled() {
+        let group_view = self.show_group_view_enabled();
+        let selection = if group_view {
             build_group_selection_with_root(&nodes, true)
         } else {
             build_selection_from_nodes_with_autoexpand(&nodes, !search_text.trim().is_empty())
         };
         self.imp().vault_view.set_selection_model(&selection);
+        if group_view {
+            self.show_root_group_content();
+        }
     }
 
     fn reload_changes_view(&self) -> Result<(), crate::app::app_error::AppError> {
