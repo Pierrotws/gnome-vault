@@ -6,7 +6,8 @@ use std::path::PathBuf;
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 
-use crate::pass::store::{self, VaultSetup};
+use crate::app::controller::AppController;
+use crate::pass::store::VaultSetup;
 
 use super::{MainWindow, SETUP_PROVIDER_NONE};
 
@@ -63,7 +64,7 @@ impl MainWindow {
             String::new()
         };
         let default_store_dir = if configured_store_dir.trim().is_empty() {
-            store::password_store_dir()
+            AppController::default_store_dir()
         } else {
             PathBuf::from(&configured_store_dir)
         };
@@ -118,8 +119,6 @@ impl MainWindow {
             remote_url,
             autopush: self.controller().borrow().autopush(),
         };
-
-        std::env::set_var("PASSWORD_STORE_DIR", &store_dir);
 
         let setup_result = {
             let controller = self.controller();

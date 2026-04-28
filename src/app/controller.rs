@@ -15,7 +15,7 @@ use crate::{
         store::{GpgRecipient, VaultSetup},
     },
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct AppController {
     state: AppState,
@@ -91,8 +91,12 @@ impl AppController {
     }
 
     /// Initializes a new password-store vault and reloads application state.
+    ///
+    /// Updates `PASSWORD_STORE_DIR` so subsequent store operations (which
+    /// read it on every call) resolve to the freshly created vault.
     pub fn setup_vault(&mut self, setup: &VaultSetup) -> Result<(), AppError> {
         pass::store::setup_vault(setup)?;
+        std::env::set_var("PASSWORD_STORE_DIR", &setup.store_dir);
         self.state.clear_entry_cache();
         self.state.set_current_session(None);
         self.reload_tree()?;
@@ -102,6 +106,16 @@ impl AppController {
     /// Lists usable GPG recipients for a newly created vault.
     pub fn available_recipients(&self) -> Result<Vec<GpgRecipient>, AppError> {
         Ok(pass::store::available_recipients()?)
+    }
+
+    /// Returns the active password-store directory (env var or default).
+    pub fn default_store_dir() -> PathBuf {
+        pass::store::password_store_dir()
+    }
+
+    /// Returns the working tree's current branch name, if readable.
+    pub fn current_branch_name() -> Option<String> {
+        pass::store::current_branch_name()
     }
 
     /// Reloads the password-store tree from disk.
