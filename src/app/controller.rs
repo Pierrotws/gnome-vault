@@ -152,6 +152,12 @@ impl AppController {
         self.state.cache_entry(node, entry);
     }
 
+    /// Clears loaded entry state after an operation rewrites vault history.
+    pub fn clear_loaded_entry_state(&mut self) {
+        self.state.clear_entry_cache();
+        self.state.set_current_session(None);
+    }
+
     /// Lists commits reachable from the configured branch (or HEAD if none).
     pub fn load_changes(&self) -> Result<Vec<GitChange>, AppError> {
         Ok(pass::store::load_changes(self.branch())?)
@@ -169,29 +175,6 @@ impl AppController {
             limit,
             self.branch(),
         )?)
-    }
-
-    /// Reverts a password-store commit, then clears stale entry state.
-    pub fn revert_change(&mut self, commit_id: &str) -> Result<(), AppError> {
-        pass::store::revert_change(commit_id, self.autopush)?;
-        self.state.clear_entry_cache();
-        self.state.set_current_session(None);
-        self.reload_tree()?;
-        Ok(())
-    }
-
-    /// Rolls the branch back to a commit after creating a remote backup branch.
-    pub fn rollback_to_change(&mut self, commit_id: &str) -> Result<String, AppError> {
-        let backup_branch = pass::store::rollback_to_change(commit_id)?;
-        self.state.clear_entry_cache();
-        self.state.set_current_session(None);
-        self.reload_tree()?;
-        Ok(backup_branch)
-    }
-
-    /// Pushes committed local password-store changes.
-    pub fn push_changes(&self) -> Result<(), AppError> {
-        Ok(pass::store::push_changes(self.branch())?)
     }
 
     /// Opens an entry node and returns view data for the UI.
