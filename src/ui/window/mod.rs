@@ -229,16 +229,22 @@ impl MainWindow {
 
                 let updated = view.to_entry_view_data();
 
-                let result = {
-                    let mut controller = controller.borrow_mut();
-                    controller.update_current_entry(updated)
-                };
+                let result = controller.borrow_mut().update_current_entry(updated);
 
                 match result {
                     Ok(()) => {
-                        let is_dirty = controller.borrow().has_unsaved_changes();
+                        // Snapshot the bools we need in a single borrow before
+                        // any widget setter runs, so a setter-driven signal
+                        // can never re-enter the controller while a borrow is
+                        // still live.
+                        let (is_dirty, is_valid) = {
+                            let controller = controller.borrow();
+                            (
+                                controller.has_unsaved_changes(),
+                                controller.has_valid_changes(),
+                            )
+                        };
                         view.set_cancellable(is_dirty);
-                        let is_valid = controller.borrow().has_valid_changes();
                         view.set_saveable(is_valid);
                         window.set_edit_unlock_state(true, view.is_editable_mode(), is_dirty);
                     }
@@ -264,6 +270,16 @@ impl MainWindow {
 
                 match result {
                     Ok(()) => {
+                        // Snapshot bools before any widget setter runs;
+                        // setters can synchronously emit signals that
+                        // re-enter the controller and would otherwise panic.
+                        let (is_dirty, is_valid) = {
+                            let controller = controller.borrow();
+                            (
+                                controller.has_unsaved_changes(),
+                                controller.has_valid_changes(),
+                            )
+                        };
                         view.set_editable_mode(false);
                         if let Err(err) = window.reload_vault_tree() {
                             view.show_error(&err.to_string());
@@ -272,9 +288,7 @@ impl MainWindow {
                             view.show_error(&err.to_string());
                         }
                         window.set_edit_unlock_state(true, false, false);
-                        let is_dirty = controller.borrow().has_unsaved_changes();
                         view.set_cancellable(is_dirty);
-                        let is_valid = controller.borrow().has_valid_changes();
                         view.set_saveable(is_valid);
                     }
                     Err(err) => view.show_error(&err.to_string()),
@@ -317,11 +331,17 @@ impl MainWindow {
 
                 match result {
                     Ok(entry_data) => {
+                        // Snapshot bools before any widget setter runs.
+                        let (is_dirty, is_valid) = {
+                            let controller = controller.borrow();
+                            (
+                                controller.has_unsaved_changes(),
+                                controller.has_valid_changes(),
+                            )
+                        };
                         entry_view.set_entry_data(&entry_data);
                         window.set_edit_unlock_state(true, false, false);
-                        let is_dirty = controller.borrow().has_unsaved_changes();
                         entry_view.set_cancellable(is_dirty);
-                        let is_valid = controller.borrow().has_valid_changes();
                         entry_view.set_saveable(is_valid);
                     }
                     Err(err) => entry_view.show_error(&err.to_string()),
@@ -523,12 +543,19 @@ impl MainWindow {
 
         match result {
             Ok(data) => {
+                // Snapshot bools before any widget setter runs.
+                let (is_dirty, is_valid) = {
+                    let controller = self.controller();
+                    let controller = controller.borrow();
+                    (
+                        controller.has_unsaved_changes(),
+                        controller.has_valid_changes(),
+                    )
+                };
                 entry_view.set_entry_data(&data);
                 self.show_entry_content();
                 self.set_edit_unlock_state(true, false, false);
-                let is_dirty = self.controller().borrow().has_unsaved_changes();
                 entry_view.set_cancellable(is_dirty);
-                let is_valid = self.controller().borrow().has_valid_changes();
                 entry_view.set_saveable(is_valid);
             }
             Err(err) => entry_view.show_error(&err.to_string()),
