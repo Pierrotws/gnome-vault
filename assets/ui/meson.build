@@ -44,6 +44,13 @@ if use_blueprint
     command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
   )
 
+  new_entry_dialog_ui = custom_target(
+    'new-entry-dialog-ui',
+    input: 'new_entry_dialog.blp',
+    output: 'new_entry_dialog.ui',
+    command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
+  )
+
   window_ui = custom_target(
     'window-ui',
     input: 'window.blp',
@@ -84,6 +91,12 @@ else
   preferences_dialog_ui = configure_file(
     input: 'preferences_dialog.ui',
     output: 'preferences_dialog.ui',
+    copy: true,
+  )
+
+  new_entry_dialog_ui = configure_file(
+    input: 'new_entry_dialog.ui',
+    output: 'new_entry_dialog.ui',
     copy: true,
   )
 

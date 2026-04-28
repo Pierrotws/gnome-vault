@@ -10,6 +10,7 @@
     <file compressed="true" preprocess="xml-stripblanks">group_view.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">changes_view.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">preferences_dialog.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">new_entry_dialog.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">window.ui</file>
     <file
             compressed="true"

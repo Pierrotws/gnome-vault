@@ -1,4 +1,7 @@
 //! "New entry" dialog: name + parent folder + generated password.
+//!
+//! Layout lives in `assets/ui/new_entry_dialog.blp`; this module wires the
+//! signals and the create-entry flow.
 
 use std::path::PathBuf;
 
@@ -20,59 +23,33 @@ impl MainWindow {
             return;
         }
 
-        let dialog = adw::Window::builder()
-            .title("New Entry")
-            .modal(true)
-            .resizable(true)
-            .default_width(640)
-            .default_height(520)
-            .transient_for(self)
-            .build();
+        // Ensure the GeneratePasswordView GType is registered before the
+        // Builder parses the resource — Builder looks types up by name.
+        GeneratePasswordView::static_type();
 
-        let main_box = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .spacing(0)
-            .build();
+        let builder =
+            gtk::Builder::from_resource("/io/pierrotws/GnomeVault/ui/new_entry_dialog.ui");
+        let dialog = builder
+            .object::<adw::Window>("new_entry_dialog")
+            .expect("new_entry_dialog must exist in new_entry_dialog.ui");
+        let name_row = builder
+            .object::<adw::EntryRow>("name_row")
+            .expect("name_row must exist in new_entry_dialog.ui");
+        let folder_row = builder
+            .object::<adw::EntryRow>("folder_row")
+            .expect("folder_row must exist in new_entry_dialog.ui");
+        let generator = builder
+            .object::<GeneratePasswordView>("generator")
+            .expect("generator must exist in new_entry_dialog.ui");
+        let cancel_button = builder
+            .object::<gtk::Button>("cancel_button")
+            .expect("cancel_button must exist in new_entry_dialog.ui");
+        let create_button = builder
+            .object::<gtk::Button>("create_button")
+            .expect("create_button must exist in new_entry_dialog.ui");
 
-        let form_box = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .spacing(18)
-            .margin_top(18)
-            .margin_start(18)
-            .margin_end(18)
-            .build();
-
-        let entry_group = adw::PreferencesGroup::builder().title("Entry").build();
-        let name_row = adw::EntryRow::builder().title("Name").build();
-        let folder_row = adw::EntryRow::builder().title("Parent Folder").build();
+        dialog.set_transient_for(Some(self));
         folder_row.set_text(folder_path.as_deref().unwrap_or(""));
-        entry_group.add(&name_row);
-        entry_group.add(&folder_row);
-        form_box.append(&entry_group);
-
-        let generator = GeneratePasswordView::new();
-        form_box.append(&generator);
-        main_box.append(&form_box);
-
-        let actions = gtk::Box::builder()
-            .orientation(gtk::Orientation::Horizontal)
-            .spacing(12)
-            .halign(gtk::Align::End)
-            .margin_top(18)
-            .margin_bottom(18)
-            .margin_start(18)
-            .margin_end(18)
-            .build();
-
-        let cancel_button = gtk::Button::with_label("Cancel");
-        let create_button = gtk::Button::with_label("Create");
-        create_button.add_css_class("suggested-action");
-        create_button.set_sensitive(false);
-
-        actions.append(&cancel_button);
-        actions.append(&create_button);
-        main_box.append(&actions);
-        dialog.set_content(Some(&main_box));
 
         name_row.connect_changed(glib::clone!(
             #[weak]

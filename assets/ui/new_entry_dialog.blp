@@ -1,0 +1,56 @@
+using Gtk 4.0;
+using Adw 1;
+
+Adw.Window new_entry_dialog {
+    title: "New Entry";
+    modal: true;
+    resizable: true;
+    default-width: 640;
+    default-height: 520;
+
+    content: Gtk.Box {
+        orientation: vertical;
+
+        Gtk.Box {
+            orientation: vertical;
+            spacing: 18;
+            margin-top: 18;
+            margin-start: 18;
+            margin-end: 18;
+
+            Adw.PreferencesGroup {
+                title: "Entry";
+
+                Adw.EntryRow name_row {
+                    title: "Name";
+                }
+
+                Adw.EntryRow folder_row {
+                    title: "Parent Folder";
+                }
+            }
+
+            $GeneratePasswordView generator {}
+        }
+
+        Gtk.Box {
+            orientation: horizontal;
+            spacing: 12;
+            halign: end;
+            margin-top: 18;
+            margin-bottom: 18;
+            margin-start: 18;
+            margin-end: 18;
+
+            Gtk.Button cancel_button {
+                label: "Cancel";
+            }
+
+            Gtk.Button create_button {
+                label: "Create";
+                sensitive: false;
+                styles ["suggested-action"]
+            }
+        }
+    };
+}
