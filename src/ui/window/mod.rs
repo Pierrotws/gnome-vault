@@ -629,20 +629,48 @@ impl MainWindow {
             return;
         }
 
-        if let Err(err) = self.controller().borrow_mut().revert_change(commit_id) {
-            self.imp().entry_view.show_error(&err.to_string());
-            return;
-        }
+        let autopush = self.controller().borrow().autopush();
+        let commit_id = commit_id.to_string();
+        let window = self.clone();
 
-        self.imp().entry_view.display_empty();
-        self.show_empty_content();
-        self.set_edit_unlock_state(false, false, false);
-        if let Err(err) = self.reload_vault_tree() {
-            self.imp().entry_view.show_error(&err.to_string());
-        }
-        if let Err(err) = self.reload_changes_view() {
-            self.imp().entry_view.show_error(&err.to_string());
-        }
+        glib::spawn_future_local(async move {
+            let result =
+                match gio::spawn_blocking(move || store::revert_change(&commit_id, autopush)).await
+                {
+                    Ok(r) => r,
+                    Err(_) => {
+                        window
+                            .imp()
+                            .entry_view
+                            .show_error("Undo task panicked unexpectedly");
+                        return;
+                    }
+                };
+
+            if let Err(err) = result {
+                window.imp().entry_view.show_error(&err.to_string());
+                return;
+            }
+
+            // Post-op state update — used to live inside
+            // AppController::revert_change but is now done here on the main
+            // loop after the store call returns from the worker thread.
+            {
+                let controller = window.controller();
+                let mut controller = controller.borrow_mut();
+                controller.state_mut().clear_entry_cache();
+                controller.state_mut().set_current_session(None);
+            }
+            window.imp().entry_view.display_empty();
+            window.show_empty_content();
+            window.set_edit_unlock_state(false, false, false);
+            if let Err(err) = window.reload_vault_tree() {
+                window.imp().entry_view.show_error(&err.to_string());
+            }
+            if let Err(err) = window.reload_changes_view() {
+                window.imp().entry_view.show_error(&err.to_string());
+            }
+        });
     }
 
     fn confirm_rollback_change(&self, commit_id: &str) {
@@ -673,32 +701,56 @@ impl MainWindow {
     }
 
     fn rollback_change(&self, commit_id: &str) {
-        let backup_branch = match self.controller().borrow_mut().rollback_to_change(commit_id) {
-            Ok(backup_branch) => backup_branch,
-            Err(err) => {
-                self.imp().entry_view.show_error(&err.to_string());
-                return;
+        let commit_id = commit_id.to_string();
+        let window = self.clone();
+
+        glib::spawn_future_local(async move {
+            let result =
+                match gio::spawn_blocking(move || store::rollback_to_change(&commit_id)).await {
+                    Ok(r) => r,
+                    Err(_) => {
+                        window
+                            .imp()
+                            .entry_view
+                            .show_error("Rollback task panicked unexpectedly");
+                        return;
+                    }
+                };
+
+            let backup_branch = match result {
+                Ok(b) => b,
+                Err(err) => {
+                    window.imp().entry_view.show_error(&err.to_string());
+                    return;
+                }
+            };
+
+            // Post-op state update on the main loop.
+            {
+                let controller = window.controller();
+                let mut controller = controller.borrow_mut();
+                controller.state_mut().clear_entry_cache();
+                controller.state_mut().set_current_session(None);
             }
-        };
+            window.imp().entry_view.display_empty();
+            window.show_empty_content();
+            window.set_edit_unlock_state(false, false, false);
+            if let Err(err) = window.reload_vault_tree() {
+                window.imp().entry_view.show_error(&err.to_string());
+            }
+            if let Err(err) = window.reload_changes_view() {
+                window.imp().entry_view.show_error(&err.to_string());
+            }
 
-        self.imp().entry_view.display_empty();
-        self.show_empty_content();
-        self.set_edit_unlock_state(false, false, false);
-        if let Err(err) = self.reload_vault_tree() {
-            self.imp().entry_view.show_error(&err.to_string());
-        }
-        if let Err(err) = self.reload_changes_view() {
-            self.imp().entry_view.show_error(&err.to_string());
-        }
-
-        let dialog = adw::AlertDialog::builder()
-            .heading("Rollback Complete")
-            .body(format!("Backup branch pushed: {backup_branch}"))
-            .build();
-        dialog.add_responses(&[("ok", "OK")]);
-        dialog.set_default_response(Some("ok"));
-        dialog.set_close_response("ok");
-        dialog.present(Some(self));
+            let dialog = adw::AlertDialog::builder()
+                .heading("Rollback Complete")
+                .body(format!("Backup branch pushed: {backup_branch}"))
+                .build();
+            dialog.add_responses(&[("ok", "OK")]);
+            dialog.set_default_response(Some("ok"));
+            dialog.set_close_response("ok");
+            dialog.present(Some(&window));
+        });
     }
 
     fn reload_vault_tree(&self) -> Result<(), crate::app::app_error::AppError> {
@@ -1233,14 +1285,32 @@ impl MainWindow {
     }
 
     fn push_changes(&self) {
-        if let Err(err) = self.controller().borrow().push_changes() {
-            self.imp().entry_view.show_error(&err.to_string());
-            return;
-        }
-
-        if let Err(err) = self.reload_changes_view() {
-            self.imp().entry_view.show_error(&err.to_string());
-        }
+        // Push runs on a worker thread so the UI does not freeze for the
+        // duration of the network round-trip. The store call is self-
+        // contained (no controller state needed), so we bypass the
+        // controller and call store::push_changes directly. The
+        // reload_changes_view that follows is fast (filesystem only) and
+        // happens back on the main loop.
+        let window = self.clone();
+        glib::spawn_future_local(async move {
+            let result = match gio::spawn_blocking(store::push_changes).await {
+                Ok(r) => r,
+                Err(_) => {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error("Push task panicked unexpectedly");
+                    return;
+                }
+            };
+            if let Err(err) = result {
+                window.imp().entry_view.show_error(&err.to_string());
+                return;
+            }
+            if let Err(err) = window.reload_changes_view() {
+                window.imp().entry_view.show_error(&err.to_string());
+            }
+        });
     }
 
     fn set_edit_unlock_state(&self, has_entry: bool, editing: bool, is_dirty: bool) {
