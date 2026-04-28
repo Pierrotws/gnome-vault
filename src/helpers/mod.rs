@@ -1,4 +1,5 @@
 pub mod clipboard;
+pub mod entry_preview;
 pub mod git;
 pub mod macros;
 pub mod otp;

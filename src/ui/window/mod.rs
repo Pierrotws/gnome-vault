@@ -1,4 +1,5 @@
 mod autoload;
+mod group_content;
 mod imp;
 mod new_entry_dialog;
 mod preferences;
@@ -7,31 +8,23 @@ mod setup;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::mpsc;
-use std::time::Duration;
 
 use adw::{prelude::*, subclass::prelude::*};
 use gtk::{gio, glib};
 
+use crate::app::changes;
 use crate::app::controller::AppController;
-use crate::pass::model::{EntryData, PassNode, PassNodeKind};
-use crate::pass::store;
+use crate::pass::model::{PassNode, PassNodeKind};
 use crate::ui::vault_view::{
     build_group_selection_with_root, build_selection_from_nodes_with_autoexpand, build_tree_factory,
 };
-use crate::ui::{EntryView, GroupEntry};
+use crate::ui::EntryView;
 
 const CHANGES_PAGE_SIZE: usize = 50;
 const SETUP_PROVIDER_NONE: u32 = 0;
 const SIMPLE_SELECTION_WIDTH: i32 = 220;
 const GROUP_TREE_WIDTH: i32 = 180;
 const GROUP_SELECTION_WIDTH: i32 = 520;
-
-enum GroupPreviewMessage {
-    Loaded(usize, PassNode, EntryData),
-    Failed(PassNode, String),
-    Finished,
-}
 
 glib::wrapper! {
     pub struct MainWindow(ObjectSubclass<imp::MainWindow>)
@@ -534,8 +527,7 @@ impl MainWindow {
 
         glib::spawn_future_local(async move {
             let result =
-                match gio::spawn_blocking(move || store::revert_change(&commit_id, autopush)).await
-                {
+                match gio::spawn_blocking(move || changes::revert(&commit_id, autopush)).await {
                     Ok(r) => r,
                     Err(_) => {
                         window
@@ -551,15 +543,7 @@ impl MainWindow {
                 return;
             }
 
-            // Post-op state update — used to live inside
-            // AppController::revert_change but is now done here on the main
-            // loop after the store call returns from the worker thread.
-            {
-                let controller = window.controller();
-                let mut controller = controller.borrow_mut();
-                controller.state_mut().clear_entry_cache();
-                controller.state_mut().set_current_session(None);
-            }
+            window.controller().borrow_mut().clear_loaded_entry_state();
             window.imp().entry_view.display_empty();
             window.show_empty_content();
             window.set_edit_unlock_state(false, false, false);
@@ -609,7 +593,7 @@ impl MainWindow {
 
         glib::spawn_future_local(async move {
             let result =
-                match gio::spawn_blocking(move || store::rollback_to_change(&commit_id)).await {
+                match gio::spawn_blocking(move || changes::rollback(&commit_id)).await {
                     Ok(r) => r,
                     Err(_) => {
                         window
@@ -628,13 +612,7 @@ impl MainWindow {
                 }
             };
 
-            // Post-op state update on the main loop.
-            {
-                let controller = window.controller();
-                let mut controller = controller.borrow_mut();
-                controller.state_mut().clear_entry_cache();
-                controller.state_mut().set_current_session(None);
-            }
+            window.controller().borrow_mut().clear_loaded_entry_state();
             window.imp().entry_view.display_empty();
             window.show_empty_content();
             window.set_edit_unlock_state(false, false, false);
@@ -769,21 +747,6 @@ impl MainWindow {
         self.set_edit_unlock_state(has_entry, editing, is_dirty);
     }
 
-    fn show_group_content(&self, node: &PassNode) {
-        let imp = self.imp();
-        let entries = self.group_entries_for(node);
-        imp.group_view.set_group(node, &entries);
-        imp.content_stack.set_visible_child_name("empty");
-        imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Group");
-        self.start_group_subtitle_load(node);
-    }
-
-    fn show_root_group_content(&self) {
-        let root = self.root_group_node();
-        self.show_group_content(&root);
-    }
-
     fn update_selection_layout(&self, reset_position: bool) {
         if self.show_group_view_enabled() {
             self.show_split_selection_layout(reset_position);
@@ -821,92 +784,6 @@ impl MainWindow {
         imp.selection_stack.set_visible_child_name("group");
     }
 
-    fn root_group_node(&self) -> PassNode {
-        let search_text = self.imp().vault_view.search_entry().text().to_string();
-        let children = self.controller().borrow().filtered_tree(&search_text);
-        PassNode {
-            name: "Vault".to_string(),
-            path: PathBuf::new(),
-            kind: PassNodeKind::Group,
-            children,
-        }
-    }
-
-    fn group_entries_for(&self, node: &PassNode) -> Vec<GroupEntry> {
-        node.children
-            .iter()
-            .filter(|child| child.is_entry())
-            .map(|child| GroupEntry {
-                node: child.clone(),
-                subtitle: None,
-            })
-            .collect()
-    }
-
-    fn start_group_subtitle_load(&self, group: &PassNode) {
-        let nodes = group
-            .children
-            .iter()
-            .filter(|child| child.is_entry())
-            .cloned()
-            .collect::<Vec<_>>();
-        if nodes.is_empty() {
-            return;
-        }
-
-        let generation = self.imp().group_preview_generation.get().wrapping_add(1);
-        self.imp().group_preview_generation.set(generation);
-
-        let (sender, receiver) = mpsc::channel();
-        std::thread::spawn(move || {
-            for (index, node) in nodes.into_iter().enumerate() {
-                let message = match AppController::load_entry_for_cache(&node) {
-                    Ok(entry) => GroupPreviewMessage::Loaded(index, node, entry),
-                    Err(err) => GroupPreviewMessage::Failed(node, err.to_string()),
-                };
-                if sender.send(message).is_err() {
-                    return;
-                }
-            }
-            let _ = sender.send(GroupPreviewMessage::Finished);
-        });
-
-        let window = self.clone();
-        glib::timeout_add_local(Duration::from_millis(50), move || {
-            if window.imp().group_preview_generation.get() != generation {
-                return glib::ControlFlow::Break;
-            }
-
-            for _ in 0..16 {
-                match receiver.try_recv() {
-                    Ok(GroupPreviewMessage::Loaded(index, node, entry)) => {
-                        let subtitle = entry_subtitle(&entry);
-                        window
-                            .controller()
-                            .borrow_mut()
-                            .cache_loaded_entry(&node, entry);
-                        window.imp().group_view.update_entry_subtitle(
-                            index,
-                            &node,
-                            subtitle.as_deref(),
-                        );
-                    }
-                    Ok(GroupPreviewMessage::Failed(node, err)) => {
-                        log::warn!(
-                            "Failed to load entry preview for {}: {err}",
-                            node.path.display()
-                        );
-                    }
-                    Ok(GroupPreviewMessage::Finished) => return glib::ControlFlow::Break,
-                    Err(mpsc::TryRecvError::Empty) => break,
-                    Err(mpsc::TryRecvError::Disconnected) => return glib::ControlFlow::Break,
-                }
-            }
-
-            glib::ControlFlow::Continue
-        });
-    }
-
     fn show_changes_content(&self) {
         let imp = self.imp();
         imp.content_stack.set_visible_child_name("changes");
@@ -927,16 +804,13 @@ impl MainWindow {
 
     fn push_changes(&self) {
         // Push runs on a worker thread so the UI does not freeze for the
-        // duration of the network round-trip. The store call is self-
-        // contained (no controller state needed), so we bypass the
-        // controller and call store::push_changes directly. The
-        // reload_changes_view that follows is fast (filesystem only) and
-        // happens back on the main loop.
+        // duration of the network round-trip. The reload_changes_view that
+        // follows is fast (filesystem only) and happens back on the main loop.
         let window = self.clone();
         let branch = self.controller().borrow().branch().map(str::to_string);
         glib::spawn_future_local(async move {
             let result =
-                match gio::spawn_blocking(move || store::push_changes(branch.as_deref())).await {
+                match gio::spawn_blocking(move || changes::push(branch.as_deref())).await {
                     Ok(r) => r,
                     Err(_) => {
                         window
@@ -972,16 +846,4 @@ impl MainWindow {
         imp.window_title
             .set_subtitle(if editing { "Editing" } else { "Read-only" });
     }
-}
-
-fn entry_subtitle(entry: &EntryData) -> Option<String> {
-    let (key, value) = entry.fields.first()?;
-    let value = value.display_value();
-    let first_line = value.lines().next().unwrap_or("").trim();
-
-    Some(if first_line.is_empty() {
-        format!("{key}:")
-    } else {
-        format!("{key}: {first_line}")
-    })
 }
