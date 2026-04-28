@@ -27,9 +27,12 @@ impl PlainFieldRow {
             }
         ));
         imp.value_entry.connect_changed(glib::clone!(
+            #[weak(rename_to = this)]
+            obj,
             #[weak]
             entry_view,
             move |_| {
+                this.update_value_link();
                 entry_view.mark_changed();
             }
         ));
@@ -93,6 +96,7 @@ impl PlainFieldRow {
 
     pub fn set_value(&self, value: &str) {
         self.imp().value_entry.set_text(value);
+        self.update_value_link();
     }
 
     pub fn set_editable_mode(&self, editable: bool) {
@@ -101,6 +105,7 @@ impl PlainFieldRow {
         Self::set_entry_editable_mode(&imp.key_entry, editable);
         Self::set_entry_editable_mode(&imp.value_entry, editable);
         imp.delete_button.set_visible(editable);
+        self.update_value_link();
     }
 
     pub fn drag_handle(&self) -> gtk::Widget {
@@ -111,6 +116,39 @@ impl PlainFieldRow {
         entry.set_editable(editable);
         entry.set_can_focus(editable);
         entry.set_has_frame(editable);
+    }
+
+    fn update_value_link(&self) {
+        let imp = self.imp();
+        let value = imp.value_entry.text();
+        let url = value.trim();
+        let show_link = !imp.value_entry.is_editable() && Self::is_web_url(url);
+
+        imp.value_entry.set_visible(!show_link);
+        imp.value_link_button.set_visible(show_link);
+
+        if show_link {
+            imp.value_link_button.set_uri(url);
+            imp.value_link_button.set_label(url);
+            imp.value_link_button.set_tooltip_text(Some(url));
+        } else {
+            imp.value_link_button.set_tooltip_text(None);
+        }
+    }
+
+    fn is_web_url(value: &str) -> bool {
+        let Some(rest) = value
+            .strip_prefix("https://")
+            .or_else(|| value.strip_prefix("http://"))
+        else {
+            return false;
+        };
+
+        !rest.is_empty()
+            && rest.contains('.')
+            && !rest
+                .chars()
+                .any(|character| character.is_ascii_whitespace())
     }
 }
 
