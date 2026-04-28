@@ -4,7 +4,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
 
-use crate::pass::store;
+use crate::app::controller::AppController;
 
 use super::MainWindow;
 
@@ -45,7 +45,7 @@ impl MainWindow {
         // never blank if the repo is in a sensible state.
         let branch_setting = self.setting_string("branch", "");
         let branch_text = if branch_setting.trim().is_empty() {
-            store::current_branch_name().unwrap_or_default()
+            AppController::current_branch_name().unwrap_or_default()
         } else {
             branch_setting
         };
