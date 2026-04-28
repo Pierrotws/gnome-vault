@@ -13,6 +13,12 @@ pub enum StoreError {
     InvalidRecipient,
     InvalidFolderPath(PathBuf),
     DestinationExists(PathBuf),
+    /// The local commit succeeded but pushing to the remote failed.
+    ///
+    /// Distinguished from [`StoreError::Git`] so the UI can tell the user
+    /// "your change was saved locally but did not reach the remote" rather
+    /// than implying the save itself failed.
+    PushFailed(String),
 }
 
 impl std::fmt::Display for StoreError {
@@ -38,6 +44,9 @@ impl std::fmt::Display for StoreError {
             }
             StoreError::DestinationExists(path) => {
                 write!(f, "Destination already exists: {}", path.display())
+            }
+            StoreError::PushFailed(reason) => {
+                write!(f, "Saved locally but failed to push to remote: {reason}")
             }
         }
     }

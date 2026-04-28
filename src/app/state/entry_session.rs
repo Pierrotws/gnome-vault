@@ -51,6 +51,16 @@ impl EntrySession {
         self.node.name != self.name
     }
 
+    /// Validation rules for persisting an entry.
+    ///
+    /// These are intentionally lenient to match real `pass(1)` entries:
+    /// - the entry name is non-empty and not path-like
+    /// - the password slot is a non-empty `Password` or a parsable OTP URI
+    /// - field keys are non-empty (anonymous lines are not persisted as fields)
+    /// - OTP field values must be parsable as `otpauth://` URIs
+    /// - `Plain`, `Multiline`, `Array`, and `Password` field values may be
+    ///   empty — many real pass entries store empty placeholder values like
+    ///   `comment:` and rejecting those would break round-tripping.
     pub fn is_valid(&self) -> bool {
         if self.name.trim().is_empty() || self.name.contains('/') || self.name.contains('\\') {
             return false;
@@ -70,35 +80,15 @@ impl EntrySession {
             _ => return false,
         }
 
-        for (str, entry) in &self.current.fields {
-            if str.is_empty() {
+        for (key, entry) in &self.current.fields {
+            if key.is_empty() {
                 return false;
             }
-            match &entry {
-                EntryField::Plain(str) => {
-                    if str.is_empty() {
-                        return false;
-                    }
-                }
-                EntryField::OTP(str) => {
-                    if !otp::is_otp_url(str) {
-                        return false;
-                    }
-                }
-                EntryField::Password(str) => {
-                    if str.is_empty() {
-                        return false;
-                    }
-                }
-                EntryField::Multiline(str) => {
-                    if str.is_empty() {
-                        return false;
-                    }
-                }
-                EntryField::Array(arr) => {
-                    if arr.len() == 0 {
-                        return false;
-                    }
+            // Only OTP values must parse; everything else is allowed to be
+            // empty so that comment-style placeholder fields round-trip.
+            if let EntryField::OTP(value) = entry {
+                if !otp::is_otp_url(value) {
+                    return false;
                 }
             }
         }
@@ -171,6 +161,98 @@ mod tests {
         assert!(!session.is_valid());
 
         session.replace_current("folder/name".into(), entry());
+        assert!(!session.is_valid());
+    }
+
+    #[test]
+    fn accepts_baseline_entry() {
+        let session = EntrySession::new(node(), entry());
+        assert!(session.is_valid());
+    }
+
+    #[test]
+    fn rejects_empty_password() {
+        let mut session = EntrySession::new(node(), entry());
+        session.replace_current(
+            "ok".into(),
+            EntryData {
+                password: EntryField::Password(String::new()),
+                fields: Vec::new(),
+            },
+        );
+        assert!(!session.is_valid());
+    }
+
+    #[test]
+    fn rejects_invalid_otp_password() {
+        let mut session = EntrySession::new(node(), entry());
+        session.replace_current(
+            "ok".into(),
+            EntryData {
+                password: EntryField::OTP("not a url".into()),
+                fields: Vec::new(),
+            },
+        );
+        assert!(!session.is_valid());
+    }
+
+    #[test]
+    fn accepts_otp_password_url() {
+        let mut session = EntrySession::new(node(), entry());
+        session.replace_current(
+            "ok".into(),
+            EntryData {
+                password: EntryField::OTP(
+                    "otpauth://totp/Example:user?secret=JBSWY3DPEHPK3PXP".into(),
+                ),
+                fields: Vec::new(),
+            },
+        );
+        assert!(session.is_valid());
+    }
+
+    #[test]
+    fn allows_empty_plain_and_multiline_field_values() {
+        // Real pass entries often have placeholder fields like `comment:`
+        // with no value. The session must not reject those.
+        let mut session = EntrySession::new(node(), entry());
+        session.replace_current(
+            "ok".into(),
+            EntryData {
+                password: EntryField::Password("secret".into()),
+                fields: vec![
+                    ("comment".into(), EntryField::Plain(String::new())),
+                    ("notes".into(), EntryField::Multiline(String::new())),
+                    ("tags".into(), EntryField::Array(Vec::new())),
+                ],
+            },
+        );
+        assert!(session.is_valid());
+    }
+
+    #[test]
+    fn rejects_empty_field_key() {
+        let mut session = EntrySession::new(node(), entry());
+        session.replace_current(
+            "ok".into(),
+            EntryData {
+                password: EntryField::Password("secret".into()),
+                fields: vec![(String::new(), EntryField::Plain("v".into()))],
+            },
+        );
+        assert!(!session.is_valid());
+    }
+
+    #[test]
+    fn rejects_invalid_otp_field_value() {
+        let mut session = EntrySession::new(node(), entry());
+        session.replace_current(
+            "ok".into(),
+            EntryData {
+                password: EntryField::Password("secret".into()),
+                fields: vec![("totp".into(), EntryField::OTP("not a url".into()))],
+            },
+        );
         assert!(!session.is_valid());
     }
 }
