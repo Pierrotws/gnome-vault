@@ -7,7 +7,7 @@ use gtk::subclass::prelude::*;
 
 //use crate::pass::model::*;
 use crate::app::state::EntryViewData;
-use crate::helpers::otp;
+use crate::helpers::{clipboard, otp};
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
 use fields::{ArrayFieldRow, EntryFieldRow, MultilineFieldRow, OtpFieldRow, PlainFieldRow};
@@ -41,9 +41,7 @@ impl EntryView {
         imp.password_field_row.connect_copy_clicked({
             let password_field_row = imp.password_field_row.clone();
             move |_| {
-                if let Some(display) = gtk::gdk::Display::default() {
-                    display.clipboard().set_text(&password_field_row.text());
-                }
+                clipboard::copy_secret(&password_field_row.text());
             }
         });
         let this = self.clone();

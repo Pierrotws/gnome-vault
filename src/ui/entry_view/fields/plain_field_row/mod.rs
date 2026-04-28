@@ -1,5 +1,6 @@
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
+use crate::helpers::clipboard;
 use crate::pass::model::EntryField;
 
 use super::super::EntryView;
@@ -28,10 +29,7 @@ impl PlainFieldRow {
         });
         let value_entry = imp.value_entry.clone();
         imp.copy_button.connect_clicked(move |_| {
-            if let Some(display) = gtk::gdk::Display::default() {
-                let clipboard = display.clipboard();
-                clipboard.set_text(&value_entry.text());
-            }
+            clipboard::copy_secret(&value_entry.text());
         });
 
         let this = obj.clone();

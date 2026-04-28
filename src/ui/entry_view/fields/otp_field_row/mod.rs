@@ -1,6 +1,9 @@
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{helpers::otp, pass::model::EntryField};
+use crate::{
+    helpers::{clipboard, otp},
+    pass::model::EntryField,
+};
 
 use super::super::EntryView;
 use super::EntryFieldRow;
@@ -43,16 +46,12 @@ impl OtpFieldRow {
 
         let this = self.clone();
         imp.copy_code_button.connect_clicked(move |_| {
-            if let Some(display) = gtk::gdk::Display::default() {
-                display.clipboard().set_text(&this.current_code());
-            }
+            clipboard::copy_secret(&this.current_code());
         });
 
         let this = self.clone();
         imp.copy_url_button.connect_clicked(move |_| {
-            if let Some(display) = gtk::gdk::Display::default() {
-                display.clipboard().set_text(&this.url());
-            }
+            clipboard::copy_secret(&this.url());
         });
 
         let this = self.clone();
