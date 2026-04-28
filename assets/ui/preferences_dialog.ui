@@ -25,6 +25,12 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 <property name="subtitle">Use a group-only tree with a separate entries pane</property>
               </object>
             </child>
+            <child>
+              <object class="AdwSwitchRow" id="interpret_multiline_as_markdown_row">
+                <property name="title">Interpret multiline as markdown</property>
+                <property name="subtitle">Render multiline fields as Markdown in read-only mode</property>
+              </object>
+            </child>
           </object>
         </child>
         <child>

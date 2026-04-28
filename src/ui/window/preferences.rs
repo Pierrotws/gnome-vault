@@ -24,6 +24,9 @@ impl MainWindow {
         let show_group_view_row = builder
             .object::<adw::SwitchRow>("show_group_view_row")
             .expect("show_group_view_row must exist in preferences_dialog.ui");
+        let interpret_multiline_as_markdown_row = builder
+            .object::<adw::SwitchRow>("interpret_multiline_as_markdown_row")
+            .expect("interpret_multiline_as_markdown_row must exist in preferences_dialog.ui");
         let store_dir_row = builder
             .object::<adw::EntryRow>("store_dir_row")
             .expect("store_dir_row must exist in preferences_dialog.ui");
@@ -34,6 +37,8 @@ impl MainWindow {
         autopush_row.set_active(self.setting_boolean("autopush", true));
         autoload_row.set_active(self.setting_boolean("autoload", false));
         show_group_view_row.set_active(self.show_group_view_enabled());
+        interpret_multiline_as_markdown_row
+            .set_active(self.setting_boolean("interpret-multiline-as-markdown", false));
         store_dir_row.set_text(&self.setting_string("store-dir", ""));
         // Prefer an explicit user override; otherwise fall back to whatever
         // branch the working tree currently has checked out, so the field is
@@ -104,6 +109,26 @@ impl MainWindow {
                 window.rebuild_vault_tree();
                 if row.is_active() {
                     window.show_root_group_content();
+                }
+            }
+        ));
+
+        interpret_multiline_as_markdown_row.connect_active_notify(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |row| {
+                if !window.settings_has_key("interpret-multiline-as-markdown") {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error("GSettings schema is missing interpret-multiline-as-markdown");
+                    return;
+                }
+                let settings = window.settings();
+                if let Err(err) =
+                    settings.set_boolean("interpret-multiline-as-markdown", row.is_active())
+                {
+                    window.imp().entry_view.show_error(&err.to_string());
                 }
             }
         ));

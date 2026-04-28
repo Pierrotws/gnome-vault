@@ -31,7 +31,8 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
               <object class="GtkEntry" id="title_entry">
                 <property name="placeholder-text" translatable="yes">Key</property>
                 <property name="hexpand">true</property>
-                <property name="css-classes">heading</property>
+                <property name="css-classes">title-2
+heading</property>
               </object>
             </child>
             <child>
@@ -51,10 +52,9 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
           </object>
         </child>
         <child>
-          <object class="GtkLabel" id="value_label">
-            <property name="wrap">true</property>
-            <property name="xalign">0</property>
-            <property name="selectable">true</property>
+          <object class="GtkBox" id="value_view_box">
+            <property name="orientation">1</property>
+            <property name="spacing">6</property>
             <property name="margin-top">8</property>
             <property name="margin-bottom">8</property>
             <property name="margin-start">8</property>
@@ -63,9 +63,10 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
         </child>
         <child>
           <object class="GtkScrolledWindow" id="value_scrolled_window">
-            <property name="min-content-height">96</property>
-            <property name="max-content-height">220</property>
+            <property name="min-content-height">160</property>
+            <property name="max-content-height">480</property>
             <property name="propagate-natural-height">true</property>
+            <property name="vexpand">true</property>
             <property name="child">
               <object class="GtkTextView" id="value_text_view">
                 <property name="wrap-mode">3</property>

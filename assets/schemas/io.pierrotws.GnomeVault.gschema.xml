@@ -31,5 +31,11 @@
       <description
             >When enabled, the vault tree shows groups only and selected groups open an entries pane.</description>
     </key>
+    <key name="interpret-multiline-as-markdown" type="b">
+      <default>true</default>
+      <summary>Interpret multiline as markdown</summary>
+      <description
+            >When enabled, multiline fields are rendered as Markdown in read-only mode.</description>
+    </key>
   </schema>
 </schemalist>
