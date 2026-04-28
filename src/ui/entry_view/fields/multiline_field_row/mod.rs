@@ -1,5 +1,6 @@
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
+use crate::helpers::clipboard;
 use crate::pass::model::EntryField;
 
 use super::super::EntryView;
@@ -33,9 +34,7 @@ impl MultilineFieldRow {
 
         let this = obj.clone();
         imp.copy_button.connect_clicked(move |_| {
-            if let Some(display) = gtk::gdk::Display::default() {
-                display.clipboard().set_text(&this.value());
-            }
+            clipboard::copy_secret(&this.value());
         });
 
         let this = obj.clone();
