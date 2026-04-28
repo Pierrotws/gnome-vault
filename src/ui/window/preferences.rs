@@ -89,7 +89,7 @@ impl MainWindow {
                     window.imp().entry_view.show_error(&err.to_string());
                     return;
                 }
-                window.update_selection_layout();
+                window.update_selection_layout(true);
                 window.rebuild_vault_tree();
                 if row.is_active() {
                     window.show_root_group_content();
