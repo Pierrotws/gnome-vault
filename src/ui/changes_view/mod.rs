@@ -154,13 +154,16 @@ impl ChangesView {
         }
 
         let meta = gtk::Label::new(Some(&format!(
-            "{} · {} · {}",
-            change.short_id,
+            "{} · {}",
             change.author,
             format_author_time(change)
         )));
         meta.set_xalign(0.0);
         meta.add_css_class("dim-label");
+        // Surface the underlying commit id only as a tooltip so users who
+        // want it (debugging, scripting) can still find it without it
+        // cluttering the row.
+        meta.set_tooltip_text(Some(&change.short_id));
 
         content.append(&title);
         content.append(&meta);
@@ -190,10 +193,10 @@ impl ChangesView {
             actions.set_margin_start(6);
             actions.set_margin_end(6);
 
-            let undo_button = gtk::Button::with_label("Undo Action");
-            let rollback_button = gtk::Button::with_label("Rollback");
+            let undo_button = gtk::Button::with_label("Undo this change");
+            let rollback_button = gtk::Button::with_label("Discard later changes");
             rollback_button.add_css_class("destructive-action");
-            let push_button = (!is_pushed).then(|| gtk::Button::with_label("Push"));
+            let push_button = (!is_pushed).then(|| gtk::Button::with_label("Sync to remote"));
 
             let undo_commit_id = commit_id.clone();
             let rollback_commit_id = commit_id.clone();
