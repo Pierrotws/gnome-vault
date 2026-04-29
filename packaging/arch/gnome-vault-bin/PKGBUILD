@@ -1,7 +1,7 @@
 # Maintainer: Pierre Sauvage <m.sauvage.pierre@gmail.com>
 pkgname=gnome-vault-bin
 _pkgname=gnome-vault
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc="A pass-compatible password manager for GNOME (prebuilt binary)"
 arch=('x86_64')
@@ -13,7 +13,7 @@ conflicts=("$_pkgname")
 source=("$pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$_pkgname-$pkgver-x86_64.tar.gz")
 # Replace per release with the sha256 published next to the tarball, or
 # regenerate locally with `updpkgsums`.
-sha256sums=('7de073040a0731e8bcc160ebf080f883b69ff63b0380a66099214cea9d6ee662')
+sha256sums=('536d53862843c01e59ee44a309b13073d7734aed3b4002178ec1fb935eb6f31f')
 
 package() {
     cp -a "$srcdir/usr" "$pkgdir/"

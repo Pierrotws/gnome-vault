@@ -1,6 +1,6 @@
 # Maintainer: Pierre Sauvage <m.sauvage.pierre@gmail.com>
 pkgname=gnome-vault
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc="A pass-compatible password manager for GNOME"
 arch=('x86_64')
