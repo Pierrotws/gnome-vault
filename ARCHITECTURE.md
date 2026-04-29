@@ -16,26 +16,42 @@ gnome-vault/
 |   |-- app/                           # UI-facing application controller and state
 |   |   |-- controller.rs              # Main application use-case API
 |   |   |-- app_error.rs               # App-level error translation
+|   |   |-- cache_warmup.rs            # Background entry-cache decryption worker
+|   |   |-- changes.rs                 # Worker-safe wrappers for revert/rollback/push
+|   |   |-- group_preview.rs           # Worker-side decrypt for group-row subtitles
 |   |   `-- state/                     # Tree, selected entry, edit session, entry cache
 |   |-- helpers/                       # Focused infrastructure/domain helpers
+|   |   |-- clipboard.rs               # Centralized "copy secret" entry point
+|   |   |-- entry_preview.rs           # Subtitle formatting for group rows
 |   |   |-- git.rs                     # Git repository operations through git2
-|   |   |-- parser.rs                  # pass plaintext <-> EntryData parser/formatter
-|   |   |-- pgp.rs                     # GPGME encryption/decryption and recipients
+|   |   |-- macros.rs                  # Internal macros
 |   |   |-- otp.rs                     # TOTP parsing and generation
-|   |   `-- password.rs                # Password generation
+|   |   |-- parser.rs                  # pass plaintext <-> EntryData parser/formatter
+|   |   |-- password.rs                # Password generation
+|   |   `-- pgp.rs                     # GPGME encryption/decryption and recipients
 |   |-- pass/                          # password-store domain and persistence boundary
 |   |   |-- model/                     # EntryData, EntryField, PassNode
 |   |   `-- store/                     # File, GPG, and Git-backed store operations
 |   `-- ui/                            # GTK/Adwaita widgets and templates
 |       |-- window/                    # Main window orchestration
-|       |-- vault_view/                # Vault tree and search view
+|       |   |-- mod.rs                 # MainWindow wiring, callbacks, edit-mode glue
+|       |   |-- imp.rs                 # Composite-template fields and ObjectSubclass
+|       |   |-- autoload.rs            # Background cache-warmup tick handler
+|       |   |-- group_content.rs       # Right-pane group/search-results rendering
+|       |   |-- new_entry_dialog.rs    # New-entry creation dialog
+|       |   |-- preferences.rs         # Preferences dialog wiring
+|       |   `-- setup.rs               # Vault-setup view and env propagation
+|       |-- vault_view/                # Vault tree, search, programmatic selection
+|       |-- group_view/                # Right-pane list of entries in a group
 |       |-- entry_view/                # Entry display/editing and field rows
 |       |-- changes_view/              # Git history and change actions
 |       `-- generate_password_view/    # Password generator widget
+|-- vendor/
+|   `-- gtk-markdown/                  # Markdown-rendering GTK widget (git submodule)
+|-- .gitmodules                        # Submodule pin for vendor/gtk-markdown
 |-- Cargo.toml                         # Rust dependencies
 |-- meson.build                        # Meson project entry point
-|-- README.md                          # User/developer quick start
-`-- TODO.md                            # Current rough roadmap notes
+`-- README.md                          # User/developer quick start
 ```
 
 ## 2. High-Level System Diagram
@@ -81,11 +97,18 @@ Primary files:
 | File | Responsibility |
 | --- | --- |
 | `src/main.rs` | Initializes logging, GResources, local schema lookup, and the Adwaita application. |
-| `src/ui/window/mod.rs` | Main UI orchestration, callbacks, edit mode, vault setup, preferences, autoload, changes. |
+| `src/ui/window/mod.rs` | Main UI orchestration, signal wiring, edit-mode state. |
+| `src/ui/window/setup.rs` | Vault-setup wizard and `PASSWORD_STORE_DIR` propagation. |
+| `src/ui/window/preferences.rs` | Preferences dialog (autopush, autoload, group view, store dir, branch). |
+| `src/ui/window/autoload.rs` | Background entry-cache warmup tick handler. |
+| `src/ui/window/group_content.rs` | Right-pane rendering for group browsing and flat search results. |
+| `src/ui/window/new_entry_dialog.rs` | New-entry creation dialog. |
 | `assets/ui/window.blp` | Main window layout and stack structure. |
 | `src/ui/entry_view/` | Entry display/editing and field row integration. |
 | `src/ui/vault_view/` | Vault tree rendering, selection, search, and context actions. |
+| `src/ui/group_view/` | Right-pane list of entries inside the selected group. |
 | `src/ui/changes_view/` | Change list rendering, lazy history paging, and change context actions. |
+| `vendor/gtk-markdown/` | Standalone GTK widget that renders multiline fields as Markdown. |
 
 ### 3.2. Application Controller and State
 
@@ -99,7 +122,10 @@ Primary files:
 
 | File | Responsibility |
 | --- | --- |
-| `src/app/controller.rs` | Use-case methods for loading trees, opening entries, saving, creating, deleting, renaming, pushing, reverting, rollback, search, and cache warmup. |
+| `src/app/controller.rs` | Use-case methods for loading trees, opening entries, saving, creating, deleting, renaming, search filter, and cache warmup. |
+| `src/app/changes.rs` | Worker-safe free functions for revert / rollback / push (called from `gio::spawn_blocking`). |
+| `src/app/cache_warmup.rs` | Spawns the autoload decrypt worker and streams results back to the main loop. |
+| `src/app/group_preview.rs` | Spawns the per-group decrypt worker that fills missing subtitle previews. |
 | `src/app/state/app_state.rs` | Current tree, selected node, current edit session, decrypted entry cache. |
 | `src/app/state/entry_session.rs` | Dirty tracking, validation, title changes, save/revert session state. |
 | `src/app/app_error.rs` | Error type surfaced to the UI. |
@@ -139,6 +165,8 @@ Primary files:
 | `src/helpers/git.rs` | Repository initialization, add/remove/rename, commit, push, history, revert, rollback. |
 | `src/helpers/otp.rs` | Validates `otpauth://` URLs and generates current TOTP values. |
 | `src/helpers/password.rs` | Generates passwords for the new-entry dialog. |
+| `src/helpers/clipboard.rs` | Single entry point for copying secrets into the GTK clipboard. |
+| `src/helpers/entry_preview.rs` | Formats the first-field preview shown as a group-row subtitle. |
 
 ## 4. Data Stores
 
@@ -187,6 +215,7 @@ Purpose: Avoids reopening and decrypting a `.gpg` file after an entry has alread
 | Git remote | Optional synchronization with GitHub, GitLab, or custom remotes. | Git remote configured as `origin`; push through git2. |
 | pass file format | Compatibility with the standard Unix password manager layout. | Filesystem layout plus `.gpg-id` and encrypted `.gpg` files. |
 | GSettings | GNOME-standard preference storage. | `gio::Settings`. |
+| gtk-markdown widget | Renders multiline fields as styled Markdown blocks. | Vendored as a git submodule at `vendor/gtk-markdown`; consumed via Cargo `path` dependency. |
 
 ## 6. Deployment & Infrastructure
 
@@ -280,7 +309,7 @@ Primary Language: Rust
 
 Primary UI Toolkit: GTK4 with libadwaita
 
-Date of Last Update: 2026-04-27
+Date of Last Update: 2026-04-29
 
 ## 11. Glossary / Acronyms
 
