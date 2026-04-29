@@ -39,7 +39,6 @@ impl MainWindow {
         let window = self.clone();
         glib::timeout_add_local(Duration::from_millis(100), move || {
             let mut finished = false;
-            let mut loaded_any = false;
 
             for _ in 0..32 {
                 match receiver.try_recv() {
@@ -48,7 +47,6 @@ impl MainWindow {
                             .controller()
                             .borrow_mut()
                             .cache_loaded_entry(&node, entry);
-                        loaded_any = true;
                     }
                     Ok(CacheWarmupMessage::Failed(path, err)) => {
                         log::warn!("Failed to autoload {}: {err}", path.display());
@@ -65,20 +63,25 @@ impl MainWindow {
                 }
             }
 
-            if loaded_any
-                && !window
+            // Tree/right-pane refresh is deferred to autoload completion.
+            // Refreshing every tick (100 ms) tore down the search-results
+            // rows mid-click; the user could not reliably select an entry.
+            // While autoload runs, the search the user typed reflects
+            // whatever is in cache so far; new field-content matches will
+            // appear when they keep typing (each keystroke rebuilds) or
+            // when autoload finishes.
+            if finished {
+                window.imp().autoload_running.set(false);
+                if !window
                     .imp()
                     .vault_view
                     .search_entry()
                     .text()
                     .trim()
                     .is_empty()
-            {
-                window.rebuild_vault_tree();
-            }
-
-            if finished {
-                window.imp().autoload_running.set(false);
+                {
+                    window.rebuild_vault_tree();
+                }
                 glib::ControlFlow::Break
             } else {
                 glib::ControlFlow::Continue
