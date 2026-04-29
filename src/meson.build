@@ -3,9 +3,13 @@ sh = find_program('sh')
 
 cargo_manifest = meson.project_source_root() / 'Cargo.toml'
 cargo_target_dir = meson.project_build_root() / 'target'
+# Treat every meson buildtype except 'debug' as a release-profile cargo
+# build. arch-meson defaults to 'plain', which used to drop us into
+# cargo's debug profile and ship an unoptimized binary in distro
+# packages.
 cargo_profile = 'debug'
 cargo_release_arg = ''
-if get_option('buildtype') == 'release'
+if get_option('buildtype') != 'debug'
   cargo_profile = 'release'
   cargo_release_arg = '--release'
 endif

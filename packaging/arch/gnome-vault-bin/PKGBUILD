@@ -7,13 +7,13 @@ pkgdesc="A pass-compatible password manager for GNOME (prebuilt binary)"
 arch=('x86_64')
 url="https://github.com/Pierrotws/gnome-vault"
 license=('GPL-3.0-or-later')
-depends=('gtk4' 'libadwaita' 'gpgme' 'libgit2' 'gnupg')
+depends=('gtk4' 'libadwaita' 'gpgme' 'libgit2' 'libssh2' 'gnupg')
 provides=("$_pkgname=$pkgver")
 conflicts=("$_pkgname")
 source=("$pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$_pkgname-$pkgver-x86_64.tar.gz")
 # Replace per release with the sha256 published next to the tarball, or
 # regenerate locally with `updpkgsums`.
-sha256sums=('SKIP')
+sha256sums=('7de073040a0731e8bcc160ebf080f883b69ff63b0380a66099214cea9d6ee662')
 
 package() {
     cp -a "$srcdir/usr" "$pkgdir/"
