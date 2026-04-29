@@ -1,0 +1,102 @@
+name: Build packages
+
+on:
+  release:
+    types: [published]
+  # Manual trigger so packaging breakage can be caught without cutting a
+  # release. Artifacts go to the run's artifact storage instead of a release.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build .deb and binary tarball (x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            meson ninja-build pkg-config \
+            blueprint-compiler \
+            libgtk-4-dev libadwaita-1-dev \
+            libgpgme-dev libgit2-dev libssh2-1-dev libssl-dev \
+            cargo rustc \
+            ruby ruby-dev \
+            build-essential
+          sudo gem install --no-document fpm
+
+      - name: Compute version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0+${GITHUB_SHA::8}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure and build (release)
+        run: |
+          meson setup build --prefix=/usr --buildtype=release
+          meson compile -C build
+
+      - name: Stage install tree
+        run: |
+          DESTDIR="$PWD/staging" meson install -C build
+          # Both packagers expect the LICENSE under /usr/share/licenses
+          # so the tarball is self-contained and the .deb gets a copyright
+          # file at a predictable path.
+          install -Dm644 LICENSE \
+            "staging/usr/share/licenses/gnome-vault/LICENSE"
+
+      - name: Pack binary tarball (consumed by gnome-vault-bin AUR)
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          tar -C staging -czf "gnome-vault-$VERSION-x86_64.tar.gz" usr
+
+      - name: Build .deb with fpm
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          fpm \
+            -s dir -t deb \
+            -n gnome-vault \
+            -v "$VERSION" \
+            -a amd64 \
+            --maintainer "Pierre Sauvage <m.sauvage.pierre@gmail.com>" \
+            --description "GNOME Vault — pass-compatible password manager" \
+            --license "GPL-3.0-or-later" \
+            --url "https://github.com/Pierrotws/gnome-vault" \
+            --depends "libgtk-4-1" \
+            --depends "libadwaita-1-0" \
+            --depends "libgpgme11t64" \
+            --depends "libgit2-1.7" \
+            --depends "gnupg" \
+            --after-install packaging/debian/postinst.sh \
+            --after-remove packaging/debian/postinst.sh \
+            -C staging \
+            usr
+
+      - name: Upload artifacts (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnome-vault-packages
+          path: |
+            *.deb
+            gnome-vault-*-x86_64.tar.gz
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.deb
+            gnome-vault-*-x86_64.tar.gz

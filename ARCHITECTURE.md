@@ -48,6 +48,11 @@ gnome-vault/
 |       `-- generate_password_view/    # Password generator widget
 |-- vendor/
 |   `-- gtk-markdown/                  # Markdown-rendering GTK widget (git submodule)
+|-- packaging/
+|   |-- arch/gnome-vault/PKGBUILD      # Arch source build
+|   |-- arch/gnome-vault-bin/PKGBUILD  # Arch binary (consumes release tarball)
+|   `-- debian/postinst.sh             # .deb post-install GSettings recompile
+|-- .github/workflows/packages.yml     # Build .deb + binary tarball on release
 |-- .gitmodules                        # Submodule pin for vendor/gtk-markdown
 |-- Cargo.toml                         # Rust dependencies
 |-- meson.build                        # Meson project entry point
@@ -231,7 +236,7 @@ Installation: `meson install -C build` installs the Cargo-built binary, resource
 
 Logging: `env_logger` is initialized in `src/main.rs`; default filter is `warn`. Debug logs are available with `RUST_LOG=debug`.
 
-CI/CD Pipeline: Not currently defined in the repository.
+CI/CD Pipeline: `.github/workflows/packages.yml` builds a Ubuntu (24.04, x86_64) `.deb` and a binary tarball on each published release, and attaches both as release assets. Arch Linux PKGBUILDs live under `packaging/arch/`: `gnome-vault/PKGBUILD` builds from the tagged source, `gnome-vault-bin/PKGBUILD` consumes the release tarball.
 
 ## 7. Security Considerations
 
