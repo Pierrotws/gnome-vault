@@ -6,10 +6,10 @@ pkgdesc="A pass-compatible password manager for GNOME"
 arch=('x86_64')
 url="https://github.com/Pierrotws/gnome-vault"
 license=('GPL-3.0-or-later')
-depends=('gtk4' 'libadwaita' 'gpgme' 'libgit2' 'gnupg')
+depends=('gtk4' 'libadwaita' 'gpgme' 'libgit2' 'libssh2' 'gnupg')
 makedepends=('cargo' 'meson' 'ninja' 'pkgconf' 'blueprint-compiler' 'git')
 source=("$pkgname-$pkgver::git+$url.git#tag=v$pkgver")
-sha256sums=('SKIP')
+sha256sums=('829d1bcb23fbbe1e7d65d2ce76a8285af71f381ccbdc3af7971a8a4646b35d15')
 
 prepare() {
     cd "$pkgname-$pkgver"
