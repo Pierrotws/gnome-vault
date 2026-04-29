@@ -11,8 +11,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build .deb and binary tarball (x86_64)
+  ubuntu-deb:
+    name: Ubuntu .deb (x86_64)
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout (with submodules)
@@ -41,10 +41,6 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            # workflow_dispatch / manual smoke-test: take the base version
-            # from Cargo.toml and append the short SHA so the artifact is
-            # clearly a build-from-branch and never collides with a real
-            # release of the same base version.
             BASE=$(awk -F'"' '/^version[[:space:]]*=[[:space:]]*"/{print $2; exit}' Cargo.toml)
             VERSION="${BASE}+${GITHUB_SHA::8}"
           fi
@@ -63,16 +59,8 @@ jobs:
       - name: Stage install tree
         run: |
           DESTDIR="$PWD/staging" meson install -C build
-          # Both packagers expect the LICENSE under /usr/share/licenses
-          # so the tarball is self-contained and the .deb gets a copyright
-          # file at a predictable path.
           install -Dm644 LICENSE \
             "staging/usr/share/licenses/gnome-vault/LICENSE"
-
-      - name: Pack binary tarball (consumed by gnome-vault-bin AUR)
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          tar -C staging -czf "gnome-vault-$VERSION-x86_64.tar.gz" usr
 
       - name: Build .deb with fpm
         run: |
@@ -100,15 +88,80 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: gnome-vault-packages
-          path: |
-            *.deb
-            gnome-vault-*-x86_64.tar.gz
+          name: gnome-vault-deb
+          path: '*.deb'
 
       - name: Attach to release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            *.deb
-            gnome-vault-*-x86_64.tar.gz
+          files: '*.deb'
+
+  arch-bin:
+    # Built inside an Arch container so the binary links against the same
+    # gpgme/gtk/libgit2 SONAMEs Arch users actually have. Building on
+    # Ubuntu produced a tarball pinned to libgpgme.so.11 (gpgme 1.x) which
+    # Arch (gpgme 2.x → libgpgme.so.45) cannot load.
+    name: Arch binary tarball (x86_64)
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm \
+            rust meson ninja pkgconf \
+            gtk4 libadwaita gpgme libgit2 libssh2 \
+            git curl
+
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Trust workspace (container is root, host UID differs)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Compute version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            BASE=$(awk -F'"' '/^version[[:space:]]*=[[:space:]]*"/{print $2; exit}' Cargo.toml)
+            VERSION="${BASE}+${GITHUB_SHA::8}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure and build (release)
+        run: |
+          meson setup build \
+            --prefix=/usr \
+            --buildtype=release \
+            -Dblueprint=disabled
+          meson compile -C build
+
+      - name: Stage install tree
+        run: |
+          DESTDIR="$PWD/staging" meson install -C build
+          install -Dm644 LICENSE \
+            "staging/usr/share/licenses/gnome-vault/LICENSE"
+
+      - name: Pack binary tarball (consumed by gnome-vault-bin AUR)
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          tar -C staging -czf "gnome-vault-$VERSION-x86_64.tar.gz" usr
+
+      - name: Upload artifacts (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnome-vault-arch-bin
+          path: 'gnome-vault-*-x86_64.tar.gz'
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: 'gnome-vault-*-x86_64.tar.gz'
