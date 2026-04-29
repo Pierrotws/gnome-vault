@@ -1,0 +1,21 @@
+# Cargo / Rust
+/target/
+/Cargo.lock.bak
+
+# Meson
+/build/
+/builddir/
+
+# makepkg working dirs and outputs (left in place when running makepkg
+# inside packaging/arch/<pkg>/)
+/packaging/arch/*/src/
+/packaging/arch/*/pkg/
+/packaging/arch/*/*.pkg.tar.*
+/packaging/arch/*/*.tar.gz
+/packaging/arch/*/*.tar.zst
+/packaging/arch/*/gnome-vault-[0-9]*/
+/packaging/arch/*/gnome-vault-bin-[0-9]*/
+
+# Editor / OS
+.DS_Store
+*.swp
