@@ -41,7 +41,10 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            VERSION="0.0.0+${GITHUB_SHA::8}"
+            # workflow_dispatch / manual smoke-test: use the version
+            # declared in Cargo.toml so artifacts look like the release
+            # the next tag would produce.
+            VERSION=$(awk -F'"' '/^version[[:space:]]*=[[:space:]]*"/{print $2; exit}' Cargo.toml)
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
