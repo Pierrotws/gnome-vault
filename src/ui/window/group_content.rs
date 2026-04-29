@@ -102,17 +102,40 @@ impl MainWindow {
         let generation = self.imp().group_preview_generation.get().wrapping_add(1);
         self.imp().group_preview_generation.set(generation);
 
-        let nodes = group
+        let entries: Vec<PassNode> = group
             .children
             .iter()
             .filter(|child| child.is_entry())
             .cloned()
-            .collect::<Vec<_>>();
-        if nodes.is_empty() {
+            .collect();
+        if entries.is_empty() {
             return;
         }
 
-        let receiver = group_preview::load_group_previews(nodes);
+        // Cache hits are filled in synchronously on the main thread so the
+        // user never sees a blank-subtitle flicker for entries autoload (or
+        // a recent save) has already populated. Only the cache misses are
+        // dispatched to the decrypt worker.
+        let mut to_load: Vec<(usize, PassNode)> = Vec::new();
+        {
+            let controller = self.controller();
+            let controller = controller.borrow();
+            for (index, node) in entries.iter().enumerate() {
+                if let Some(cached) = controller.state().cached_entry(&node.path) {
+                    let subtitle = entry_preview::subtitle(cached);
+                    self.imp()
+                        .group_view
+                        .update_entry_subtitle(index, node, subtitle.as_deref());
+                } else {
+                    to_load.push((index, node.clone()));
+                }
+            }
+        }
+        if to_load.is_empty() {
+            return;
+        }
+
+        let receiver = group_preview::load_group_previews(to_load);
 
         let window = self.clone();
         glib::timeout_add_local(Duration::from_millis(50), move || {
