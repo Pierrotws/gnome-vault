@@ -41,10 +41,12 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            # workflow_dispatch / manual smoke-test: use the version
-            # declared in Cargo.toml so artifacts look like the release
-            # the next tag would produce.
-            VERSION=$(awk -F'"' '/^version[[:space:]]*=[[:space:]]*"/{print $2; exit}' Cargo.toml)
+            # workflow_dispatch / manual smoke-test: take the base version
+            # from Cargo.toml and append the short SHA so the artifact is
+            # clearly a build-from-branch and never collides with a real
+            # release of the same base version.
+            BASE=$(awk -F'"' '/^version[[:space:]]*=[[:space:]]*"/{print $2; exit}' Cargo.toml)
+            VERSION="${BASE}+${GITHUB_SHA::8}"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
