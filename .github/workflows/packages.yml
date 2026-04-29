@@ -25,7 +25,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ninja-build pkg-config \
-            blueprint-compiler \
             libgtk-4-dev libadwaita-1-dev \
             libgpgme-dev libgit2-dev libssh2-1-dev libssl-dev \
             cargo rustc \
@@ -48,7 +47,12 @@ jobs:
 
       - name: Configure and build (release)
         run: |
-          meson setup build --prefix=/usr --buildtype=release
+          # Use the checked-in .ui fallbacks so blueprint-compiler isn't
+          # required at build time on the runner.
+          meson setup build \
+            --prefix=/usr \
+            --buildtype=release \
+            -Dblueprint=disabled
           meson compile -C build
 
       - name: Stage install tree
