@@ -173,6 +173,13 @@ impl AppController {
     }
 
     /// Stores an entry loaded by the background cache warmer.
+    ///
+    /// Contract: callers must invoke this from the GTK main loop (where
+    /// `Rc<RefCell<AppController>>` is single-threaded) and must not be
+    /// holding any other borrow on the controller. The autoload tick in
+    /// `ui/window/autoload.rs` and the group-preview tick in
+    /// `ui/window/group_content.rs` both honor this — they `borrow_mut`
+    /// only for this call and drop the borrow before touching widgets.
     pub fn cache_loaded_entry(&mut self, node: &PassNode, entry: EntryData) {
         self.state.cache_entry(node, entry);
     }
