@@ -279,6 +279,28 @@ impl AppController {
         self.delete_entry(node)
     }
 
+    /// Deletes a folder (and everything inside it) from the store.
+    ///
+    /// Closes the current edit session if it was on an entry beneath the
+    /// folder. The decrypted entry cache is wiped wholesale because every
+    /// entry under the deleted prefix is now gone; valid entries in other
+    /// branches re-decrypt on next open.
+    pub fn delete_folder(&mut self, node: PassNode) -> Result<bool, AppError> {
+        pass::store::delete_folder(&node, self.autopush)?;
+
+        let prefix = node.path.clone();
+        let closed = self
+            .state
+            .current_session()
+            .is_some_and(|session| session.node().path.starts_with(&prefix));
+        if closed {
+            self.state.set_current_session(None);
+        }
+        self.state.clear_entry_cache();
+
+        Ok(closed)
+    }
+
     /// Deletes the given entry and clears the current session if it was open.
     pub fn delete_entry(&mut self, node: PassNode) -> Result<bool, AppError> {
         pass::store::delete_entry(&node, self.autopush)?;

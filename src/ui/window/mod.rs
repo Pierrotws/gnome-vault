@@ -199,6 +199,21 @@ impl MainWindow {
         {
             let window = self.clone();
 
+            imp.vault_view
+                .connect_delete_folder_requested(move |_, folder_path, folder_name| {
+                    let node = PassNode {
+                        name: folder_name,
+                        path: PathBuf::from(folder_path),
+                        kind: PassNodeKind::Group,
+                        children: Vec::new(),
+                    };
+                    window.confirm_delete_folder(node);
+                });
+        }
+
+        {
+            let window = self.clone();
+
             imp.vault_view.connect_entry_selected(move |nav| {
                 let Some(node) = nav.selected_node() else {
                     return;
@@ -498,6 +513,57 @@ impl MainWindow {
         };
 
         if deleted_current {
+            self.imp().entry_view.display_empty();
+            self.show_empty_content();
+            self.set_edit_unlock_state(false, false, false);
+        }
+        if let Err(err) = self.reload_vault_tree() {
+            self.imp().entry_view.show_error(&err.to_string());
+        }
+        if let Err(err) = self.reload_changes_view() {
+            self.imp().entry_view.show_error(&err.to_string());
+        }
+    }
+
+    fn confirm_delete_folder(&self, node: PassNode) {
+        if self.controller().borrow().has_unsaved_changes() {
+            self.imp()
+                .entry_view
+                .show_error("Save or cancel current changes before deleting a folder");
+            return;
+        }
+
+        let dialog = adw::AlertDialog::builder()
+            .heading(format!("Delete \u{201C}{}\u{201D}?", node.name))
+            .body(
+                "Every entry inside this folder is removed and a single \
+                 commit is recorded. This cannot be undone from the app.",
+            )
+            .build();
+        dialog.add_responses(&[("cancel", "Cancel"), ("delete", "Delete")]);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
+
+        let window = self.clone();
+        dialog.connect_response(None, move |_, response| {
+            if response == "delete" {
+                window.delete_folder(node.clone());
+            }
+        });
+        dialog.present(Some(self));
+    }
+
+    fn delete_folder(&self, node: PassNode) {
+        let closed_session = match self.controller().borrow_mut().delete_folder(node) {
+            Ok(closed) => closed,
+            Err(err) => {
+                self.imp().entry_view.show_error(&err.to_string());
+                return;
+            }
+        };
+
+        if closed_session {
             self.imp().entry_view.display_empty();
             self.show_empty_content();
             self.set_edit_unlock_state(false, false, false);

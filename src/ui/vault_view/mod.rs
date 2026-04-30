@@ -170,6 +170,25 @@ impl VaultView {
         })
     }
 
+    pub fn connect_delete_folder_requested<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self, String, String) + 'static,
+    {
+        self.connect_local("delete-folder-requested", false, move |values| {
+            let obj = values[0]
+                .get::<VaultView>()
+                .expect("delete-folder-requested: first arg should be VaultView");
+            let folder_path = values[1]
+                .get::<String>()
+                .expect("delete-folder-requested: second arg should be String");
+            let folder_name = values[2]
+                .get::<String>()
+                .expect("delete-folder-requested: third arg should be String");
+            f(&obj, folder_path, folder_name);
+            None
+        })
+    }
+
     pub fn connect_search_changed<F>(&self, f: F) -> glib::SignalHandlerId
     where
         F: Fn(&Self) + 'static,
@@ -455,32 +474,49 @@ fn install_row_context_menu(row_box: &gtk::Box) {
         popover.set_parent(&widget);
         popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
 
-        let button = gtk::Button::with_label(if node.is_group() {
-            "Create Entry"
-        } else {
-            "Delete Entry"
-        });
-        button.set_margin_top(6);
-        button.set_margin_bottom(6);
-        button.set_margin_start(6);
-        button.set_margin_end(6);
-
         if node.is_group() {
+            let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
             let folder_path = node.path.to_string_lossy().to_string();
-            button.connect_clicked(glib::clone!(
+            let folder_name = node.name.clone();
+
+            let create = popover_button("Create Entry", false);
+            create.connect_clicked(glib::clone!(
+                #[weak]
+                popover,
+                #[weak]
+                vault_view,
+                #[strong]
+                folder_path,
+                move |_| {
+                    popover.popdown();
+                    vault_view.emit_by_name::<()>("create-entry-requested", &[&folder_path]);
+                }
+            ));
+            menu.append(&create);
+
+            menu.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+
+            let delete = popover_button("Delete Folder", true);
+            delete.connect_clicked(glib::clone!(
                 #[weak]
                 popover,
                 #[weak]
                 vault_view,
                 move |_| {
                     popover.popdown();
-                    vault_view.emit_by_name::<()>("create-entry-requested", &[&folder_path]);
+                    vault_view.emit_by_name::<()>(
+                        "delete-folder-requested",
+                        &[&folder_path, &folder_name],
+                    );
                 }
             ));
+            menu.append(&delete);
+
+            popover.set_child(Some(&menu));
         } else {
             let entry_path = node.path.to_string_lossy().to_string();
             let entry_name = node.name.clone();
-            button.add_css_class("destructive-action");
+            let button = popover_button("Delete Entry", true);
             button.connect_clicked(glib::clone!(
                 #[weak]
                 popover,
@@ -492,12 +528,25 @@ fn install_row_context_menu(row_box: &gtk::Box) {
                         .emit_by_name::<()>("delete-entry-requested", &[&entry_path, &entry_name]);
                 }
             ));
+            popover.set_child(Some(&button));
         }
 
-        popover.set_child(Some(&button));
         popover.popup();
     });
     row_box.add_controller(gesture);
+}
+
+fn popover_button(label: &str, destructive: bool) -> gtk::Button {
+    let button = gtk::Button::with_label(label);
+    button.set_margin_top(6);
+    button.set_margin_bottom(6);
+    button.set_margin_start(6);
+    button.set_margin_end(6);
+    button.add_css_class("flat");
+    if destructive {
+        button.add_css_class("destructive-action");
+    }
+    button
 }
 
 pub fn build_store_from_nodes(nodes: &[PassNode]) -> gio::ListStore {

@@ -44,6 +44,9 @@ impl ObjectImpl for VaultView {
                 Signal::builder("delete-entry-requested")
                     .param_types([String::static_type(), String::static_type()])
                     .build(),
+                Signal::builder("delete-folder-requested")
+                    .param_types([String::static_type(), String::static_type()])
+                    .build(),
                 Signal::builder("search-changed").build(),
             ]
         })

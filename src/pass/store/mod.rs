@@ -205,6 +205,28 @@ pub fn delete_entry(node: &PassNode, autopush: bool) -> Result<(), StoreError> {
     Ok(())
 }
 
+/// Removes a group directory (and every entry beneath it) from the store.
+pub fn delete_folder(node: &PassNode, autopush: bool) -> Result<(), StoreError> {
+    validate_folder_path(&node.path)?;
+
+    let store_dir = password_store_dir();
+    let folder_path = store_dir.join(&node.path);
+    ensure_inside_store(&store_dir, &folder_path)?;
+
+    if !folder_path.is_dir() {
+        return Err(StoreError::InvalidFolderPath(node.path.clone()));
+    }
+
+    fs::remove_dir_all(&folder_path)?;
+    git::remove_dir(&store_dir, &folder_path)?;
+    git::commit(&store_dir, &format!("Delete folder {}", node.name))?;
+    if autopush {
+        git::push(&store_dir, None)?;
+    }
+
+    Ok(())
+}
+
 /// Creates a new entry under a password-store folder.
 pub fn create_entry_data(
     folder_path: &Path,

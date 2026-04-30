@@ -154,6 +154,22 @@ pub fn remove(project_dir: &Path, file_path: &Path) -> Result<(), GitError> {
     Ok(())
 }
 
+/// Stages the deletion of every index entry under `dir_path`.
+///
+/// `index.remove_dir` walks the in-memory index for entries whose paths
+/// start with `dir_path` and drops them. The on-disk files still need to
+/// be removed by the caller; the next commit reflects the index state.
+pub fn remove_dir(project_dir: &Path, dir_path: &Path) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let dir_path = relative_workdir_path(&repo, dir_path)?;
+    let mut index = repo.index()?;
+
+    index.remove_dir(&dir_path, 0)?;
+    index.write()?;
+
+    Ok(())
+}
+
 /// Stages a file rename in the repository index.
 pub fn rename(project_dir: &Path, old_path: &Path, new_path: &Path) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
