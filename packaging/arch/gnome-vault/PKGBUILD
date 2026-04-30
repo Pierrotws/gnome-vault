@@ -9,7 +9,7 @@ license=('GPL-3.0-or-later')
 depends=('gtk4' 'libadwaita' 'gpgme' 'libgit2' 'libssh2' 'gnupg')
 makedepends=('cargo' 'meson' 'ninja' 'pkgconf' 'blueprint-compiler' 'git')
 source=("$pkgname-$pkgver::git+$url.git#tag=v$pkgver")
-sha256sums=('829d1bcb23fbbe1e7d65d2ce76a8285af71f381ccbdc3af7971a8a4646b35d15')
+sha256sums=('797c90a7c924e40695b9b7618b4f339578a963004ff095929afc915c1618bf09')
 
 prepare() {
     cd "$pkgname-$pkgver"
@@ -18,6 +18,13 @@ prepare() {
 
 build() {
     cd "$pkgname-$pkgver"
+    # libssh2-sys defaults to a vendored static build via cc-rs. With
+    # makepkg's -flto=auto in CFLAGS, the resulting libssh2.a is an LTO
+    # archive that rust-lld cannot resolve symbols from at the final
+    # link step. Force libssh2-sys to use the system libssh2 (dynamic
+    # link via pkg-config) instead — libssh2 is in depends, so it's
+    # always available.
+    export LIBSSH2_SYS_USE_PKG_CONFIG=1
     arch-meson build
     meson compile -C build
 }
