@@ -8,10 +8,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **OTP shared secret displayed in plaintext `gtk::Entry`** (`otp_field_row/imp.rs:33`). The `otpauth://...?secret=JBSWY...` URL contains the credential. Visible by default, no reveal toggle, "Copy URL" exfiltrates trivially. Use `PasswordEntryRow` or split into Issuer/Account + a reveal-gated secret.
 
-**`.gpg-id` resolution ignores per-folder recipients** (`pass/store/mod.rs:271`). `pgp::recipient_ids(&store_dir)` always reads the root; pass(1) walks from `parent` upward. Result: silently encrypting to the wrong key for entries in subfolders. Walk parents.
-
-**Save is non-atomic and has no rollback path** (`pass/store/mod.rs:265-280`). `fs::write` truncates → if encrypt/write/git step fails, the original entry is destroyed and the repo is left dirty. Write to `.gpg.tmp`, fsync, `rename`. On post-write failure, restore from backup. Distinguish push failure from commit failure.
-
 **Rollback's safety branch isn't verified to land on the remote** (`helpers/git.rs:296-329`). The flow pushes the backup ref, then hard-resets and force-pushes. If the backup push silently failed, you've just permanently lost commits. Capture per-ref status via `RemoteCallbacks::push_update_reference` and refuse the destructive reset unless the backup is confirmed.
 
 **`getrandom::fill(...).unwrap()` panics the app on RNG failure** (`helpers/password.rs:42`). For a password manager that's a denial-of-service. Propagate the error.
@@ -21,12 +17,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 ## Important (correctness, UX, architecture)
 
 **Borrow-then-call-widget-setter pattern is a panic waiting to happen** (`window/mod.rs:246-268, 283-303, 343-346, 541-557, 817-820`). Multiple `controller.borrow()`/`borrow_mut()` calls interleave with widget setters that can synchronously emit signals re-entering the same controller. Snapshot bools first, drop borrows, then update widgets.
-
-**OTP timer leaks per row, fires post-dispose, accumulates on rebuild** (`otp_field_row/mod.rs:69-77`). `setup_callbacks` can be called multiple times, each spawns a fresh 1Hz timer. Use `Cell<Option<SourceId>>` in imp; start on `connect_map`, stop on `connect_unmap`; `dispose` should also cancel.
-
-**Strong reference cycles parent ↔ child** (all four field-row mod.rs files: `let parent = entry_view.clone()` captured into row closures). `EntryView` owns the rows, rows hold strong `EntryView` via closures. GObject doesn't break cycles. Use `entry_view.downgrade()`/`upgrade()`.
-
-**Missing `ObjectImpl::dispose` everywhere**. Field rows hold timers, template children, event controllers. Without `dispose` you get GTK warnings on drop and the OTP timer leak above.
 
 **Empty cache check on save failure** (`controller.rs:222-249, 240-249`). `entry_session::is_valid()` rejects empty plain/multiline fields, which are common in real pass entries (e.g. empty `comment:`, empty notes block). Decide if empty is parse-time or save-time refusal and document.
 
