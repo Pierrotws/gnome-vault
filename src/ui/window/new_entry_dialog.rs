@@ -80,8 +80,12 @@ impl MainWindow {
             self,
             move |_| {
                 let entry_view = window.imp().entry_view.clone();
+                // generator.password() is Zeroizing<String>; clone the
+                // inner String into the EntryField (itself ZeroizeOnDrop)
+                // and let the Zeroizing wrapper wipe its copy at scope end.
+                let generated = generator.password();
                 let entry = EntryData {
-                    password: EntryField::Password(generator.password()),
+                    password: EntryField::Password((*generated).clone()),
                     fields: Vec::new(),
                 };
                 let folder_path = PathBuf::from(folder_row.text().trim());

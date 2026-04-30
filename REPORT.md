@@ -4,8 +4,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 ## Critical (security, data loss, panics)
 
-**Secrets are never zeroized end-to-end.** `EntryData`, `EntryField`, `pgp::decrypt`'s `String`, `password::generate_password`'s return value all live in plain `String`/`Vec<u8>`. Every `.clone()` (and you clone heavily — `controller.rs:194-207` clones twice per cache miss) leaves another copy on the heap. Wrap with `zeroize::Zeroizing`/`secrecy::SecretString` and manually implement `Debug` to print `"<redacted>"`.
-
 **Clipboard secrets never auto-clear** (`entry_view/mod.rs:41-48`, all four field-row copy handlers). Clipboard managers (Klipper, GNOME Shell) keep history forever. `pass -c` defaults to 45s — match it. Centralize a `copy_secret(text, clear_after)` helper.
 
 **OTP shared secret displayed in plaintext `gtk::Entry`** (`otp_field_row/imp.rs:33`). The `otpauth://...?secret=JBSWY...` URL contains the credential. Visible by default, no reveal toggle, "Copy URL" exfiltrates trivially. Use `PasswordEntryRow` or split into Issuer/Account + a reveal-gated secret.

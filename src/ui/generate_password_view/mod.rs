@@ -2,6 +2,7 @@ mod imp;
 
 use adw::{prelude::*, subclass::prelude::*};
 use gtk::glib;
+use zeroize::Zeroizing;
 
 use crate::helpers::password::{generate_password, PasswordMode};
 
@@ -37,8 +38,11 @@ impl GeneratePasswordView {
         });
     }
 
-    pub fn password(&self) -> String {
-        self.imp().preview_password_row.text().to_string()
+    /// Returns the currently displayed password wrapped in
+    /// [`Zeroizing`] so its heap allocation is wiped when the caller
+    /// drops it.
+    pub fn password(&self) -> Zeroizing<String> {
+        Zeroizing::new(self.imp().preview_password_row.text().to_string())
     }
 
     pub fn regenerate_preview(&self) {

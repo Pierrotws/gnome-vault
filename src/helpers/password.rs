@@ -1,3 +1,5 @@
+use zeroize::Zeroizing;
+
 use crate::helpers::macros::concat_bytes;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,7 +61,11 @@ fn shuffle(bytes: &mut [u8]) {
 ///
 /// Non-numeric modes guarantee at least one character from each required group.
 /// The function panics if `length` is too short for the selected mode.
-pub fn generate_password(length: usize, mode: PasswordMode) -> String {
+///
+/// The returned [`Zeroizing<String>`] wipes its backing memory on drop so a
+/// password that has been moved into a GTK widget (or otherwise consumed)
+/// does not linger in the local stack frame's heap allocation.
+pub fn generate_password(length: usize, mode: PasswordMode) -> Zeroizing<String> {
     assert!(length > 0, "length must be > 0");
     let charset = get_charset_for_mode(mode);
     let mut password: Vec<u8> = Vec::with_capacity(length);
@@ -97,7 +103,7 @@ pub fn generate_password(length: usize, mode: PasswordMode) -> String {
     if must_shuffle {
         shuffle(&mut password);
     }
-    String::from_utf8(password).unwrap()
+    Zeroizing::new(String::from_utf8(password).unwrap())
 }
 
 #[cfg(test)]
