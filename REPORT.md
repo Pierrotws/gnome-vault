@@ -24,8 +24,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **`getrandom::fill(...).unwrap()` panics the app on RNG failure** (`helpers/password.rs:42`). For a password manager that's a denial-of-service. Propagate the error.
 
-**Save partial-failure leaves cache and session inconsistent** (`app/controller.rs:281-311`). `save_current_entry` renames first, then saves body. If the body save fails: file is renamed on disk, `session.node` points to new path, `mark_saved` not called, old cache entry not removed. Either save body first, or unconditionally fix cache state immediately after a successful rename.
-
 **`std::env::set_var` race** (`main.rs:71`, `window/mod.rs:756, 964`). Not thread-safe on Linux (and `unsafe` in Rust 2024). Once `apply_store_dir_setting` runs after the autoload thread has spawned, you have a data race. Set once at startup.
 
 ## Important (correctness, UX, architecture)
@@ -41,8 +39,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 **Missing `ObjectImpl::dispose` everywhere**. Field rows hold timers, template children, event controllers. Without `dispose` you get GTK warnings on drop and the OTP timer leak above.
 
 **Programmatic `set_text` enters undo/IM history** (`password_field_row/mod.rs:31-33`, `plain_field_row/mod.rs:81-83`). Ctrl+Z reveals previous decrypted entries. IBus/Fcitx may persist preedit. Set `InputPurpose::Password` and `InputHints::PRIVATE | NO_EMOJI | NO_SPELLCHECK` on any entry holding decrypted material.
-
-**No validation on save/create** (`controller.rs:222-237, 281-312`). `is_valid()`/`has_valid_changes()` exists but is only checked in the UI path. Enforce in the controller — never persist invalid data.
 
 **Empty cache check on save failure** (`controller.rs:222-249, 240-249`). `entry_session::is_valid()` rejects empty plain/multiline fields, which are common in real pass entries (e.g. empty `comment:`, empty notes block). Decide if empty is parse-time or save-time refusal and document.
 
