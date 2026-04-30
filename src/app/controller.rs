@@ -52,6 +52,12 @@ impl AppController {
         self.state.current_session().map(|s| s.current())
     }
 
+    /// Direct mutable access to the current `EntryData`, bypassing
+    /// [`EntrySession`]'s dirty / validation tracking. Tests use it to
+    /// stage incoherent or specifically-shaped session states; non-test
+    /// code must go through `update_current_entry` so revert/save book
+    /// keeping stays consistent.
+    #[cfg(test)]
     pub fn current_entry_mut(&mut self) -> Option<&mut EntryData> {
         self.state.current_session_mut().map(|s| s.current_mut())
     }
