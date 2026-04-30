@@ -10,8 +10,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **Rollback's safety branch isn't verified to land on the remote** (`helpers/git.rs:296-329`). The flow pushes the backup ref, then hard-resets and force-pushes. If the backup push silently failed, you've just permanently lost commits. Capture per-ref status via `RemoteCallbacks::push_update_reference` and refuse the destructive reset unless the backup is confirmed.
 
-**`getrandom::fill(...).unwrap()` panics the app on RNG failure** (`helpers/password.rs:42`). For a password manager that's a denial-of-service. Propagate the error.
-
 **`std::env::set_var` race** (`main.rs:71`, `window/mod.rs:756, 964`). Not thread-safe on Linux (and `unsafe` in Rust 2024). Once `apply_store_dir_setting` runs after the autoload thread has spawned, you have a data race. Set once at startup.
 
 ## Important (correctness, UX, architecture)
@@ -31,8 +29,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 **Drag-and-drop reorder uses widget index, not stable** (`entry_view/mod.rs:502-507, 543-581`). If rows mutate mid-drag, wrong row moves. Pass `WeakRef<gtk::ListBoxRow>` instead.
 
 **OTP detection auto-promotes any `otpauth://`-shaped paste** (`entry_view/mod.rs:383-395`). If a user pastes a TOTP URL into a password field, it silently becomes an OTP field. Require explicit action.
-
-**`assert!` on user-driven length in `password::generate_password`** (`helpers/password.rs:62-101`). UI-driven length value crashes the process. Return `Result`.
 
 ## Minor
 

@@ -2,6 +2,42 @@ use zeroize::Zeroizing;
 
 use crate::helpers::macros::concat_bytes;
 
+/// Failure modes for [`generate_password`].
+#[derive(Debug)]
+pub enum PasswordError {
+    /// `length` was below the minimum required by the selected mode.
+    TooShort { min: usize, got: usize },
+    /// The OS RNG (`getrandom`) refused to fill our buffer.
+    Rng(getrandom::Error),
+}
+
+impl std::fmt::Display for PasswordError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PasswordError::TooShort { min, got } => write!(
+                f,
+                "password length {got} is below the minimum {min} required for the selected mode"
+            ),
+            PasswordError::Rng(err) => write!(f, "RNG failure: {err}"),
+        }
+    }
+}
+
+impl std::error::Error for PasswordError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            PasswordError::Rng(err) => Some(err),
+            PasswordError::TooShort { .. } => None,
+        }
+    }
+}
+
+impl From<getrandom::Error> for PasswordError {
+    fn from(err: getrandom::Error) -> Self {
+        PasswordError::Rng(err)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PasswordMode {
     /// Digits only.
@@ -36,37 +72,45 @@ pub fn get_charset_for_mode(mode: PasswordMode) -> &'static [u8] {
 }
 
 /// Generates an unbiased random index in `0..max`.
-fn random_index(max: usize) -> usize {
+fn random_index(max: usize) -> Result<usize, getrandom::Error> {
     let max_u64 = max as u64;
     let zone = u64::MAX - (u64::MAX % max_u64);
     loop {
         let mut buf = [0u8; 8];
-        getrandom::fill(&mut buf).unwrap();
+        getrandom::fill(&mut buf)?;
         let value = u64::from_le_bytes(buf);
         if value < zone {
-            return (value % max_u64) as usize;
+            return Ok((value % max_u64) as usize);
         }
     }
 }
 
 /// Shuffles bytes in place with Fisher-Yates.
-fn shuffle(bytes: &mut [u8]) {
+fn shuffle(bytes: &mut [u8]) -> Result<(), getrandom::Error> {
     for i in (1..bytes.len()).rev() {
-        let j = random_index(i + 1);
+        let j = random_index(i + 1)?;
         bytes.swap(i, j);
     }
+    Ok(())
 }
 
 /// Generates a random password of `length` bytes for the requested mode.
 ///
-/// Non-numeric modes guarantee at least one character from each required group.
-/// The function panics if `length` is too short for the selected mode.
+/// Non-numeric modes guarantee at least one character from each required
+/// group; `Err(PasswordError::TooShort)` is returned when `length` is below
+/// the minimum required for the mode. RNG failures from `getrandom` are
+/// propagated as [`PasswordError::Rng`].
 ///
 /// The returned [`Zeroizing<String>`] wipes its backing memory on drop so a
 /// password that has been moved into a GTK widget (or otherwise consumed)
 /// does not linger in the local stack frame's heap allocation.
-pub fn generate_password(length: usize, mode: PasswordMode) -> Zeroizing<String> {
-    assert!(length > 0, "length must be > 0");
+pub fn generate_password(
+    length: usize,
+    mode: PasswordMode,
+) -> Result<Zeroizing<String>, PasswordError> {
+    if length == 0 {
+        return Err(PasswordError::TooShort { min: 1, got: length });
+    }
     let charset = get_charset_for_mode(mode);
     let mut password: Vec<u8> = Vec::with_capacity(length);
     let mut must_shuffle = true;
@@ -75,35 +119,44 @@ pub fn generate_password(length: usize, mode: PasswordMode) -> Zeroizing<String>
             must_shuffle = false;
         }
         PasswordMode::Alphanumeric => {
-            assert!(length >= 3, "length must be > 3");
-            password.push(NUMERIC[random_index(NUMERIC.len())]);
-            password.push(LOWER[random_index(LOWER.len())]);
-            password.push(UPPER[random_index(UPPER.len())]);
+            if length < 3 {
+                return Err(PasswordError::TooShort { min: 3, got: length });
+            }
+            password.push(NUMERIC[random_index(NUMERIC.len())?]);
+            password.push(LOWER[random_index(LOWER.len())?]);
+            password.push(UPPER[random_index(UPPER.len())?]);
         }
         PasswordMode::LimitedSpecial => {
-            assert!(length >= 4, "length must be > 4");
-            password.push(NUMERIC[random_index(NUMERIC.len())]);
-            password.push(LOWER[random_index(LOWER.len())]);
-            password.push(UPPER[random_index(UPPER.len())]);
-            password.push(LIMITED[random_index(LIMITED.len())]);
+            if length < 4 {
+                return Err(PasswordError::TooShort { min: 4, got: length });
+            }
+            password.push(NUMERIC[random_index(NUMERIC.len())?]);
+            password.push(LOWER[random_index(LOWER.len())?]);
+            password.push(UPPER[random_index(UPPER.len())?]);
+            password.push(LIMITED[random_index(LIMITED.len())?]);
         }
         PasswordMode::All => {
-            assert!(length >= 4, "length must be > 4");
-            password.push(NUMERIC[random_index(NUMERIC.len())]);
-            password.push(LOWER[random_index(LOWER.len())]);
-            password.push(UPPER[random_index(UPPER.len())]);
-            password.push(SPECIAL[random_index(SPECIAL.len())]);
+            if length < 4 {
+                return Err(PasswordError::TooShort { min: 4, got: length });
+            }
+            password.push(NUMERIC[random_index(NUMERIC.len())?]);
+            password.push(LOWER[random_index(LOWER.len())?]);
+            password.push(UPPER[random_index(UPPER.len())?]);
+            password.push(SPECIAL[random_index(SPECIAL.len())?]);
         }
     }
     for _ in password.len()..length {
-        let idx = random_index(charset.len());
+        let idx = random_index(charset.len())?;
         password.push(charset[idx]);
     }
     // Avoid predictable required-character positions.
     if must_shuffle {
-        shuffle(&mut password);
+        shuffle(&mut password)?;
     }
-    Zeroizing::new(String::from_utf8(password).unwrap())
+    Ok(Zeroizing::new(
+        // Charsets are ASCII-only, so the bytes are guaranteed valid UTF-8.
+        String::from_utf8(password).expect("password charset is ASCII"),
+    ))
 }
 
 #[cfg(test)]
@@ -135,7 +188,7 @@ mod tests {
 
     #[test]
     fn generated_numeric_password_has_requested_length_and_digits_only() {
-        let password = generate_password(32, PasswordMode::Numeric);
+        let password = generate_password(32, PasswordMode::Numeric).unwrap();
 
         assert_eq!(password.len(), 32);
         assert!(only_uses_charset(
@@ -146,7 +199,7 @@ mod tests {
 
     #[test]
     fn generated_limited_special_password_contains_required_groups() {
-        let password = generate_password(64, PasswordMode::LimitedSpecial);
+        let password = generate_password(64, PasswordMode::LimitedSpecial).unwrap();
         let charset = get_charset_for_mode(PasswordMode::LimitedSpecial);
 
         assert_eq!(password.len(), 64);
@@ -159,7 +212,7 @@ mod tests {
 
     #[test]
     fn generated_all_password_contains_required_groups() {
-        let password = generate_password(64, PasswordMode::All);
+        let password = generate_password(64, PasswordMode::All).unwrap();
         let charset = get_charset_for_mode(PasswordMode::All);
 
         assert_eq!(password.len(), 64);
@@ -171,8 +224,26 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "length must be > 0")]
     fn rejects_zero_length_passwords() {
-        generate_password(0, PasswordMode::Numeric);
+        let err = generate_password(0, PasswordMode::Numeric).unwrap_err();
+        assert!(matches!(
+            err,
+            PasswordError::TooShort {
+                min: 1,
+                got: 0,
+            }
+        ));
+    }
+
+    #[test]
+    fn rejects_too_short_for_alphanumeric() {
+        let err = generate_password(2, PasswordMode::Alphanumeric).unwrap_err();
+        assert!(matches!(
+            err,
+            PasswordError::TooShort {
+                min: 3,
+                got: 2,
+            }
+        ));
     }
 }

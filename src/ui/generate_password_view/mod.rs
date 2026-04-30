@@ -54,7 +54,16 @@ impl GeneratePasswordView {
             2 => PasswordMode::LimitedSpecial,
             _ => PasswordMode::All,
         };
-        let password = generate_password(length, mode);
-        imp.preview_password_row.set_text(&password);
+        match generate_password(length, mode) {
+            Ok(password) => imp.preview_password_row.set_text(&password),
+            // The spin button range is well above the per-mode minimums
+            // and getrandom only fails when the OS RNG is unavailable, so
+            // both paths here are exceptional. Surface them as a placeholder
+            // string in the preview rather than panicking the app.
+            Err(err) => {
+                log::error!("password generation failed: {err}");
+                imp.preview_password_row.set_text("");
+            }
+        }
     }
 }
