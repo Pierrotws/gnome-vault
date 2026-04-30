@@ -6,6 +6,10 @@ use zeroize::Zeroizing;
 
 use crate::helpers::password::{generate_password, PasswordMode};
 
+/// Index of the `Limited specials` entry in the charset combo. Kept in
+/// sync with the StringList contents in [`GeneratePasswordView::setup`].
+const DEFAULT_CHARSET_INDEX: u32 = 2;
+
 glib::wrapper! {
     pub struct GeneratePasswordView(ObjectSubclass<imp::GeneratePasswordView>)
         @extends adw::Bin, gtk::Widget,
@@ -22,7 +26,7 @@ impl GeneratePasswordView {
         let charset_model =
             gtk::StringList::new(&["Numeric", "Alphanumeric", "Limited specials", "All"]);
         imp.charset_row.set_model(Some(&charset_model));
-        imp.charset_row.set_selected(2);
+        imp.charset_row.set_selected(DEFAULT_CHARSET_INDEX);
         self.regenerate_preview();
         let this = self.clone();
         imp.reload_button.connect_clicked(move |_| {

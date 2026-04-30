@@ -35,7 +35,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 - `helpers/pgp.rs:101-119` recipient labels can contain control chars / RTL overrides — sanitize before display.
 - `helpers/macros.rs` recursion limit fine for 4 args; document.
 - `controller.rs:130-137` warmer's `cache_loaded_entry(&mut self)` requires `borrow_mut()` while UI may hold `borrow()` — document the contract or `try_borrow_mut`.
-- `generate_password_view/mod.rs:24` magic `set_selected(2)` — name the constant.
 - `group_view::set_group` rebuilds even when called with the same group; `entry-activated` uses fragile `row.index()` instead of node identity.
 - Field-row code duplication: identical 8-line `delete_button` boilerplate in 4 places; identical `set_entry_editable_mode`; identical `is_empty/key/set_key/drag_handle`. Extend the `EntryFieldRow` trait, or write a `field_row!` macro.
 - A11y: copy/delete buttons rely on tooltips alone; set `accessible-name` explicitly. `title_entry` has no `activates-default`/`connect_activate` for Enter-to-save.
