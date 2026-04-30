@@ -463,13 +463,21 @@ fn validate_folder_path(path: &Path) -> Result<(), StoreError> {
 
 /// Returns the active password-store directory.
 ///
-/// Honors `PASSWORD_STORE_DIR` and falls back to `~/.password-store`.
+/// Honors `PASSWORD_STORE_DIR` and falls back to `$HOME/.password-store`.
+/// When neither is set (e.g. running under a session manager that
+/// doesn't propagate `HOME`), returns the relative `.password-store`
+/// path. Subsequent filesystem operations surface a normal not-found
+/// error instead of panicking the whole process.
 pub fn password_store_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("PASSWORD_STORE_DIR") {
-        PathBuf::from(dir)
-    } else {
-        let home = std::env::var("HOME").expect("HOME not set");
-        PathBuf::from(home).join(".password-store")
+        return PathBuf::from(dir);
+    }
+    match std::env::var_os("HOME") {
+        Some(home) => PathBuf::from(home).join(".password-store"),
+        None => {
+            log::warn!("HOME is not set; using relative .password-store as fallback");
+            PathBuf::from(".password-store")
+        }
     }
 }
 

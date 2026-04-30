@@ -48,8 +48,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **Non-UTF8 entry names silently mangled** (`pass/store/mod.rs:36, 54-58`). `to_string_lossy()` makes `node.name` no longer match the on-disk filename → subsequent rename/delete fails confusingly. Skip with warning or error explicitly.
 
-**`password_store_dir` panics on missing `HOME`** (`pass/store/mod.rs:309`). Library code should not panic. Return `Result` or fall back via `dirs::home_dir()`.
-
 **`setup_vault` overwrites existing `.gpg-id` without warning** (`pass/store/mod.rs:98-124`). Breaks decryption of every existing entry. Refuse unless caller passes a "reinitialize" flag.
 
 **Autoload thread is unstoppable and uses `mpsc` polling** (`window/mod.rs:1128-1202`). The 100ms polling tick wastes CPU; toggling autoload off in preferences mid-run can't cancel it. Use `glib::MainContext::channel`, store the `SourceId`, expose a cancellation flag.
