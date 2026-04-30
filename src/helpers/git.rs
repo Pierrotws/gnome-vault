@@ -585,7 +585,21 @@ fn backup_branch_name(branch: &str, head_id: &str) -> String {
         .map(|duration| duration.as_secs())
         .unwrap_or_default();
     let short_id = head_id.chars().take(8).collect::<String>();
-    format!("reset/backup/{branch}-{short_id}-{timestamp}")
+    // Random suffix protects against collisions when two rollbacks at
+    // the same head land within the same wall-clock second (or on a
+    // machine whose clock has been wound backwards).
+    let mut entropy = [0u8; 4];
+    let suffix = if getrandom::fill(&mut entropy).is_ok() {
+        format!(
+            "{:02x}{:02x}{:02x}{:02x}",
+            entropy[0], entropy[1], entropy[2], entropy[3]
+        )
+    } else {
+        // Fall back to a process-id-derived value: still distinguishes
+        // concurrent same-second backups within the same process pair.
+        format!("{:08x}", std::process::id())
+    };
+    format!("reset/backup/{branch}-{short_id}-{timestamp}-{suffix}")
 }
 
 /// Returns the current HEAD commit, or `None` for an unborn repository.
