@@ -27,7 +27,19 @@ impl GroupView {
             #[weak(rename_to = obj)]
             self,
             move |_, row| {
-                obj.emit_by_name::<()>("entry-activated", &[&(row.index() as u32)]);
+                let imp = obj.imp();
+                let entries = imp.entries.borrow();
+                // Emit the node's path string so the listener resolves
+                // the match by identity, not by ListBoxRow ordinal —
+                // any concurrent mutation between emit and handler
+                // (set_group, sort, ...) would otherwise re-bind the
+                // signal to a different node.
+                let Some(node) = entries.get(row.index() as usize) else {
+                    return;
+                };
+                let path = node.path.to_string_lossy().to_string();
+                drop(entries);
+                obj.emit_by_name::<()>("entry-activated", &[&path]);
             }
         ));
     }
@@ -80,11 +92,18 @@ impl GroupView {
             let obj = values[0]
                 .get::<GroupView>()
                 .expect("entry-activated: first arg should be GroupView");
-            let index = values[1]
-                .get::<u32>()
-                .expect("entry-activated: second arg should be u32");
+            let path = values[1]
+                .get::<String>()
+                .expect("entry-activated: second arg should be String");
 
-            if let Some(node) = obj.imp().entries.borrow().get(index as usize).cloned() {
+            let node = obj
+                .imp()
+                .entries
+                .borrow()
+                .iter()
+                .find(|node| node.path.to_string_lossy() == path)
+                .cloned();
+            if let Some(node) = node {
                 f(&obj, node);
             }
             None

@@ -45,8 +45,12 @@ impl ObjectImpl for GroupView {
         static SIGNALS: std::sync::OnceLock<Vec<Signal>> = std::sync::OnceLock::new();
 
         SIGNALS.get_or_init(|| {
+            // Emit the entry's relative path so the receiver looks up
+            // the matching PassNode by identity rather than by current
+            // row position. Drop / reorder operations between emit and
+            // handler invocation otherwise pointed at the wrong node.
             vec![Signal::builder("entry-activated")
-                .param_types([u32::static_type()])
+                .param_types([String::static_type()])
                 .build()]
         })
     }
