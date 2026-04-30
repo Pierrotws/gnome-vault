@@ -281,7 +281,10 @@ pub fn rename_entry(
 
     fs::rename(&old_path, &new_path)?;
     git::rename(&store_dir, &old_path, &new_path)?;
-    git::commit(&store_dir, "rename entry")?;
+    git::commit(
+        &store_dir,
+        &format!("Rename entry {} to {new_name}", node.name),
+    )?;
     if autopush {
         git::push(&store_dir, None)?;
     }
