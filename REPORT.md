@@ -26,11 +26,7 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **Save partial-failure leaves cache and session inconsistent** (`app/controller.rs:281-311`). `save_current_entry` renames first, then saves body. If the body save fails: file is renamed on disk, `session.node` points to new path, `mark_saved` not called, old cache entry not removed. Either save body first, or unconditionally fix cache state immediately after a successful rename.
 
-**Sync git network ops run on the UI thread** (`window/mod.rs:639-666` rollback, `1204-1213` push). Freezes the window for seconds-to-minutes with no spinner. Move to `gio::spawn_blocking` + `glib::MainContext::channel`, like the autoload pattern already in this file.
-
 **`std::env::set_var` race** (`main.rs:71`, `window/mod.rs:756, 964`). Not thread-safe on Linux (and `unsafe` in Rust 2024). Once `apply_store_dir_setting` runs after the autoload thread has spawned, you have a data race. Set once at startup.
-
-**Rollback UI has no confirmation dialog** (`changes_view/mod.rs:204-213`). Single click on a popover item destroys remote history. Add `adw::AlertDialog` with destructive response, default-focus on Cancel. Same for revert ("Undo Action").
 
 ## Important (correctness, UX, architecture)
 
@@ -74,21 +70,15 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **`assert!` on user-driven length in `password::generate_password`** (`helpers/password.rs:62-101`). UI-driven length value crashes the process. Return `Result`.
 
-**`window/mod.rs` is doing seven jobs in 1230 lines.** Extract `setup.rs` (vault wizard), `autoload.rs`, `preferences.rs`, `new_entry_dialog.rs` (or its own composite template). The repeated `if controller.borrow().has_unsaved_changes() { ... return; }` (6 occurrences) → one helper `ensure_clean()`.
-
 ## Minor
 
 - `controller.rs:46-52` `current_entry_mut` exposes raw `&mut EntryData` bypassing `EntrySession` — remove if unused.
-- `entry_session.rs:99` `arr.len() == 0` → `arr.is_empty()` (clippy::len_zero).
-- `pass/model/entry_field.rs:18` unused `'a` lifetime on impl block.
-- `pass/model/entry_data.rs:1-2` triple-slash above `use` documents the wrong item.
 - `helpers/otp.rs:120-132` `digits > 9` would overflow `10u32.pow(digits)` — bounded by parser today, but add `debug_assert!` to the private helper.
 - `helpers/otp.rs:155-184` percent-decode boundary `+2 < len` is `<` not `<=`; trailing truncated escape silently mis-decodes.
 - `helpers/git.rs:441-448` `backup_branch_name` truncates timestamp; collisions on broken clocks. Append random suffix.
 - `helpers/git.rs:158-184` `commit` fails cryptically without `user.name`/`user.email` — translate to `GitError::NoSignature`.
 - `helpers/pgp.rs:101-119` recipient labels can contain control chars / RTL overrides — sanitize before display.
 - `helpers/macros.rs` recursion limit fine for 4 args; document.
-- `app_error.rs:7` missing `#[derive(Debug)]`. Consider `thiserror`.
 - `controller.rs:130-137` warmer's `cache_loaded_entry(&mut self)` requires `borrow_mut()` while UI may hold `borrow()` — document the contract or `try_borrow_mut`.
 - `changes_view/mod.rs:23-31` non-weak `self.clone()` into adjustment closure (cycle).
 - `generate_password_view/mod.rs:24` magic `set_selected(2)` — name the constant.
