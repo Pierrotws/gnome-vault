@@ -78,8 +78,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **`Paned position_notify` recurses** (`window/mod.rs:111-124`). `set_position` re-emits `notify::position`; only the bounds check saves you from infinite recursion. Block the handler before resetting, or use `>=` with early return.
 
-**Popover leak in row context menu** (`vault_view/mod.rs:299-376`). Each right-click attaches a fresh `gtk::Popover` via `set_parent`; `popdown` doesn't unparent. Repeated right-clicks accumulate popovers. `connect_closed { popover.unparent() }`.
-
 ## Minor
 
 - `controller.rs:46-52` `current_entry_mut` exposes raw `&mut EntryData` bypassing `EntrySession` — remove if unused.

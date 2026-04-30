@@ -455,6 +455,9 @@ fn install_row_context_menu(row_box: &gtk::Box) {
         let popover = gtk::Popover::new();
         popover.set_parent(&widget);
         popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
+        // popdown() does not unparent; without this every right-click would
+        // accumulate a fresh popover under the row widget.
+        popover.connect_closed(|popover| popover.unparent());
 
         if node.is_group() {
             let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
