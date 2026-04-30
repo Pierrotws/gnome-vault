@@ -83,6 +83,13 @@ pub fn decrypt(path: &Path) -> Result<Zeroizing<String>, PgpError> {
 
 /// Encrypts plaintext for the configured recipient key IDs.
 pub fn encrypt(plaintext: &str, recipient_ids: &[String]) -> Result<Vec<u8>, PgpError> {
+    // Refuse empty recipient lists explicitly: depending on GPGME flags
+    // an empty key set can produce symmetric-only or even unencrypted
+    // output. We never want to silently weaken encryption.
+    if recipient_ids.is_empty() {
+        return Err(PgpError::NoKeys("no recipients configured".to_string()));
+    }
+
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)
         .map_err(|e| PgpError::ContextError(e.to_string()))?;
 

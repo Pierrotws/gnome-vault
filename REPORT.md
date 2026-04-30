@@ -14,8 +14,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **`.gpg-id` resolution ignores per-folder recipients** (`pass/store/mod.rs:271`). `pgp::recipient_ids(&store_dir)` always reads the root; pass(1) walks from `parent` upward. Result: silently encrypting to the wrong key for entries in subfolders. Walk parents.
 
-**`pgp::encrypt` does not reject empty recipients** (`pgp.rs:72`). Depending on GPGME flags, may produce symmetric-only or unencrypted output. Add a guard at function entry.
-
 **Save is non-atomic and has no rollback path** (`pass/store/mod.rs:265-280`). `fs::write` truncates → if encrypt/write/git step fails, the original entry is destroyed and the repo is left dirty. Write to `.gpg.tmp`, fsync, `rename`. On post-write failure, restore from backup. Distinguish push failure from commit failure.
 
 **Rollback's safety branch isn't verified to land on the remote** (`helpers/git.rs:296-329`). The flow pushes the backup ref, then hard-resets and force-pushes. If the backup push silently failed, you've just permanently lost commits. Capture per-ref status via `RemoteCallbacks::push_update_reference` and refuse the destructive reset unless the backup is confirmed.
