@@ -16,6 +16,10 @@ use crate::{
 ///
 /// Malformed field lines are ignored, but an empty file returns `None`.
 pub fn parse_entry(plaintext: &str) -> Option<EntryData> {
+    // Strip a leading UTF-8 BOM. Some editors prepend one to .gpg
+    // plaintext files; without this the first byte ends up appended to
+    // the password and authentication mysteriously starts failing.
+    let plaintext = plaintext.strip_prefix('\u{feff}').unwrap_or(plaintext);
     let mut lines = plaintext.lines();
     let password = parse_secret_field(lines.next()?);
     let field_lines: Vec<&str> = lines.collect();
@@ -555,6 +559,17 @@ mod tests {
         assert_eq!(
             entry.password,
             EntryField::OTP("otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ".into())
+        );
+    }
+
+    #[test]
+    fn strips_utf8_bom_from_first_line() {
+        let entry = parse_entry("\u{feff}hunter2\nuser: alice\n").unwrap();
+
+        assert_eq!(entry.password, EntryField::Password("hunter2".into()));
+        assert_eq!(
+            entry.fields,
+            vec![("user".into(), EntryField::Plain("alice".into()))]
         );
     }
 }

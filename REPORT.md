@@ -64,8 +64,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **OTP detection auto-promotes any `otpauth://`-shaped paste** (`entry_view/mod.rs:383-395`). If a user pastes a TOTP URL into a password field, it silently becomes an OTP field. Require explicit action.
 
-**UTF-8 BOM not stripped from first line** (`helpers/parser.rs`). The BOM becomes part of the decoded password silently — passwords mysteriously stop matching. `strip_prefix('\u{feff}')` in `parse_entry`.
-
 **`assert!` on user-driven length in `password::generate_password`** (`helpers/password.rs:62-101`). UI-driven length value crashes the process. Return `Result`.
 
 ## Minor
