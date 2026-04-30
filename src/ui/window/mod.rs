@@ -243,6 +243,17 @@ impl MainWindow {
                     return;
                 };
 
+                // Refuse to switch entries while the open one has unsaved
+                // edits; otherwise the dirty session is silently overwritten
+                // when open_entry_node replaces the current EntrySession.
+                if window.controller().borrow().has_unsaved_changes() {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error("Save or cancel current changes before opening another entry");
+                    return;
+                }
+
                 window.open_entry_node(node);
             });
         }

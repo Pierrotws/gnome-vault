@@ -24,8 +24,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **Borrow-then-call-widget-setter pattern is a panic waiting to happen** (`window/mod.rs:246-268, 283-303, 343-346, 541-557, 817-820`). Multiple `controller.borrow()`/`borrow_mut()` calls interleave with widget setters that can synchronously emit signals re-entering the same controller. Snapshot bools first, drop borrows, then update widgets.
 
-**Selecting another entry while editing silently discards changes** (`window/mod.rs:209-216, 541-557`). `connect_group_activated` checks for unsaved state; `connect_entry_selected` doesn't. Mirror the dirty check or prompt with Discard/Cancel/Save.
-
 **OTP timer leaks per row, fires post-dispose, accumulates on rebuild** (`otp_field_row/mod.rs:69-77`). `setup_callbacks` can be called multiple times, each spawns a fresh 1Hz timer. Use `Cell<Option<SourceId>>` in imp; start on `connect_map`, stop on `connect_unmap`; `dispose` should also cancel.
 
 **Strong reference cycles parent ↔ child** (all four field-row mod.rs files: `let parent = entry_view.clone()` captured into row closures). `EntryView` owns the rows, rows hold strong `EntryView` via closures. GObject doesn't break cycles. Use `entry_view.downgrade()`/`upgrade()`.
