@@ -108,6 +108,12 @@ pub fn setup_vault(setup: &VaultSetup) -> Result<(), StoreError> {
     }
 
     let gpg_id_path = setup.store_dir.join(".gpg-id");
+    // Refuse to silently overwrite an existing .gpg-id: doing so would
+    // change the recipient key for the entire vault and immediately
+    // break decryption of every entry encrypted to the previous one.
+    if gpg_id_path.exists() {
+        return Err(StoreError::DestinationExists(gpg_id_path));
+    }
     fs::write(&gpg_id_path, format!("{recipient}\n"))?;
     git::add(&setup.store_dir, &gpg_id_path)?;
     git::commit(&setup.store_dir, "Initialize vault")?;
