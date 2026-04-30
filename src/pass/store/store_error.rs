@@ -21,32 +21,25 @@ pub enum StoreError {
     PushFailed(String),
 }
 
+// `Display` produces the user-facing message and intentionally avoids
+// including entry paths or names (which inside a password store ARE the
+// secret labels), gpg stderr, or git stderr that may echo refs/paths.
+// For developer diagnostics use `{err:?}` which retains the redacted
+// fields via the auto-derived `Debug`.
 impl std::fmt::Display for StoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StoreError::Io(err) => write!(f, "Io error: {err}"),
+            StoreError::Io(err) => write!(f, "I/O error ({})", err.kind()),
             StoreError::Git(err) => write!(f, "Git error: {err}"),
-            StoreError::Pgp(err) => write!(f, "Gpg error: {err}"),
-            StoreError::MissingParent(path) => {
-                write!(f, "Missing parent directory for path: {}", path.display())
-            }
-            StoreError::EmptyFile(path) => {
-                write!(f, "Empty file for path: {}", path.display())
-            }
-            StoreError::InvalidEntryName(name) => {
-                write!(f, "Invalid entry name: {name}")
-            }
-            StoreError::InvalidRecipient => {
-                write!(f, "GPG recipient is required")
-            }
-            StoreError::InvalidFolderPath(path) => {
-                write!(f, "Invalid folder path: {}", path.display())
-            }
-            StoreError::DestinationExists(path) => {
-                write!(f, "Destination already exists: {}", path.display())
-            }
-            StoreError::PushFailed(reason) => {
-                write!(f, "Saved locally but failed to push to remote: {reason}")
+            StoreError::Pgp(_) => write!(f, "GPG operation failed"),
+            StoreError::MissingParent(_) => f.write_str("Missing parent directory"),
+            StoreError::EmptyFile(_) => f.write_str("Encrypted file is empty"),
+            StoreError::InvalidEntryName(_) => f.write_str("Invalid entry name"),
+            StoreError::InvalidRecipient => f.write_str("GPG recipient is required"),
+            StoreError::InvalidFolderPath(_) => f.write_str("Invalid folder path"),
+            StoreError::DestinationExists(_) => f.write_str("Destination already exists"),
+            StoreError::PushFailed(_) => {
+                f.write_str("Saved locally but failed to push to remote")
             }
         }
     }

@@ -20,8 +20,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **Git terminology bleeds into UX** (`changes_view/mod.rs:155, 187-190`). "Push", "Rollback", short SHA in the row body. Already noted in TODO.md. Replace with "Sync to remote", "Discard changes after this point", hide SHA behind details.
 
-**`AppError::Display` may leak secrets** (`app/app_error.rs:25-32`). `StoreError`/`io::Error` Display can include paths (which are entry titles) and gpg stderr. Audit, redact paths to `<path>`, never `log::error!("{err}")` an `AppError::Save`.
-
 **Drag-and-drop reorder uses widget index, not stable** (`entry_view/mod.rs:502-507, 543-581`). If rows mutate mid-drag, wrong row moves. Pass `WeakRef<gtk::ListBoxRow>` instead.
 
 **OTP detection auto-promotes any `otpauth://`-shaped paste** (`entry_view/mod.rs:383-395`). If a user pastes a TOTP URL into a password field, it silently becomes an OTP field. Require explicit action.

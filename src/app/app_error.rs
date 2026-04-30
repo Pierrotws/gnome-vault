@@ -28,13 +28,15 @@ impl From<StoreError> for AppError {
     }
 }
 
+// `Display` is intentionally redacted — see StoreError's Display
+// comment. Use `{err:?}` (Debug) for log diagnostics.
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AppError::Io(err) => write!(f, "Io error: {err}"),
-            AppError::Save(err) => write!(f, "save error: {err}"),
-            AppError::NoEntrySelected => write!(f, "No entry selected"),
-            AppError::InvalidEntry => write!(f, "Entry is not valid"),
+            AppError::Io(err) => write!(f, "I/O error ({})", err.kind()),
+            AppError::Save(err) => write!(f, "{err}"),
+            AppError::NoEntrySelected => f.write_str("No entry selected"),
+            AppError::InvalidEntry => f.write_str("Entry is not valid"),
         }
     }
 }
