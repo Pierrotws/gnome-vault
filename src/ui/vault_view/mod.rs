@@ -316,12 +316,22 @@ impl TreeViewSize {
             Self::Large => (14, 10, 16),
         }
     }
+
+    /// Pango font scale applied to the row label. 1.0 leaves font size
+    /// at the GTK default; Large bumps it to `pango::SCALE_LARGE` (1.2x).
+    fn font_scale(self) -> f64 {
+        match self {
+            Self::Large => gtk::pango::SCALE_LARGE,
+            _ => 1.0,
+        }
+    }
 }
 
 pub fn build_tree_factory(size: TreeViewSize) -> gtk::SignalListItemFactory {
     let factory = gtk::SignalListItemFactory::new();
 
     let (vmargin, hmargin, spacing) = size.padding();
+    let scale = size.font_scale();
 
     factory.connect_setup(move |_, item| {
         let item = item
@@ -342,6 +352,11 @@ pub fn build_tree_factory(size: TreeViewSize) -> gtk::SignalListItemFactory {
         let label = gtk::Label::new(None);
         label.set_xalign(0.0);
         label.set_hexpand(true);
+        if (scale - 1.0).abs() > f64::EPSILON {
+            let attrs = gtk::pango::AttrList::new();
+            attrs.insert(gtk::pango::AttrFloat::new_scale(scale));
+            label.set_attributes(Some(&attrs));
+        }
 
         row_box.append(&icon);
         row_box.append(&label);
