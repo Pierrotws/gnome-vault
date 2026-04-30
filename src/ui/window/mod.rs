@@ -688,7 +688,7 @@ impl MainWindow {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
-                .show_error("Save or cancel current changes before rolling back");
+                .show_error("Save or cancel current changes before discarding later changes");
             return;
         }
 
@@ -727,7 +727,7 @@ impl MainWindow {
                         window
                             .imp()
                             .entry_view
-                            .show_error("Rollback task panicked unexpectedly");
+                            .show_error("Discard-changes task panicked unexpectedly");
                         return;
                     }
                 };
@@ -975,7 +975,7 @@ impl MainWindow {
                         window
                             .imp()
                             .entry_view
-                            .show_error("Push task panicked unexpectedly");
+                            .show_error("Sync-to-remote task panicked unexpectedly");
                         return;
                     }
                 };

@@ -16,8 +16,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **No virtualization in changes/group lists** (`changes_view/mod.rs:43-45`, `group_view`). Hand-built `gtk::Box` per commit + gesture controller scales poorly. Use `gtk::ListView` + `gio::ListStore` + `SignalListItemFactory`.
 
-**Git terminology bleeds into UX** (`changes_view/mod.rs:155, 187-190`). "Push", "Rollback", short SHA in the row body. Already noted in TODO.md. Replace with "Sync to remote", "Discard changes after this point", hide SHA behind details.
-
 **OTP detection auto-promotes any `otpauth://`-shaped paste** (`entry_view/mod.rs:383-395`). If a user pastes a TOTP URL into a password field, it silently becomes an OTP field. Require explicit action.
 
 ## Minor
