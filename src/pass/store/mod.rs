@@ -190,6 +190,11 @@ pub fn current_branch_name() -> Option<String> {
     git::current_branch_name(&password_store_dir())
 }
 
+/// Returns the number of local commits not yet pushed upstream.
+pub fn unpushed_count() -> Result<usize, StoreError> {
+    Ok(git::unpushed_count(&password_store_dir())?)
+}
+
 /// Deletes an entry file, commits the deletion, and pushes it.
 pub fn delete_entry(node: &PassNode, autopush: bool) -> Result<(), StoreError> {
     let store_dir = password_store_dir();

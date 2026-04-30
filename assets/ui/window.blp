@@ -161,9 +161,25 @@ template $MainWindow : Adw.ApplicationWindow {
                                 halign: fill;
                                 css-classes: ["flat"];
 
-                                child: Adw.ButtonContent {
-                                    icon-name: "view-list-symbolic";
-                                    label: "Changes";
+                                child: Box {
+                                    orientation: horizontal;
+                                    spacing: 8;
+                                    halign: center;
+                                    margin-top: 6;
+                                    margin-bottom: 6;
+
+                                    Image {
+                                        icon-name: "view-list-symbolic";
+                                    }
+
+                                    Label {
+                                        label: "Changes";
+                                    }
+
+                                    Label changes_badge {
+                                        css-classes: ["changes-badge"];
+                                        visible: false;
+                                    }
                                 };
                             }
                         }

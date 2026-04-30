@@ -118,6 +118,11 @@ impl AppController {
         pass::store::current_branch_name()
     }
 
+    /// Returns the number of commits ahead of the remote tracking branch.
+    pub fn unpushed_count(&self) -> Result<usize, AppError> {
+        Ok(pass::store::unpushed_count()?)
+    }
+
     /// Reloads the password-store tree from disk.
     ///
     /// This refreshes the visible node tree only. Cached decrypted entries are

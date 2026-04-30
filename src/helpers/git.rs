@@ -421,6 +421,23 @@ pub fn current_branch_name(project_dir: &Path) -> Option<String> {
     current_branch(&repo).ok()
 }
 
+/// Count of local commits that are ahead of the upstream tracking
+/// branch — i.e. saved locally but not yet pushed.
+///
+/// Returns 0 when there is no upstream tracking branch yet (fresh local
+/// vault, or remote not configured) so a freshly initialized repo
+/// doesn't surface a misleading number in the UI.
+pub fn unpushed_count(project_dir: &Path) -> Result<usize, GitError> {
+    let repo = open_repository(project_dir)?;
+    let head = repo.head()?.target().ok_or(GitError::NoHeadTarget)?;
+    let upstream = match pushed_head(&repo) {
+        Ok(oid) => oid,
+        Err(_) => return Ok(0),
+    };
+    let (ahead, _behind) = repo.graph_ahead_behind(head, upstream)?;
+    Ok(ahead)
+}
+
 fn remote_name_for_branch(repo: &Repository, branch: &str) -> Result<String, GitError> {
     let config = repo.config()?;
     Ok(config

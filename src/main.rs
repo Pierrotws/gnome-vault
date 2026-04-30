@@ -8,6 +8,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use adw::prelude::*;
+use gtk::gdk;
 use gtk::gio;
 use gtk::glib;
 
@@ -38,6 +39,7 @@ fn main() -> glib::ExitCode {
 
     app.connect_activate(|app| {
         log::debug!("app.activate");
+        install_app_css();
         let controller = Rc::new(RefCell::new(AppController::new()));
 
         let win = MainWindow::new(app, controller);
@@ -64,6 +66,35 @@ fn resource_file() -> std::path::PathBuf {
     option_env!("RESOURCES_FILE")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::PathBuf::from("assets/resources.gresource"))
+}
+
+/// Loads the small inline stylesheet used by widgets that aren't fully
+/// covered by Adwaita's default theme — currently the unpushed-commit
+/// badge on the Changes button.
+fn install_app_css() {
+    const APP_CSS: &str = "\
+        .changes-badge {\
+            background-color: @accent_bg_color;\
+            color: @accent_fg_color;\
+            border-radius: 9999px;\
+            padding: 0 5px;\
+            font-size: 0.7em;\
+            font-weight: bold;\
+            min-width: 8px;\
+        }\
+    ";
+
+    let provider = gtk::CssProvider::new();
+    provider.load_from_data(APP_CSS);
+
+    let Some(display) = gdk::Display::default() else {
+        return;
+    };
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 }
 
 fn configure_local_schema_dir() {

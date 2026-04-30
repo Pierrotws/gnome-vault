@@ -76,6 +76,7 @@ impl MainWindow {
         }
         self.set_edit_unlock_state(false, false, false);
         self.show_app_view();
+        self.refresh_changes_badge();
         self.start_autoload_if_enabled();
     }
 
@@ -766,7 +767,29 @@ impl MainWindow {
         self.imp()
             .changes_view
             .set_has_more_changes(changes.len() == CHANGES_PAGE_SIZE);
+        self.refresh_changes_badge();
         Ok(())
+    }
+
+    /// Reads the unpushed-commit count from the controller and updates
+    /// the small badge on the Changes button. Hidden when there is
+    /// nothing ahead of upstream; otherwise shows the count.
+    fn refresh_changes_badge(&self) {
+        let badge = &self.imp().changes_badge;
+        let count = match self.controller().borrow().unpushed_count() {
+            Ok(n) => n,
+            Err(err) => {
+                log::debug!("unable to compute unpushed count: {err}");
+                badge.set_visible(false);
+                return;
+            }
+        };
+        if count == 0 {
+            badge.set_visible(false);
+        } else {
+            badge.set_label(&count.to_string());
+            badge.set_visible(true);
+        }
     }
 
     fn load_more_changes(&self) -> Result<(), crate::app::app_error::AppError> {
