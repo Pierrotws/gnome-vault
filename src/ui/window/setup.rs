@@ -8,6 +8,7 @@ use adw::subclass::prelude::*;
 
 use crate::app::controller::AppController;
 use crate::pass::store::VaultSetup;
+use crate::ui::vault_view::{build_tree_factory, TreeViewSize};
 
 use super::{MainWindow, SETUP_PROVIDER_NONE};
 
@@ -34,6 +35,24 @@ impl MainWindow {
     pub(super) fn apply_autopush_setting(&self) {
         let autopush = self.settings().boolean("autopush");
         self.controller().borrow_mut().set_autopush(autopush);
+    }
+
+    /// Re-installs the vault-tree factory using the configured row size.
+    /// Safe to call repeatedly: replacing the factory triggers GTK to
+    /// rebuild visible rows with the new padding.
+    pub(super) fn apply_tree_view_size_setting(&self) {
+        let size = self.tree_view_size_setting();
+        self.imp()
+            .vault_view
+            .set_factory(Some(&build_tree_factory(size)));
+    }
+
+    pub(super) fn tree_view_size_setting(&self) -> TreeViewSize {
+        if !self.settings_has_key("tree-view-size") {
+            return TreeViewSize::Medium;
+        }
+        let value = self.settings().string("tree-view-size");
+        TreeViewSize::from_setting(&value)
     }
 
     pub(super) fn apply_branch_setting(&self) {

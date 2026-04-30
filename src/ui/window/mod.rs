@@ -16,7 +16,7 @@ use crate::app::changes;
 use crate::app::controller::AppController;
 use crate::pass::model::{PassNode, PassNodeKind};
 use crate::ui::vault_view::{
-    build_group_selection_with_root, build_selection_from_nodes_with_autoexpand, build_tree_factory,
+    build_group_selection_with_root, build_selection_from_nodes_with_autoexpand,
 };
 use crate::ui::EntryView;
 
@@ -61,7 +61,7 @@ impl MainWindow {
         let imp = self.imp();
 
         self.setup_vault_setup_view();
-        imp.vault_view.set_factory(Some(&build_tree_factory()));
+        self.apply_tree_view_size_setting();
 
         if let Err(err) = self.reload_vault_tree() {
             log::debug!("vault unavailable, showing setup view: {err}");

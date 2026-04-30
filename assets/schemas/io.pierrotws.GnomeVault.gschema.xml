@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <schemalist>
+  <enum id="io.pierrotws.GnomeVault.TreeViewSize">
+    <value nick="small" value="0"/>
+    <value nick="medium" value="1"/>
+    <value nick="large" value="2"/>
+  </enum>
   <schema id="io.pierrotws.GnomeVault" path="/io/pierrotws/GnomeVault/">
     <key name="autopush" type="b">
       <default>true</default>
@@ -36,6 +41,12 @@
       <summary>Interpret multiline as markdown</summary>
       <description
             >When enabled, multiline fields are rendered as Markdown in read-only mode.</description>
+    </key>
+    <key name="tree-view-size" enum="io.pierrotws.GnomeVault.TreeViewSize">
+      <default>"medium"</default>
+      <summary>Tree view row size</summary>
+      <description
+            >Visual density of the vault tree view rows. small is the most compact; large is roomier.</description>
     </key>
   </schema>
 </schemalist>

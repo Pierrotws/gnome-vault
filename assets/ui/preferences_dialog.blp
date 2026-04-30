@@ -22,6 +22,14 @@ Adw.PreferencesDialog preferences_dialog {
                 title: "Interpret multiline as markdown";
                 subtitle: "Render multiline fields as Markdown in read-only mode";
             }
+
+            Adw.ComboRow tree_view_size_row {
+                title: "Tree view size";
+                subtitle: "Visual density of vault tree rows";
+                model: Gtk.StringList {
+                    strings ["Small", "Medium", "Large"]
+                };
+            }
         }
         Adw.PreferencesGroup {
             title: "Git";

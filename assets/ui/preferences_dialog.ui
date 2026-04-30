@@ -31,6 +31,21 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 <property name="subtitle">Render multiline fields as Markdown in read-only mode</property>
               </object>
             </child>
+            <child>
+              <object class="AdwComboRow" id="tree_view_size_row">
+                <property name="title">Tree view size</property>
+                <property name="subtitle">Visual density of vault tree rows</property>
+                <property name="model">
+                  <object class="GtkStringList">
+                    <items>
+                      <item>Small</item>
+                      <item>Medium</item>
+                      <item>Large</item>
+                    </items>
+                  </object>
+                </property>
+              </object>
+            </child>
           </object>
         </child>
         <child>

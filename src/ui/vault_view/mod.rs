@@ -55,7 +55,7 @@ impl VaultView {
 
     /// Convenience method if parent code wants the default tree factory.
     pub fn use_default_factory(&self) {
-        let factory = build_tree_factory();
+        let factory = build_tree_factory(TreeViewSize::Medium);
         self.imp().tree_view.set_factory(Some(&factory));
     }
 
@@ -288,10 +288,42 @@ impl Default for VaultView {
     }
 }
 
-pub fn build_tree_factory() -> gtk::SignalListItemFactory {
+/// Visual density of the vault tree view rows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TreeViewSize {
+    Small,
+    Medium,
+    Large,
+}
+
+impl TreeViewSize {
+    /// Maps a GSettings enum nick (`small` / `medium` / `large`) to the
+    /// matching variant; unknown values fall back to `Medium`.
+    pub fn from_setting(value: &str) -> Self {
+        match value {
+            "small" => Self::Small,
+            "large" => Self::Large,
+            _ => Self::Medium,
+        }
+    }
+
+    /// Returns `(vertical_margin, horizontal_margin, icon_label_spacing)`
+    /// in CSS pixels.
+    fn padding(self) -> (i32, i32, i32) {
+        match self {
+            Self::Small => (6, 6, 8),
+            Self::Medium => (10, 8, 12),
+            Self::Large => (14, 10, 16),
+        }
+    }
+}
+
+pub fn build_tree_factory(size: TreeViewSize) -> gtk::SignalListItemFactory {
     let factory = gtk::SignalListItemFactory::new();
 
-    factory.connect_setup(|_, item| {
+    let (vmargin, hmargin, spacing) = size.padding();
+
+    factory.connect_setup(move |_, item| {
         let item = item
             .downcast_ref::<gtk::ListItem>()
             .expect("Factory item must be a gtk::ListItem");
@@ -299,11 +331,11 @@ pub fn build_tree_factory() -> gtk::SignalListItemFactory {
         let expander = gtk::TreeExpander::new();
         expander.set_focusable(false);
 
-        let row_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        row_box.set_margin_top(6);
-        row_box.set_margin_bottom(6);
-        row_box.set_margin_start(6);
-        row_box.set_margin_end(6);
+        let row_box = gtk::Box::new(gtk::Orientation::Horizontal, spacing);
+        row_box.set_margin_top(vmargin);
+        row_box.set_margin_bottom(vmargin);
+        row_box.set_margin_start(hmargin);
+        row_box.set_margin_end(hmargin);
         install_row_context_menu(&row_box);
 
         let icon = gtk::Image::new();

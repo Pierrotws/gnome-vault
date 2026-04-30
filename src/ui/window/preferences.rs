@@ -27,6 +27,9 @@ impl MainWindow {
         let interpret_multiline_as_markdown_row = builder
             .object::<adw::SwitchRow>("interpret_multiline_as_markdown_row")
             .expect("interpret_multiline_as_markdown_row must exist in preferences_dialog.ui");
+        let tree_view_size_row = builder
+            .object::<adw::ComboRow>("tree_view_size_row")
+            .expect("tree_view_size_row must exist in preferences_dialog.ui");
         let store_dir_row = builder
             .object::<adw::EntryRow>("store_dir_row")
             .expect("store_dir_row must exist in preferences_dialog.ui");
@@ -39,6 +42,9 @@ impl MainWindow {
         show_group_view_row.set_active(self.show_group_view_enabled());
         interpret_multiline_as_markdown_row
             .set_active(self.setting_boolean("interpret-multiline-as-markdown", false));
+        tree_view_size_row.set_selected(tree_view_size_index(
+            &self.setting_string("tree-view-size", "medium"),
+        ));
         store_dir_row.set_text(&self.setting_string("store-dir", ""));
         // Prefer an explicit user override; otherwise fall back to whatever
         // branch the working tree currently has checked out, so the field is
@@ -133,6 +139,31 @@ impl MainWindow {
             }
         ));
 
+        tree_view_size_row.connect_selected_notify(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |row| {
+                if !window.settings_has_key("tree-view-size") {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error("GSettings schema is missing tree-view-size");
+                    return;
+                }
+                let nick = match row.selected() {
+                    0 => "small",
+                    2 => "large",
+                    _ => "medium",
+                };
+                let settings = window.settings();
+                if let Err(err) = settings.set_string("tree-view-size", nick) {
+                    window.imp().entry_view.show_error(&err.to_string());
+                    return;
+                }
+                window.apply_tree_view_size_setting();
+            }
+        ));
+
         store_dir_row.connect_apply(glib::clone!(
             #[weak(rename_to = window)]
             self,
@@ -187,5 +218,13 @@ impl MainWindow {
         ));
 
         dialog.present(Some(self));
+    }
+}
+
+fn tree_view_size_index(nick: &str) -> u32 {
+    match nick {
+        "small" => 0,
+        "large" => 2,
+        _ => 1,
     }
 }
