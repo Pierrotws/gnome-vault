@@ -10,8 +10,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **OTP shared secret displayed in plaintext `gtk::Entry`** (`otp_field_row/imp.rs:33`). The `otpauth://...?secret=JBSWY...` URL contains the credential. Visible by default, no reveal toggle, "Copy URL" exfiltrates trivially. Use `PasswordEntryRow` or split into Issuer/Account + a reveal-gated secret.
 
-**Path traversal in entry name validation is incomplete** (`pass/store/mod.rs:283-289`). Blocks `/` and `\` but allows `..`, `.`, NUL bytes. Also `validate_folder_path` does no symlink resolution — a symlinked group can write outside the store. Canonicalize and assert `starts_with(store_dir.canonicalize()?)`.
-
 **`.gpg-id` resolution ignores per-folder recipients** (`pass/store/mod.rs:271`). `pgp::recipient_ids(&store_dir)` always reads the root; pass(1) walks from `parent` upward. Result: silently encrypting to the wrong key for entries in subfolders. Walk parents.
 
 **Save is non-atomic and has no rollback path** (`pass/store/mod.rs:265-280`). `fs::write` truncates → if encrypt/write/git step fails, the original entry is destroyed and the repo is left dirty. Write to `.gpg.tmp`, fsync, `rename`. On post-write failure, restore from backup. Distinguish push failure from commit failure.
