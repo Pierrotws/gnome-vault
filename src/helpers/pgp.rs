@@ -50,6 +50,8 @@ impl std::fmt::Display for PgpError {
     }
 }
 
+impl std::error::Error for PgpError {}
+
 /// Decrypts an encrypted password-store file into UTF-8 plaintext.
 ///
 /// The returned plaintext is wrapped in [`Zeroizing`] so its memory is wiped

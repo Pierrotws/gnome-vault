@@ -84,7 +84,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 - `controller.rs:46-52` `current_entry_mut` exposes raw `&mut EntryData` bypassing `EntrySession` — remove if unused.
 - `entry_session.rs:99` `arr.len() == 0` → `arr.is_empty()` (clippy::len_zero).
-- `pass/store/store_error.rs:46` no `source()` impl — error chain lost.
 - `pass/model/entry_field.rs:18` unused `'a` lifetime on impl block.
 - `pass/model/entry_data.rs:1-2` triple-slash above `use` documents the wrong item.
 - `helpers/otp.rs:120-132` `digits > 9` would overflow `10u32.pow(digits)` — bounded by parser today, but add `debug_assert!` to the private helper.

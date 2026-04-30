@@ -52,7 +52,22 @@ impl std::fmt::Display for StoreError {
     }
 }
 
-impl std::error::Error for StoreError {}
+impl std::error::Error for StoreError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            StoreError::Io(err) => Some(err),
+            StoreError::Git(err) => Some(err),
+            StoreError::Pgp(err) => Some(err),
+            StoreError::MissingParent(_)
+            | StoreError::EmptyFile(_)
+            | StoreError::InvalidEntryName(_)
+            | StoreError::InvalidRecipient
+            | StoreError::InvalidFolderPath(_)
+            | StoreError::DestinationExists(_)
+            | StoreError::PushFailed(_) => None,
+        }
+    }
+}
 
 impl From<std::io::Error> for StoreError {
     fn from(e: std::io::Error) -> Self {
