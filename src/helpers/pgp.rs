@@ -128,7 +128,7 @@ pub fn available_recipients() -> Result<Vec<GpgRecipient>, PgpError> {
                 .user_ids()
                 .next()
                 .and_then(|user_id| user_id.id().ok())
-                .map(str::to_string)
+                .map(sanitize_user_id)
                 .unwrap_or_else(|| id.clone());
             let label = if user_id == id {
                 id.clone()
@@ -194,6 +194,49 @@ pub fn recipient_ids_for(store_root: &Path, entry_parent: &Path) -> Result<Vec<S
     // Fallback to the root `.gpg-id` (will produce a useful ReadError if
     // missing).
     read_gpg_id_file(&store_root.join(".gpg-id"))
+}
+
+/// Strips control and bidirectional-override characters from a GPG user
+/// id before it is shown in the UI. A malicious / pathological key UID
+/// could otherwise inject e.g. `U+202E` (right-to-left override) and
+/// visually disguise its real fingerprint in the recipient picker.
+fn sanitize_user_id(input: &str) -> String {
+    input
+        .chars()
+        .map(|c| {
+            if c.is_control()
+                || matches!(
+                    c,
+                    '\u{202A}'..='\u{202E}'
+                        | '\u{2066}'..='\u{2069}'
+                        | '\u{200E}'
+                        | '\u{200F}'
+                )
+            {
+                '?'
+            } else {
+                c
+            }
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod sanitize_tests {
+    use super::sanitize_user_id;
+
+    #[test]
+    fn replaces_bidi_overrides_and_controls() {
+        let cleaned = sanitize_user_id("Alice\u{202E}gnola.example");
+        assert_eq!(cleaned, "Alice?gnola.example");
+    }
+
+    #[test]
+    fn preserves_normal_unicode_letters() {
+        let raw = "Élise <e@example>";
+        let cleaned = sanitize_user_id(raw);
+        assert_eq!(cleaned, raw);
+    }
 }
 
 fn read_gpg_id_file(gpg_id_path: &Path) -> Result<Vec<String>, PgpError> {

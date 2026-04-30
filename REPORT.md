@@ -32,7 +32,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 ## Minor
 
-- `helpers/pgp.rs:101-119` recipient labels can contain control chars / RTL overrides — sanitize before display.
 - `helpers/macros.rs` recursion limit fine for 4 args; document.
 - `controller.rs:130-137` warmer's `cache_loaded_entry(&mut self)` requires `borrow_mut()` while UI may hold `borrow()` — document the contract or `try_borrow_mut`.
 - `group_view::set_group` rebuilds even when called with the same group; `entry-activated` uses fragile `row.index()` instead of node identity.
