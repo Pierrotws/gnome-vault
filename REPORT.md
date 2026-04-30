@@ -61,7 +61,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 ## Minor
 
 - `controller.rs:46-52` `current_entry_mut` exposes raw `&mut EntryData` bypassing `EntrySession` — remove if unused.
-- `helpers/git.rs:158-184` `commit` fails cryptically without `user.name`/`user.email` — translate to `GitError::NoSignature`.
 - `helpers/pgp.rs:101-119` recipient labels can contain control chars / RTL overrides — sanitize before display.
 - `helpers/macros.rs` recursion limit fine for 4 args; document.
 - `controller.rs:130-137` warmer's `cache_loaded_entry(&mut self)` requires `borrow_mut()` while UI may hold `borrow()` — document the contract or `try_borrow_mut`.

@@ -43,6 +43,9 @@ pub enum GitError {
     /// The remote rejected a push for a ref that we required to succeed before
     /// taking a destructive action (e.g. the rollback safety backup ref).
     BackupRejected(String),
+    /// `git config user.name` / `user.email` are not set, so we cannot
+    /// build a commit signature.
+    NoSignature,
 }
 
 impl std::fmt::Display for GitError {
@@ -67,6 +70,10 @@ impl std::fmt::Display for GitError {
             GitError::BackupRejected(reason) => {
                 write!(f, "Remote rejected rollback backup ref: {reason}")
             }
+            GitError::NoSignature => write!(
+                f,
+                "git user.name and user.email are not set; configure them with `git config --global user.name '...'` and `git config --global user.email '...'`"
+            ),
         }
     }
 }
@@ -190,7 +197,19 @@ pub fn rename(project_dir: &Path, old_path: &Path, new_path: &Path) -> Result<()
 /// behavior users expect from `git commit`.
 pub fn commit(project_dir: &Path, message: &str) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
-    let signature = repo.signature()?;
+    let signature = repo.signature().map_err(|err| {
+        // libgit2 returns ErrorClass::Config / "config value 'user.name'
+        // was not found" here, which is opaque to a normal user. Translate
+        // it to a typed variant so the UI can guide them to git config.
+        if matches!(
+            err.class(),
+            git2::ErrorClass::Config | git2::ErrorClass::Invalid
+        ) {
+            GitError::NoSignature
+        } else {
+            GitError::Git(err)
+        }
+    })?;
     let mut index = repo.index()?;
     let tree_id = index.write_tree()?;
     let tree = repo.find_tree(tree_id)?;
