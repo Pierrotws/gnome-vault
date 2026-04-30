@@ -95,8 +95,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 - `helpers/macros.rs` recursion limit fine for 4 args; document.
 - `app_error.rs:7` missing `#[derive(Debug)]`. Consider `thiserror`.
 - `controller.rs:130-137` warmer's `cache_loaded_entry(&mut self)` requires `borrow_mut()` while UI may hold `borrow()` — document the contract or `try_borrow_mut`.
-- `vault_view/mod.rs:104-110` `set_mode_simple/split`/`use_default_factory` are dead.
-- `vault_view/mod.rs:188-204` `set_model` duplicates `set_selection_model`.
 - `changes_view/mod.rs:23-31` non-weak `self.clone()` into adjustment closure (cycle).
 - `generate_password_view/mod.rs:24` magic `set_selected(2)` — name the constant.
 - `group_view::set_group` rebuilds even when called with the same group; `entry-activated` uses fragile `row.index()` instead of node identity.

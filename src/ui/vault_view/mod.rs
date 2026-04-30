@@ -2,7 +2,7 @@ mod imp;
 
 use std::path::{Path, PathBuf};
 
-use gtk::{gdk, gio, glib, ListItemFactory, SelectionModel};
+use gtk::{gdk, gio, glib, ListItemFactory};
 use gtk::{prelude::*, subclass::prelude::*};
 
 use crate::pass::model::{PassNode, PassNodeKind};
@@ -16,10 +16,6 @@ glib::wrapper! {
 impl VaultView {
     pub fn new() -> Self {
         glib::Object::builder().build()
-    }
-
-    pub fn set_model(&self, model: Option<&impl glib::object::IsA<SelectionModel>>) {
-        self.imp().tree_view.set_model(model);
     }
 
     pub fn set_factory(&self, factory: Option<&impl glib::object::IsA<ListItemFactory>>) {
@@ -51,12 +47,6 @@ impl VaultView {
     pub fn set_selection_model(&self, selection: &gtk::SingleSelection) {
         self.imp().tree_view.set_model(Some(selection));
         self.connect_selection(selection);
-    }
-
-    /// Convenience method if parent code wants the default tree factory.
-    pub fn use_default_factory(&self) {
-        let factory = build_tree_factory(TreeViewSize::Medium);
-        self.imp().tree_view.set_factory(Some(&factory));
     }
 
     fn connect_selection(&self, selection: &gtk::SingleSelection) {
@@ -99,14 +89,6 @@ impl VaultView {
     pub fn handle_search_changed(&self) {
         let text = self.imp().search_entry.text();
         log::debug!("VaultView search changed: {text}");
-    }
-
-    pub fn set_mode_simple(&self) {
-        // Placeholder for future mode switching.
-    }
-
-    pub fn set_mode_split(&self) {
-        // Placeholder for future 3-pane navigation mode.
     }
 
     pub fn connect_entry_selected<F>(&self, f: F) -> glib::SignalHandlerId
