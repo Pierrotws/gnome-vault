@@ -536,21 +536,21 @@ impl EntryView {
         let drag_source = gtk::DragSource::builder()
             .actions(gtk::gdk::DragAction::MOVE)
             .build();
-        // `list_for_drag` is the custom_fields_list TemplateChild; it is
-        // owned by `self`. Capturing it strongly into a controller attached
-        // to a child of `self` does not form a cycle through `self`. Same
-        // for the row reference.
-        let list_for_drag = self.imp().custom_fields_list.get();
+        // Carry the row GObject itself through the content provider so
+        // the drop handler resolves the source by identity (re-querying
+        // its current index at drop time). The previous payload was the
+        // index captured at drag start, which pointed at the wrong row
+        // if anything mutated the list mid-drag.
         let row_for_drag = row.clone();
         drag_source.connect_prepare(move |_, _, _| {
-            // Store the source row index in the drag payload. The row object
-            // itself cannot be transferred through GTK's content provider.
-            Self::box_child_index(&list_for_drag, row_for_drag.upcast_ref())
-                .map(|index| gtk::gdk::ContentProvider::for_value(&index.to_value()))
+            Some(gtk::gdk::ContentProvider::for_value(
+                &row_for_drag.to_value(),
+            ))
         });
         handle.add_controller(drag_source);
 
-        let drop_target = gtk::DropTarget::new(i32::static_type(), gtk::gdk::DragAction::MOVE);
+        let drop_target =
+            gtk::DropTarget::new(gtk::ListBoxRow::static_type(), gtk::gdk::DragAction::MOVE);
         let target_row = row.clone();
         drop_target.connect_drop(glib::clone!(
             #[weak(rename_to = this)]
@@ -558,11 +558,10 @@ impl EntryView {
             #[upgrade_or]
             false,
             move |_, value, _, y| {
-                let Ok(source_index) = value.get::<i32>() else {
+                let Ok(source_row) = value.get::<gtk::ListBoxRow>() else {
                     return false;
                 };
-
-                this.move_custom_field_row(source_index, &target_row, y)
+                this.move_custom_field_row(&source_row, &target_row, y)
             }
         ));
         row.add_controller(drop_target);
@@ -590,7 +589,7 @@ impl EntryView {
 
     fn move_custom_field_row(
         &self,
-        source_index: i32,
+        source_row: &gtk::ListBoxRow,
         target_row: &gtk::ListBoxRow,
         drop_y: f64,
     ) -> bool {
@@ -598,12 +597,11 @@ impl EntryView {
             return false;
         }
 
-        if source_index < 0 {
-            return false;
-        }
-
         let list = self.imp().custom_fields_list.get();
-        let Some(source_row) = Self::box_child_at_index(&list, source_index) else {
+        // Re-query the source row's current index instead of trusting a
+        // stale value captured at drag start; if it has been removed
+        // from the list since then, abort.
+        let Some(source_index) = Self::box_child_index(&list, source_row.upcast_ref()) else {
             return false;
         };
 
@@ -621,8 +619,8 @@ impl EntryView {
             return false;
         }
 
-        list.remove(&source_row);
-        Self::box_insert_child_at_index(&list, &source_row, insert_index);
+        list.remove(source_row);
+        Self::box_insert_child_at_index(&list, source_row.upcast_ref(), insert_index);
         self.mark_changed();
 
         true
