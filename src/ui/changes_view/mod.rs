@@ -34,35 +34,34 @@ impl ChangesView {
         ));
     }
 
-    pub fn set_changes(&self, changes: &[GitChange]) {
+    /// Replaces the visible commit list. The caller decides `has_more`
+    /// explicitly so a full first page that happens to equal
+    /// `CHANGES_PAGE_SIZE` doesn't falsely arm load-more.
+    pub fn set_changes(&self, changes: &[GitChange], has_more: bool) {
         let imp = self.imp();
         while let Some(child) = imp.changes_box.first_child() {
             imp.changes_box.remove(&child);
         }
 
         imp.empty_label.set_visible(changes.is_empty());
-        imp.has_more_changes.set(!changes.is_empty());
+        imp.has_more_changes.set(has_more);
         imp.is_loading_more.set(false);
         for change in changes {
             imp.changes_box.append(&self.build_change_row(change));
         }
     }
 
-    pub fn append_changes(&self, changes: &[GitChange]) {
+    pub fn append_changes(&self, changes: &[GitChange], has_more: bool) {
         let imp = self.imp();
         let has_existing_changes = imp.changes_box.first_child().is_some();
 
         imp.empty_label
             .set_visible(!has_existing_changes && changes.is_empty());
-        imp.has_more_changes.set(!changes.is_empty());
+        imp.has_more_changes.set(has_more);
         imp.is_loading_more.set(false);
         for change in changes {
             imp.changes_box.append(&self.build_change_row(change));
         }
-    }
-
-    pub fn set_has_more_changes(&self, has_more_changes: bool) {
-        self.imp().has_more_changes.set(has_more_changes);
     }
 
     pub fn set_loading_more(&self, is_loading_more: bool) {

@@ -781,15 +781,20 @@ impl MainWindow {
     }
 
     fn reload_changes_view(&self) -> Result<(), crate::app::app_error::AppError> {
-        let changes = self
+        // Probe one extra commit so we can tell "exactly PAGE_SIZE
+        // changes total" apart from "more changes available". The
+        // previous heuristic (`changes.len() == CHANGES_PAGE_SIZE`)
+        // incorrectly armed load-more in the former case.
+        let mut changes = self
             .controller()
             .borrow()
-            .load_changes_page(0, CHANGES_PAGE_SIZE)?;
+            .load_changes_page(0, CHANGES_PAGE_SIZE + 1)?;
+        let has_more = changes.len() > CHANGES_PAGE_SIZE;
+        if has_more {
+            changes.truncate(CHANGES_PAGE_SIZE);
+        }
         self.imp().loaded_changes_count.set(changes.len());
-        self.imp().changes_view.set_changes(&changes);
-        self.imp()
-            .changes_view
-            .set_has_more_changes(changes.len() == CHANGES_PAGE_SIZE);
+        self.imp().changes_view.set_changes(&changes, has_more);
         self.refresh_changes_badge();
         Ok(())
     }
@@ -817,16 +822,16 @@ impl MainWindow {
 
     fn load_more_changes(&self) -> Result<(), crate::app::app_error::AppError> {
         let offset = self.imp().loaded_changes_count.get();
-        let changes = self
+        let mut changes = self
             .controller()
             .borrow()
-            .load_changes_page(offset, CHANGES_PAGE_SIZE)?;
-
+            .load_changes_page(offset, CHANGES_PAGE_SIZE + 1)?;
+        let has_more = changes.len() > CHANGES_PAGE_SIZE;
+        if has_more {
+            changes.truncate(CHANGES_PAGE_SIZE);
+        }
         self.imp().loaded_changes_count.set(offset + changes.len());
-        self.imp().changes_view.append_changes(&changes);
-        self.imp()
-            .changes_view
-            .set_has_more_changes(changes.len() == CHANGES_PAGE_SIZE);
+        self.imp().changes_view.append_changes(&changes, has_more);
         Ok(())
     }
 

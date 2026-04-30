@@ -42,8 +42,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **Autoload thread is unstoppable and uses `mpsc` polling** (`window/mod.rs:1128-1202`). The 100ms polling tick wastes CPU; toggling autoload off in preferences mid-run can't cancel it. Use `glib::MainContext::channel`, store the `SourceId`, expose a cancellation flag.
 
-**`ChangesView::set_changes` infers `has_more` from batch length** (`changes_view/mod.rs:41`). If the first page is exactly the page size *and* there's nothing more, you'll falsely fire `load-more-requested`. Make the parent pass `has_more` explicitly.
-
 **No virtualization in changes/group lists** (`changes_view/mod.rs:43-45`, `group_view`). Hand-built `gtk::Box` per commit + gesture controller scales poorly. Use `gtk::ListView` + `gio::ListStore` + `SignalListItemFactory`.
 
 **Git terminology bleeds into UX** (`changes_view/mod.rs:155, 187-190`). "Push", "Rollback", short SHA in the row body. Already noted in TODO.md. Replace with "Sync to remote", "Discard changes after this point", hide SHA behind details.
