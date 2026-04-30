@@ -100,21 +100,44 @@ impl MainWindow {
         }
 
         {
+            // set_position re-emits notify::position, which re-enters this
+            // handler. Without blocking, the only thing preventing
+            // re-entry is the bounds check below — fragile. Stash the
+            // handler id and block it across the corrective set_position.
             let window = self.clone();
-
-            imp.main_paned.connect_position_notify(move |paned| {
+            let handler_id: Rc<RefCell<Option<glib::SignalHandlerId>>> =
+                Rc::new(RefCell::new(None));
+            let handler_id_inner = handler_id.clone();
+            let id = imp.main_paned.connect_position_notify(move |paned| {
                 if window.show_group_view_enabled() && paned.position() < GROUP_TREE_WIDTH {
-                    paned.set_position(GROUP_TREE_WIDTH);
+                    if let Some(id) = handler_id_inner.borrow().as_ref() {
+                        paned.block_signal(id);
+                        paned.set_position(GROUP_TREE_WIDTH);
+                        paned.unblock_signal(id);
+                    } else {
+                        paned.set_position(GROUP_TREE_WIDTH);
+                    }
                 }
             });
+            *handler_id.borrow_mut() = Some(id);
         }
 
         {
-            imp.selection_paned.connect_position_notify(move |paned| {
+            let handler_id: Rc<RefCell<Option<glib::SignalHandlerId>>> =
+                Rc::new(RefCell::new(None));
+            let handler_id_inner = handler_id.clone();
+            let id = imp.selection_paned.connect_position_notify(move |paned| {
                 if paned.position() < GROUP_TREE_WIDTH {
-                    paned.set_position(GROUP_TREE_WIDTH);
+                    if let Some(id) = handler_id_inner.borrow().as_ref() {
+                        paned.block_signal(id);
+                        paned.set_position(GROUP_TREE_WIDTH);
+                        paned.unblock_signal(id);
+                    } else {
+                        paned.set_position(GROUP_TREE_WIDTH);
+                    }
                 }
             });
+            *handler_id.borrow_mut() = Some(id);
         }
 
         {

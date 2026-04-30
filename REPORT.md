@@ -76,8 +76,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **`window/mod.rs` is doing seven jobs in 1230 lines.** Extract `setup.rs` (vault wizard), `autoload.rs`, `preferences.rs`, `new_entry_dialog.rs` (or its own composite template). The repeated `if controller.borrow().has_unsaved_changes() { ... return; }` (6 occurrences) → one helper `ensure_clean()`.
 
-**`Paned position_notify` recurses** (`window/mod.rs:111-124`). `set_position` re-emits `notify::position`; only the bounds check saves you from infinite recursion. Block the handler before resetting, or use `>=` with early return.
-
 ## Minor
 
 - `controller.rs:46-52` `current_entry_mut` exposes raw `&mut EntryData` bypassing `EntrySession` — remove if unused.
