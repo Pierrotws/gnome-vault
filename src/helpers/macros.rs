@@ -1,3 +1,10 @@
+/// Compile-time concatenation of byte slice constants into a `[u8; N]`.
+///
+/// The macro recurses through its argument list pairwise: a call with
+/// `n` slices expands to `n - 1` nested invocations. Rust's default
+/// `recursion_limit` is 128, so this comfortably handles any realistic
+/// charset combination (this crate currently uses up to 4 slices per
+/// call). A larger composition would need `#![recursion_limit]` bumped.
 macro_rules! concat_bytes {
     ($a:expr) => { $a };
 
