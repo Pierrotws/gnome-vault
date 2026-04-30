@@ -33,10 +33,17 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        let _name = entry.file_name();
-        let file_name = _name.to_string_lossy();
+        let raw_name = entry.file_name();
+        // Skip non-UTF8 file names rather than silently round-tripping
+        // them through to_string_lossy: a lossy name no longer matches
+        // the on-disk filename, and any subsequent rename or delete
+        // built from it would error out confusingly.
+        let Some(name_str) = raw_name.to_str() else {
+            log::warn!("skipping non-UTF-8 path under password store: {path:?}");
+            continue;
+        };
         // Skip dotfiles and hidden directories.
-        if file_name.starts_with('.') {
+        if name_str.starts_with('.') {
             continue;
         }
         let file_type = entry.file_type()?;
@@ -45,18 +52,18 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
             let children = load_dir(root, &path)?;
 
             nodes.push(PassNode {
-                name: entry.file_name().to_string_lossy().into_owned(),
+                name: name_str.to_string(),
                 path: relative_path(root, &path),
                 kind: PassNodeKind::Group,
                 children,
             });
         } else if file_type.is_file() {
             if path.extension().and_then(|e| e.to_str()) == Some("gpg") {
-                let stem = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or_default()
-                    .to_string();
+                let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+                    log::warn!("skipping non-UTF-8 entry filename: {path:?}");
+                    continue;
+                };
+                let stem = stem.to_string();
 
                 nodes.push(PassNode {
                     name: stem,
