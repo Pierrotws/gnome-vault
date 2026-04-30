@@ -30,8 +30,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **Missing `ObjectImpl::dispose` everywhere**. Field rows hold timers, template children, event controllers. Without `dispose` you get GTK warnings on drop and the OTP timer leak above.
 
-**Programmatic `set_text` enters undo/IM history** (`password_field_row/mod.rs:31-33`, `plain_field_row/mod.rs:81-83`). Ctrl+Z reveals previous decrypted entries. IBus/Fcitx may persist preedit. Set `InputPurpose::Password` and `InputHints::PRIVATE | NO_EMOJI | NO_SPELLCHECK` on any entry holding decrypted material.
-
 **Empty cache check on save failure** (`controller.rs:222-249, 240-249`). `entry_session::is_valid()` rejects empty plain/multiline fields, which are common in real pass entries (e.g. empty `comment:`, empty notes block). Decide if empty is parse-time or save-time refusal and document.
 
 **Non-UTF8 entry names silently mangled** (`pass/store/mod.rs:36, 54-58`). `to_string_lossy()` makes `node.name` no longer match the on-disk filename → subsequent rename/delete fails confusingly. Skip with warning or error explicitly.

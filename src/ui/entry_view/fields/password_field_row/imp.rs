@@ -1,6 +1,6 @@
+use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
-use gtk::prelude::*;
 
 use gtk::{Button, CompositeTemplate, TemplateChild};
 
@@ -33,6 +33,17 @@ impl ObjectSubclass for PasswordFieldRow {
 }
 
 impl ObjectImpl for PasswordFieldRow {
+    fn constructed(&self) {
+        self.parent_constructed();
+        // Tell input methods (ibus/fcitx, GTK candidate windows, ...)
+        // not to log or persist this entry's content. Adw's
+        // PasswordEntryRow already sets InputPurpose=Password by
+        // default, but the privacy hints are not.
+        self.password_entry.set_input_hints(
+            gtk::InputHints::PRIVATE | gtk::InputHints::NO_EMOJI | gtk::InputHints::NO_SPELLCHECK,
+        );
+    }
+
     fn dispose(&self) {
         let obj = self.obj();
         while let Some(child) = obj.first_child() {
