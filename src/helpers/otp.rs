@@ -118,6 +118,14 @@ impl TotpConfig {
 }
 
 fn generate_hotp(secret: &[u8], counter: u64, digits: u32) -> String {
+    // 10^9 fits in u32; 10^10 overflows. The parser already rejects any
+    // otpauth URL whose digits parameter is outside {6,7,8} but the
+    // assert keeps the contract enforceable if a future caller bypasses
+    // that gate.
+    debug_assert!(
+        digits <= 9,
+        "generate_hotp: digits must be <= 9 (got {digits})"
+    );
     let mut mac = HmacSha1::new_from_slice(secret).expect("HMAC accepts keys of any size");
     mac.update(&counter.to_be_bytes());
     let digest = mac.finalize().into_bytes();
