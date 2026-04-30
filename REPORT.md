@@ -18,8 +18,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 **Rollback's safety branch isn't verified to land on the remote** (`helpers/git.rs:296-329`). The flow pushes the backup ref, then hard-resets and force-pushes. If the backup push silently failed, you've just permanently lost commits. Capture per-ref status via `RemoteCallbacks::push_update_reference` and refuse the destructive reset unless the backup is confirmed.
 
-**Credential callback can infinite-loop** (`helpers/git.rs:401-411`). libgit2 invokes the callback until it returns `Err` or auth succeeds; returning the same SSH key repeatedly hangs. Add a `Cell<u32>` attempt counter, return `Err` after ~3.
-
 **`getrandom::fill(...).unwrap()` panics the app on RNG failure** (`helpers/password.rs:42`). For a password manager that's a denial-of-service. Propagate the error.
 
 **`std::env::set_var` race** (`main.rs:71`, `window/mod.rs:756, 964`). Not thread-safe on Linux (and `unsafe` in Rust 2024). Once `apply_store_dir_setting` runs after the autoload thread has spawned, you have a data race. Set once at startup.
