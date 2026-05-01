@@ -5,7 +5,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 ## Minor
 
 - **`save_current_entry` re-borrows `current_session_mut` three times.** `src/app/controller.rs:348-409`. Each phase does `ok_or(NoEntrySelected)?`. If phase 1 has already proven the session existed, later phases should `expect(...)` so a real bug surfaces instead of being masked by a generic error.
-- **`setup_vault` doesn't validate the recipient against `available_recipients()`.** `src/pass/store/mod.rs:107-126`. We trim emptiness and refuse to overwrite, but a typoed recipient lands in `.gpg-id` and only fails on first encrypt — *after* we've committed the init. Validate before writing.
 - **`pgp::decrypt` zeroizes invalid-UTF-8 plaintext only after the error materializes.** `src/helpers/pgp.rs:75-81`. `String::from_utf8(plain_vec)` moves the bytes into the `FromUtf8Error`; we then `into_bytes()` and zeroize. Validate with `str::from_utf8(&plain)` first and only own on success.
 - **OTP `percent_decode` does lossy UTF-8.** `src/helpers/otp.rs:191`. Replacement chars produce a downstream `InvalidSecret` rather than a clearer "URI is malformed" error. Return `OtpError::InvalidUrl` (or similar) when bytes aren't valid UTF-8.
 - **`EntryData` / `EntryField` `PartialEq` is non-constant-time.** `src/pass/model/entry_field.rs:7`, `src/pass/model/entry_data.rs:7`. We don't compare against user input today, but if revert-vs-disk diff is ever exposed at a UI boundary the timing channel matters. Consider `subtle::ConstantTimeEq` if/when that comes up.

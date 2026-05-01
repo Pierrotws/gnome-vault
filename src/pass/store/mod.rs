@@ -109,6 +109,19 @@ pub fn setup_vault(setup: &VaultSetup) -> Result<(), StoreError> {
         return Err(StoreError::InvalidRecipient);
     }
 
+    // Confirm the recipient resolves to a usable local secret key
+    // before we commit it to .gpg-id. Without this check, a typo or
+    // stale id would only fail on the *first encrypt* — by which point
+    // we've already committed the init and the user has to delete the
+    // half-set-up vault by hand.
+    let recipients = pgp::available_recipients()?;
+    if !recipients
+        .iter()
+        .any(|candidate| candidate.id == recipient)
+    {
+        return Err(StoreError::InvalidRecipient);
+    }
+
     fs::create_dir_all(&setup.store_dir)?;
     if !git::is_repository(&setup.store_dir) {
         git::init(&setup.store_dir)?;
