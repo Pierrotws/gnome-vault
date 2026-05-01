@@ -24,7 +24,7 @@ pub enum PgpError {
     LoadingError(String),
     DecryptError(String),
     EncryptError(String),
-    Utf8Error(String),
+    Utf8Error,
     NoRecipients(PathBuf),
     NoKeys(String),
 }
@@ -45,7 +45,7 @@ impl std::fmt::Debug for PgpError {
             PgpError::LoadingError(_) => "LoadingError",
             PgpError::DecryptError(_) => "DecryptError",
             PgpError::EncryptError(_) => "EncryptError",
-            PgpError::Utf8Error(_) => "Utf8Error",
+            PgpError::Utf8Error => "Utf8Error",
             PgpError::NoRecipients(_) => "NoRecipients",
             PgpError::NoKeys(_) => "NoKeys",
         };
@@ -67,7 +67,7 @@ impl std::fmt::Debug for PgpError {
             PgpError::LoadingError(s) => f.debug_tuple("LoadingError").field(s).finish(),
             PgpError::DecryptError(s) => f.debug_tuple("DecryptError").field(s).finish(),
             PgpError::EncryptError(s) => f.debug_tuple("EncryptError").field(s).finish(),
-            PgpError::Utf8Error(s) => f.debug_tuple("Utf8Error").field(s).finish(),
+            PgpError::Utf8Error => f.debug_struct("Utf8Error").finish(),
             PgpError::NoRecipients(p) => f.debug_tuple("NoRecipients").field(p).finish(),
             PgpError::NoKeys(s) => f.debug_tuple("NoKeys").field(s).finish(),
         }
@@ -90,7 +90,7 @@ impl std::fmt::Display for PgpError {
             PgpError::LoadingError(_) => f.write_str("Error loading encrypted file"),
             PgpError::DecryptError(_) => f.write_str("Error decrypting data"),
             PgpError::EncryptError(_) => f.write_str("Error encrypting data"),
-            PgpError::Utf8Error(_) => f.write_str("Decrypted content is not valid UTF-8"),
+            PgpError::Utf8Error => f.write_str("Decrypted content is not valid UTF-8"),
             PgpError::NoRecipients(_) => f.write_str("No recipients found"),
             PgpError::NoKeys(_) => f.write_str("No usable keys found"),
         }
@@ -123,9 +123,7 @@ pub fn decrypt(path: &Path) -> Result<Zeroizing<String>, PgpError> {
     // moving them into a FromUtf8Error that we have to manually zero
     // after the fact.
     if std::str::from_utf8(&plain).is_err() {
-        return Err(PgpError::Utf8Error(
-            "decrypted content is not valid UTF-8".to_string(),
-        ));
+        return Err(PgpError::Utf8Error);
     }
     let plain_vec: Vec<u8> = std::mem::take(&mut *plain);
     Ok(Zeroizing::new(
