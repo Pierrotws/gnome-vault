@@ -42,7 +42,16 @@ impl MultilineFieldRow {
             #[weak]
             entry_view,
             move |_| {
-                this.sync_value_view();
+                // While editing, the markdown / plain-text view is
+                // hidden behind the editable scrolled window; rebuilding
+                // it on every keystroke (clear_box + a fresh
+                // MarkdownTextView with re-parsed formatting tags)
+                // is invisible work. set_editable_mode(false) calls
+                // sync_value_view explicitly when the user leaves
+                // edit mode.
+                if !this.imp().value_text_view.is_editable() {
+                    this.sync_value_view();
+                }
                 entry_view.mark_changed();
             }
         ));
@@ -112,6 +121,13 @@ impl MultilineFieldRow {
         imp.value_text_view.set_can_focus(editable);
         imp.value_text_view.set_cursor_visible(editable);
         imp.delete_button.set_visible(editable);
+        // Refresh the read-only view when leaving edit mode. The
+        // buffer.connect_changed handler skips sync_value_view while
+        // editable to avoid rebuilding hidden widgets on every
+        // keystroke; do the deferred sync exactly once here.
+        if !editable {
+            self.sync_value_view();
+        }
     }
 
     pub fn drag_handle(&self) -> gtk::Widget {
