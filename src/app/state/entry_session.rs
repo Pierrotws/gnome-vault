@@ -133,7 +133,15 @@ impl EntrySession {
 
     pub fn mark_saved(&mut self) {
         self.original = self.current.clone();
-        self.node.name = self.name.clone();
+        // After save_current_entry's phase 1, replace_node has put the
+        // disk-truthful (trimmed via valid_entry_name) node into self.
+        // Treat node.name as authoritative and snap the candidate name
+        // back to it. The previous direction (self.node.name = self.name)
+        // overwrote the trimmed disk name with the user-typed candidate,
+        // so a follow-up rename diff against node.name compared the
+        // user's untrimmed input against itself and lost track of what
+        // was actually on disk.
+        self.name = self.node.name.clone();
     }
 
     pub fn replace_node(&mut self, node: PassNode) {
