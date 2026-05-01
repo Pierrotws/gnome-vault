@@ -50,9 +50,17 @@ impl ObjectImpl for GroupView {
             // the matching PassNode by identity rather than by current
             // row position. Drop / reorder operations between emit and
             // handler invocation otherwise pointed at the wrong node.
-            vec![Signal::builder("entry-activated")
-                .param_types([String::static_type()])
-                .build()]
+            vec![
+                Signal::builder("entry-activated")
+                    .param_types([String::static_type()])
+                    .build(),
+                // Mirrors the `vault_view` shape: (entry_path,
+                // entry_name) so the window handler can rebuild the
+                // PassNode the same way.
+                Signal::builder("delete-entry-requested")
+                    .param_types([String::static_type(), String::static_type()])
+                    .build(),
+            ]
         })
     }
 

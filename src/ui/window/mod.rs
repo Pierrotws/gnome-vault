@@ -222,6 +222,21 @@ impl MainWindow {
                 }
             ));
 
+        // Same delete flow as the vault tree, just sourced from a
+        // right-click in the group view's entries list.
+        imp.group_view.connect_delete_entry_requested(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_, entry_path, entry_name| {
+                let node = PassNode {
+                    name: entry_name,
+                    path: PathBuf::from(entry_path),
+                    kind: PassNodeKind::Entry,
+                };
+                window.confirm_delete_entry(node);
+            }
+        ));
+
         imp.vault_view
             .connect_delete_folder_requested(glib::clone!(
                 #[weak(rename_to = window)]

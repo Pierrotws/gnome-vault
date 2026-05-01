@@ -1,10 +1,12 @@
 mod group_item;
+mod group_row;
 mod imp;
 
 use adw::{prelude::*, subclass::prelude::*};
-use gtk::{gio, glib};
+use gtk::{gdk, gio, glib};
 
 pub use group_item::GroupItem;
+use group_row::GroupRow;
 
 use crate::pass::model::PassNode;
 
@@ -63,12 +65,15 @@ impl GroupView {
         imp.entries_list.set_model(Some(&selection));
 
         let factory = gtk::SignalListItemFactory::new();
-        factory.connect_setup(|_, item| {
+        let view_weak = self.downgrade();
+        factory.connect_setup(move |_, item| {
             let item = item
                 .downcast_ref::<gtk::ListItem>()
                 .expect("Factory item is a gtk::ListItem");
 
-            let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+            let row = GroupRow::new();
+            row.set_orientation(gtk::Orientation::Horizontal);
+            row.set_spacing(12);
             row.set_margin_top(8);
             row.set_margin_bottom(8);
             row.set_margin_start(12);
@@ -95,6 +100,30 @@ impl GroupView {
             labels.append(&subtitle);
             row.append(&icon);
             row.append(&labels);
+
+            // Per-row right-click menu: GroupRow holds a typed cell
+            // refreshed by `connect_bind` to the current GroupItem so a
+            // single GestureClick controller serves every recycled use
+            // of this row template.
+            let gesture = gtk::GestureClick::new();
+            gesture.set_button(gdk::BUTTON_SECONDARY);
+            let view_for_gesture = view_weak.clone();
+            let row_for_gesture = row.downgrade();
+            gesture.connect_pressed(move |_, _, x, y| {
+                let Some(view) = view_for_gesture.upgrade() else {
+                    return;
+                };
+                let Some(row) = row_for_gesture.upgrade() else {
+                    return;
+                };
+                let Some(group_item) = row.current() else {
+                    return;
+                };
+                let node = group_item.node();
+                view.show_row_popover(row.upcast_ref::<gtk::Widget>(), x, y, &node);
+            });
+            row.add_controller(gesture);
+
             item.set_child(Some(&row));
         });
 
@@ -108,8 +137,8 @@ impl GroupView {
                 .expect("Bound item is a GroupItem");
             let row = item
                 .child()
-                .and_then(|w| w.downcast::<gtk::Box>().ok())
-                .expect("ListItem child is a gtk::Box");
+                .and_then(|w| w.downcast::<GroupRow>().ok())
+                .expect("ListItem child is a GroupRow");
 
             let icon = row
                 .first_child()
@@ -139,9 +168,60 @@ impl GroupView {
                     subtitle.set_visible(false);
                 }
             }
+
+            // Refresh the per-row pointer so the right-click gesture
+            // resolves to *this* GroupItem while the row is bound.
+            row.set_current(Some(glib::object::ObjectExt::downgrade(&group_item)));
+        });
+
+        factory.connect_unbind(|_, item| {
+            let item = item
+                .downcast_ref::<gtk::ListItem>()
+                .expect("Factory item is a gtk::ListItem");
+            let row = item
+                .child()
+                .and_then(|w| w.downcast::<GroupRow>().ok())
+                .expect("ListItem child is a GroupRow");
+            // Drop the weak ref so a stale gesture firing during
+            // recycling doesn't resolve to the wrong entry.
+            row.set_current(None);
         });
 
         imp.entries_list.set_factory(Some(&factory));
+    }
+
+    /// Builds and presents the per-row right-click popover. Pulled out
+    /// of the gesture closure so the heavy widget construction lives
+    /// in `&self` rather than a per-row factory captured closure.
+    fn show_row_popover(&self, widget: &gtk::Widget, x: f64, y: f64, node: &PassNode) {
+        let popover = gtk::Popover::new();
+        popover.set_parent(widget);
+        popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
+        // popdown() does not unparent; without this every right-click
+        // would accumulate a fresh popover under the row widget.
+        popover.connect_closed(|popover| popover.unparent());
+
+        let entry_path = node.path.to_string_lossy().to_string();
+        let entry_name = node.name.clone();
+        let button = gtk::Button::with_label("Delete Entry");
+        button.set_margin_top(6);
+        button.set_margin_bottom(6);
+        button.set_margin_start(6);
+        button.set_margin_end(6);
+        button.add_css_class("flat");
+        button.add_css_class("destructive-action");
+        button.connect_clicked(glib::clone!(
+            #[weak]
+            popover,
+            #[weak(rename_to = obj)]
+            self,
+            move |_| {
+                popover.popdown();
+                obj.emit_by_name::<()>("delete-entry-requested", &[&entry_path, &entry_name]);
+            }
+        ));
+        popover.set_child(Some(&button));
+        popover.popup();
     }
 
     pub fn set_group(&self, group: &PassNode, entries: &[GroupEntry]) {
@@ -205,6 +285,25 @@ impl GroupView {
             if let Some(node) = hit {
                 f(&obj, node);
             }
+            None
+        })
+    }
+
+    pub fn connect_delete_entry_requested<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self, String, String) + 'static,
+    {
+        self.connect_local("delete-entry-requested", false, move |values| {
+            let obj = values[0]
+                .get::<GroupView>()
+                .expect("delete-entry-requested: first arg should be GroupView");
+            let entry_path = values[1]
+                .get::<String>()
+                .expect("delete-entry-requested: second arg should be String");
+            let entry_name = values[2]
+                .get::<String>()
+                .expect("delete-entry-requested: third arg should be String");
+            f(&obj, entry_path, entry_name);
             None
         })
     }
