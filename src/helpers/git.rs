@@ -48,10 +48,17 @@ pub enum GitError {
     NoSignature,
 }
 
+// Display intentionally drops the inner `git2::Error` message (and the
+// libgit2 push-status reason in `BackupRejected`) so we don't echo
+// branch / ref / path strings into a UI toast. Crafted variants —
+// `InvalidPath`, `MissingWorkdir`, `Conflicts(commit_id)` — keep their
+// pass-store-relative paths and short commit IDs because those are
+// already known to the user. The auto-derived `Debug` retains the full
+// upstream message for `{err:?}` log output.
 impl std::fmt::Display for GitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GitError::Git(err) => write!(f, "Git error: {err}"),
+            GitError::Git(_) => f.write_str("Git operation failed"),
             GitError::InvalidPath { path, base } => write!(
                 f,
                 "Path {} is not inside git workdir {}",
@@ -67,9 +74,7 @@ impl std::fmt::Display for GitError {
             GitError::Conflicts(commit_id) => {
                 write!(f, "Reverting commit {commit_id} produced conflicts")
             }
-            GitError::BackupRejected(reason) => {
-                write!(f, "Remote rejected rollback backup ref: {reason}")
-            }
+            GitError::BackupRejected(_) => f.write_str("Remote rejected rollback backup ref"),
             GitError::NoSignature => write!(
                 f,
                 "git user.name and user.email are not set; configure them with `git config --global user.name '...'` and `git config --global user.email '...'`"
@@ -1009,15 +1014,16 @@ mod tests {
     }
 
     #[test]
-    fn backup_rejected_error_displays_reason() {
-        // Make sure the new typed error round-trips its reason string so the
-        // UI layer can show the user a recoverable message instead of a
-        // generic "git failed".
+    fn backup_rejected_error_redacts_reason() {
+        // The variant is distinct (so the UI can branch on it) but its
+        // Display deliberately drops the libgit2-supplied reason so we
+        // don't echo remote ref names into a UI toast.
         let err = GitError::BackupRejected("refs/heads/foo: denied by server".to_string());
         let message = err.to_string();
         assert!(matches!(err, GitError::BackupRejected(_)));
         assert!(message.contains("rollback backup"));
-        assert!(message.contains("denied by server"));
+        assert!(!message.contains("denied by server"));
+        assert!(!message.contains("refs/heads/foo"));
     }
 
     #[test]
@@ -1029,8 +1035,9 @@ mod tests {
         let message = err.to_string();
 
         assert!(matches!(err, GitError::Git(_)));
-        assert!(message.contains("Git error:"));
-        assert!(!message.trim().is_empty());
+        // Display drops the inner libgit2 message; only the categorical
+        // "Git operation failed" text reaches the user.
+        assert_eq!(message, "Git operation failed");
 
         fs::remove_dir_all(dir).unwrap();
     }

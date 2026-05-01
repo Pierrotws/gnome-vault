@@ -24,14 +24,16 @@ pub enum StoreError {
 // `Display` produces the user-facing message and intentionally avoids
 // including entry paths or names (which inside a password store ARE the
 // secret labels), gpg stderr, or git stderr that may echo refs/paths.
-// For developer diagnostics use `{err:?}` which retains the redacted
-// fields via the auto-derived `Debug`.
+// `GitError::Display` and `PgpError::Display` are themselves redacted —
+// see the comments on those impls — so it's safe to forward them here
+// for category context. For developer diagnostics use `{err:?}` which
+// retains the redacted fields via the auto-derived `Debug`.
 impl std::fmt::Display for StoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             StoreError::Io(err) => write!(f, "I/O error ({})", err.kind()),
             StoreError::Git(err) => write!(f, "Git error: {err}"),
-            StoreError::Pgp(_) => write!(f, "GPG operation failed"),
+            StoreError::Pgp(err) => write!(f, "GPG error: {err}"),
             StoreError::MissingParent(_) => f.write_str("Missing parent directory"),
             StoreError::EmptyFile(_) => f.write_str("Encrypted file is empty"),
             StoreError::InvalidEntryName(_) => f.write_str("Invalid entry name"),

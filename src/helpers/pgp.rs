@@ -30,22 +30,24 @@ pub enum PgpError {
     NoKeys(String),
 }
 
+// Display intentionally drops the upstream gpgme error string from the
+// variants that wrap one (ContextError, LoadingError, DecryptError,
+// EncryptError, NoKeys). gpgme stderr can echo key fingerprints,
+// recipient identifiers, and absolute store paths — none of which
+// belong in a UI error toast. The auto-derived `Debug` keeps the full
+// context for `{err:?}` log output.
 impl std::fmt::Display for PgpError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PgpError::ContextError(err) => {
-                write!(f, "Failed to initialize GPGME OpenPGP context: {err}")
-            }
-            PgpError::InvalidPath(path) => write!(f, "Invalid path: {}", path.display()),
-            PgpError::ReadError { path, source } => {
-                write!(f, "Error reading {}: {source}", path.display())
-            }
-            PgpError::LoadingError(str) => write!(f, "Error loading path: {str}"),
-            PgpError::DecryptError(str) => write!(f, "Error decrypting data: {str}"),
-            PgpError::EncryptError(str) => write!(f, "Error encrypting data: {str}"),
-            PgpError::Utf8Error(str) => write!(f, "Decrypted content is not valid UTF-8: {str}"),
-            PgpError::NoRecipients(path) => write!(f, "No recipients found at: {}", path.display()),
-            PgpError::NoKeys(str) => write!(f, "No keys found: {str}"),
+            PgpError::ContextError(_) => f.write_str("Failed to initialize GPGME OpenPGP context"),
+            PgpError::InvalidPath(_) => f.write_str("Invalid path"),
+            PgpError::ReadError { source, .. } => write!(f, "Error reading file ({})", source.kind()),
+            PgpError::LoadingError(_) => f.write_str("Error loading encrypted file"),
+            PgpError::DecryptError(_) => f.write_str("Error decrypting data"),
+            PgpError::EncryptError(_) => f.write_str("Error encrypting data"),
+            PgpError::Utf8Error(_) => f.write_str("Decrypted content is not valid UTF-8"),
+            PgpError::NoRecipients(_) => f.write_str("No recipients found"),
+            PgpError::NoKeys(_) => f.write_str("No usable keys found"),
         }
     }
 }
