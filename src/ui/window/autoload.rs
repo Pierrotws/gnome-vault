@@ -59,8 +59,12 @@ impl MainWindow {
                             .borrow_mut()
                             .cache_loaded_entry(&node, entry);
                     }
-                    Ok(CacheWarmupMessage::Failed(path, err)) => {
-                        log::warn!("Failed to autoload {}: {err}", path.display());
+                    Ok(CacheWarmupMessage::Failed(index, err)) => {
+                        // The path is deliberately not threaded through:
+                        // pass-store paths *are* the secret labels and
+                        // this log can land in journalctl. The opaque
+                        // index is enough to count failures.
+                        log::warn!("Failed to autoload entry #{index}: {err}");
                     }
                     Ok(CacheWarmupMessage::Finished) => {
                         finished = true;

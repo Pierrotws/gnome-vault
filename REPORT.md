@@ -6,8 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Important
 
-**Worker payload types carry path-shaped data across thread boundaries.** `src/app/cache_warmup.rs:9-11` (`CacheWarmupMessage::Failed(PathBuf, String)`) and `src/app/group_preview.rs` `Failed { node, error }`. Even though both error strings go through the redacted `StoreError::Display`, the `PathBuf` / full `PassNode` is still sent on the channel and almost certainly logged at the receive site (`autoload.rs:52` does exactly this with `path.display()`). Either drop the path entirely (identify by an opaque counter) or send the un-display'd `Path` and require the receiver to log only its hash.
-
 **`group_preview` has no cancellation flag.** `src/app/group_preview.rs`. `cache_warmup::load_entries` honours an `Arc<AtomicBool>` cancel; `group_preview` only relies on a generation counter compared on the main loop, so a worker thread keeps decrypting after the user navigates away. For a 5-entry group it's harmless; for a 100-entry one it wastes GPGME calls and CPU. Mirror the autoload cancel pattern.
 
 **New-entry dialog accepts unsanitized folder text.** `src/ui/window/new_entry_dialog.rs:91-96`. `PathBuf::from(folder_row.text().trim())` is forwarded straight to the controller; absolute paths and `..` segments rely on `pass::store::validate_folder_path` to reject. That works today, but the dialog could pre-validate and surface a friendlier message before submit. Also the entry name is passed un-trimmed — `create_button` is gated by trimmed-emptiness but the actual create takes the raw `text()`.

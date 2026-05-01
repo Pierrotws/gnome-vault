@@ -157,11 +157,11 @@ impl MainWindow {
                             subtitle.as_deref(),
                         );
                     }
-                    Ok(GroupPreviewMessage::Failed { node, error }) => {
-                        log::warn!(
-                            "Failed to load entry preview for {}: {error}",
-                            node.path.display()
-                        );
+                    Ok(GroupPreviewMessage::Failed { index, error }) => {
+                        // The node path is deliberately not threaded
+                        // through: it is itself the secret label and
+                        // this log can land in journalctl.
+                        log::warn!("Failed to load entry preview at row {index}: {error}");
                     }
                     Ok(GroupPreviewMessage::Finished) => return glib::ControlFlow::Break,
                     Err(mpsc::TryRecvError::Empty) => break,

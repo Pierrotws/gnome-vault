@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 
@@ -8,7 +7,12 @@ use super::controller::AppController;
 
 pub enum CacheWarmupMessage {
     Loaded(PassNode, EntryData),
-    Failed(PathBuf, String),
+    /// `index` is the position in the input `nodes` vec. It deliberately
+    /// does NOT carry the failed entry's `PathBuf` — pass-store paths
+    /// are themselves the secret labels, and the receive site logs to
+    /// stderr/journalctl. The user can re-attempt by opening the entry
+    /// directly, where the error surfaces in the UI.
+    Failed(usize, String),
     Finished,
 }
 
@@ -23,13 +27,13 @@ pub fn load_entries(
     let (sender, receiver) = mpsc::channel();
 
     std::thread::spawn(move || {
-        for node in nodes {
+        for (index, node) in nodes.into_iter().enumerate() {
             if cancel.load(Ordering::Relaxed) {
                 break;
             }
             let message = match AppController::load_entry_for_cache(&node) {
                 Ok(entry) => CacheWarmupMessage::Loaded(node, entry),
-                Err(err) => CacheWarmupMessage::Failed(node.path.clone(), err.to_string()),
+                Err(err) => CacheWarmupMessage::Failed(index, err.to_string()),
             };
             if sender.send(message).is_err() {
                 return;

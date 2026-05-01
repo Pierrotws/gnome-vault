@@ -10,8 +10,12 @@ pub enum GroupPreviewMessage {
         node: PassNode,
         entry: EntryData,
     },
+    /// `index` is the original group-view row position. The failed
+    /// node's `PassNode` (which carries the entry path / name) is
+    /// deliberately NOT threaded through — pass-store paths are the
+    /// secret labels and the receive site logs to stderr/journalctl.
     Failed {
-        node: PassNode,
+        index: usize,
         error: String,
     },
     Finished,
@@ -31,7 +35,7 @@ pub fn load_group_previews(
             let message = match AppController::load_entry_for_cache(&node) {
                 Ok(entry) => GroupPreviewMessage::Loaded { index, node, entry },
                 Err(err) => GroupPreviewMessage::Failed {
-                    node,
+                    index,
                     error: err.to_string(),
                 },
             };
