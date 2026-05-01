@@ -91,6 +91,8 @@ impl MainWindow {
                 }
                 if row.is_active() {
                     window.start_autoload_cache();
+                } else {
+                    window.stop_autoload_cache();
                 }
             }
         ));

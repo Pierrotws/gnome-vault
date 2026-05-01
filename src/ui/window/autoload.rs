@@ -4,7 +4,8 @@
 //! decrypted by the app layer; results are streamed back to the main loop
 //! and inserted into the controller's entry cache.
 
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
 use adw::prelude::*;
@@ -34,10 +35,20 @@ impl MainWindow {
         }
 
         imp.autoload_running.set(true);
-        let receiver = cache_warmup::load_entries(nodes);
+        let cancel = Arc::new(AtomicBool::new(false));
+        *imp.autoload_cancel.borrow_mut() = Some(Arc::clone(&cancel));
+        let receiver = cache_warmup::load_entries(nodes, Arc::clone(&cancel));
 
         let window = self.clone();
         glib::timeout_add_local(Duration::from_millis(100), move || {
+            // Honor cancellation set by stop_autoload_cache; the worker
+            // thread checks the same flag, so we usually see Finished
+            // shortly after, but break early to free the timer.
+            if cancel.load(Ordering::Relaxed) {
+                window.imp().autoload_running.set(false);
+                window.imp().autoload_cancel.borrow_mut().take();
+                return glib::ControlFlow::Break;
+            }
             let mut finished = false;
 
             for _ in 0..32 {
@@ -72,6 +83,7 @@ impl MainWindow {
             // when autoload finishes.
             if finished {
                 window.imp().autoload_running.set(false);
+                window.imp().autoload_cancel.borrow_mut().take();
                 if !window
                     .imp()
                     .vault_view
@@ -87,5 +99,14 @@ impl MainWindow {
                 glib::ControlFlow::Continue
             }
         });
+    }
+
+    /// Signals the in-flight autoload worker (if any) to stop. The
+    /// worker breaks on its next loop iteration and the polling tick
+    /// breaks on its next firing.
+    pub(super) fn stop_autoload_cache(&self) {
+        if let Some(flag) = self.imp().autoload_cancel.borrow().as_ref() {
+            flag.store(true, Ordering::Relaxed);
+        }
     }
 }

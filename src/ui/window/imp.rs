@@ -1,5 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 use adw::subclass::prelude::*;
 use gtk::CompositeTemplate;
@@ -89,6 +91,10 @@ pub struct MainWindow {
     pub settings: OnceCell<gio::Settings>,
     pub loaded_changes_count: Cell<usize>,
     pub autoload_running: Cell<bool>,
+    /// Shared with the autoload worker thread; the polling tick and the
+    /// worker both honor it so a "Load entries at startup" toggle in
+    /// preferences can stop an in-flight cache warmup.
+    pub autoload_cancel: RefCell<Option<Arc<AtomicBool>>>,
     pub group_preview_generation: Cell<u64>,
     pub setup_recipients: RefCell<Vec<crate::pass::store::GpgRecipient>>,
 }
