@@ -29,7 +29,11 @@ impl From<StoreError> for AppError {
 }
 
 // `Display` is intentionally redacted — see StoreError's Display
-// comment. Use `{err:?}` (Debug) for log diagnostics.
+// comment. Logs that may surface to the user (journalctl, `--log`
+// output) MUST use `{err}` (Display); the auto-derived `Debug` for
+// `Save(StoreError)` re-expands paths, gpgme stderr, and libgit2
+// messages that Display deliberately drops. Reserve `{err:?}` for
+// ad-hoc developer inspection.
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

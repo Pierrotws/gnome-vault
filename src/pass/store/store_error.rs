@@ -26,8 +26,9 @@ pub enum StoreError {
 // secret labels), gpg stderr, or git stderr that may echo refs/paths.
 // `GitError::Display` and `PgpError::Display` are themselves redacted —
 // see the comments on those impls — so it's safe to forward them here
-// for category context. For developer diagnostics use `{err:?}` which
-// retains the redacted fields via the auto-derived `Debug`.
+// for category context. Logs MUST use `{err}` (Display); the auto-
+// derived `Debug` re-exposes the upstream messages that Display drops,
+// so reserve `{err:?}` for ad-hoc developer inspection only.
 impl std::fmt::Display for StoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
