@@ -116,10 +116,11 @@ impl EntryView {
             #[weak(rename_to = this)]
             self,
             move |_| {
+                // The title_label is only visible when the entry is in
+                // read-only mode, so syncing it on every keystroke just
+                // touches a hidden widget. The label is refreshed when
+                // we leave editable mode (see set_editable_mode).
                 this.resize_title_entry();
-                this.imp()
-                    .title_label
-                    .set_text(&this.imp().title_entry.text());
                 this.mark_changed();
             }
         ));
@@ -221,6 +222,13 @@ impl EntryView {
 
         let imp = self.imp();
         imp.is_editable.set(editable);
+        if !editable {
+            // Catch up the read-only label with whatever the user typed
+            // into the entry while editable mode was active. We skipped
+            // syncing it per keystroke above; this is the moment it
+            // becomes visible again.
+            imp.title_label.set_text(&imp.title_entry.text());
+        }
         imp.title_label.set_visible(!editable);
         imp.title_entry.set_visible(editable);
         imp.title_entry.set_editable(editable);

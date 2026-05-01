@@ -6,7 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **`EntryView::resize_title_entry` runs per keystroke and also updates the hidden `title_label`.** `src/ui/entry_view/mod.rs:433-444, 123-133`. The label is only visible when the entry is hidden. Move the label update into `set_editable_mode(false)` so it refreshes when leaving edit mode, not on every keystroke.
 - **Magic numbers `Duration::from_millis(100)`, `Duration::from_millis(50)`, `for _ in 0..32`, `for _ in 0..16` in autoload + group_content.** `src/ui/window/autoload.rs:43, 54`, `src/ui/window/group_content.rs:151, 156`. Pull these next to the existing `CHANGES_PAGE_SIZE` etc. consts so the polling cadence is one grep away.
 - **`is_otp_url` uses `get(..10)` rather than `is_char_boundary`-aware slicing.** `src/helpers/otp.rs:33-38`. `get(..10).is_some_and(|p| p.eq_ignore_ascii_case("otpauth://"))` works but is awkward. Cosmetic.
 - **`EntryView::set_field_row_editable`, `read_field_row`, and `field_row_drag_handle` keep four field-row variants in sync by hand.** `src/ui/entry_view/mod.rs:477-528, 594-612`. A new variant requires touching three else-if ladders. Extend the `EntryFieldRow` trait with `set_editable_mode / is_empty / drag_handle`.
