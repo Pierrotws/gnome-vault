@@ -953,7 +953,7 @@ impl MainWindow {
     }
 
     fn show_group_view_enabled(&self) -> bool {
-        self.setting_boolean("show-group-view", false)
+        self.setting_boolean("show-group-view", true)
     }
 
     fn show_app_view(&self) {

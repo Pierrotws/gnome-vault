@@ -41,7 +41,7 @@ impl MainWindow {
         autoload_row.set_active(self.setting_boolean("autoload", false));
         show_group_view_row.set_active(self.show_group_view_enabled());
         interpret_multiline_as_markdown_row
-            .set_active(self.setting_boolean("interpret-multiline-as-markdown", false));
+            .set_active(self.setting_boolean("interpret-multiline-as-markdown", true));
         tree_view_size_row.set_selected(tree_view_size_index(
             &self.setting_string("tree-view-size", "medium"),
         ));

@@ -6,7 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **Default fallbacks in `setting_boolean` disagree with the gschema defaults.** `src/ui/window/mod.rs:885-887` (`show-group-view` falls back to `false`; gschema default is `true`), `src/ui/window/preferences.rs:43-44` (`interpret-multiline-as-markdown` falls back to `false`; gschema default is `true`). Mirror the schema, not the opposite.
 - **`set_edit_unlock_state(true, editing, false)` from the lock button hard-codes `is_dirty = false`.** `src/ui/window/mod.rs:453-457`. Correct only because the lock button is gated insensitive when dirty; the third argument silently lies if the gating ever changes. Read the actual `is_dirty` from a snapshot.
 - **`apply_branch_setting` and `branch_row.connect_apply` both call `refresh_changes_badge`, then the apply handler calls `reload_changes_view` which calls `refresh_changes_badge` again.** `src/ui/window/setup.rs:63-80`, `src/ui/window/preferences.rs:198-220`. Pick one owner of the refresh.
 - **`revert_change` and `rollback_change` clear the entry cache but don't restart autoload.** `src/ui/window/mod.rs:680-690, 749-758`. After either operation the user with "Load entries at startup" enabled finishes with a cold cache until next launch. Call `start_autoload_if_enabled` after the post-revert UI reset.
