@@ -25,9 +25,16 @@ impl MainWindow {
 
     pub(super) fn start_autoload_cache(&self) {
         let imp = self.imp();
-        if imp.autoload_running.get() {
-            return;
+
+        // Signal any in-flight worker to stop and immediately clear the
+        // imp's running/cancel state so a fresh run can claim it. The
+        // old timer still owns its own Arc<AtomicBool>; the ptr_eq
+        // guard in its cleanup branches keeps it from clobbering the
+        // state we install below when it observes the cancel.
+        if let Some(prev) = imp.autoload_cancel.borrow_mut().take() {
+            prev.store(true, Ordering::Relaxed);
         }
+        imp.autoload_running.set(false);
 
         let nodes = self.controller().borrow().uncached_entry_nodes();
         if nodes.is_empty() {
@@ -41,12 +48,12 @@ impl MainWindow {
 
         let window = self.clone();
         glib::timeout_add_local(Duration::from_millis(100), move || {
-            // Honor cancellation set by stop_autoload_cache; the worker
-            // thread checks the same flag, so we usually see Finished
-            // shortly after, but break early to free the timer.
+            // Honor cancellation set by stop_autoload_cache or by a
+            // start_autoload_cache that replaced us; the worker thread
+            // checks the same flag, so we usually see Finished shortly
+            // after, but break early to free the timer.
             if cancel.load(Ordering::Relaxed) {
-                window.imp().autoload_running.set(false);
-                window.imp().autoload_cancel.borrow_mut().take();
+                clear_if_still_ours(&window, &cancel);
                 return glib::ControlFlow::Break;
             }
             let mut finished = false;
@@ -86,15 +93,14 @@ impl MainWindow {
             // appear when they keep typing (each keystroke rebuilds) or
             // when autoload finishes.
             if finished {
-                window.imp().autoload_running.set(false);
-                window.imp().autoload_cancel.borrow_mut().take();
-                if !window
-                    .imp()
-                    .vault_view
-                    .search_entry()
-                    .text()
-                    .trim()
-                    .is_empty()
+                if clear_if_still_ours(&window, &cancel)
+                    && !window
+                        .imp()
+                        .vault_view
+                        .search_entry()
+                        .text()
+                        .trim()
+                        .is_empty()
                 {
                     window.rebuild_vault_tree();
                 }
@@ -113,4 +119,23 @@ impl MainWindow {
             flag.store(true, Ordering::Relaxed);
         }
     }
+}
+
+/// Clears the imp's autoload state only when the cell still points at
+/// the timer's own cancel flag. Returns `true` if the clear happened.
+/// Without this guard a stale timer that observes its own cancel could
+/// erase a fresh run that `start_autoload_cache` installed in the same
+/// 100 ms tick.
+fn clear_if_still_ours(window: &MainWindow, cancel: &Arc<AtomicBool>) -> bool {
+    let imp = window.imp();
+    let still_ours = imp
+        .autoload_cancel
+        .borrow()
+        .as_ref()
+        .is_some_and(|c| Arc::ptr_eq(c, cancel));
+    if still_ours {
+        imp.autoload_running.set(false);
+        imp.autoload_cancel.borrow_mut().take();
+    }
+    still_ours
 }
