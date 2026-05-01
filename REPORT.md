@@ -1,0 +1,86 @@
+# Gnome-Vault — Code Review (round 2)
+
+A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for crypto, git2 for sync. The previous review's structural issues are largely closed; what's below is a fresh pass that flags issues observed today, grouped by severity.
+
+## Critical
+
+**`GeneratePasswordView::setup` captures `self` strongly into three closures.** `src/ui/generate_password_view/mod.rs:32-42`. `let this = self.clone()` is repeated for `reload_button`, `length_spin`, and `charset_row` and moved into `connect_clicked` / `connect_value_changed` / `connect_selected_notify`. Each handler is owned by a child widget that the view itself owns through its imp template-children, so `view → button → closure → view` is a textbook GObject ref cycle. The dialog the view lives in is short-lived, so it has not surfaced as a visible leak yet, but every "Generate password" dialog invocation pins one view forever. Switch all three to `glib::clone!(#[weak(rename_to = this)] self, …)` with an `#[upgrade_or_default]` early return — the rest of the codebase already follows that pattern.
+
+**`AppState` derives `Clone`.** `src/app/state/app_state.rs:10`. Cloning the state deep-clones the entire `entry_cache: HashMap<PathBuf, EntryData>`, multiplying every plaintext field heap allocation. Nothing in `app::*` actually clones the state today, but the public derive invites a future caller to do exactly that. Drop the derive; if a snapshot is ever needed, force the call site to spell it out.
+
+**`EntrySession` derives `Debug`.** `src/app/state/entry_session.rs:8`. Auto-`Debug` prints the `name: String` field verbatim, and the entry's name *is* its secret label inside a password store. `EntryData` / `EntryField` already redact themselves but the wrapping session does not, so `log::debug!("{session:?}")` defeats the redaction. Hand-roll `Debug` to redact `name` (or print only the inner-data placeholder).
+
+**`AppState::selected_node` is unwired dead state.** `src/app/state/app_state.rs:13`, `:36-42`, `:82`. Written by `set_selected_node` / `clear_current_entry` and read only by an internal getter; the actual current-edit-target is `current_session`. A future contributor adding "selection persistence" features against `selected_node()` would silently get stale or empty data. Either delete it or wire it through `open_node` / `set_current_session` and document the relationship.
+
+## Important
+
+**`AppError`'s auto-`Debug` re-leaks the paths that `Display` redacts.** `src/app/app_error.rs:7` and the `// Use `{err:?}` (Debug) for log diagnostics` comment at `:32`. The `Display` impls for `AppError` and `StoreError` were carefully sanitized; the `Debug` derive expands to e.g. `Save(Io(Os { code: 2, kind: NotFound, message: "No such file or directory" }))` plus the original path argument. The doc comment actively recommends `{err:?}` for logs. Either hand-roll `Debug` so it matches the redaction policy of `Display`, or change the comment to "do not log this — log only `Display` form".
+
+**`PgpError` and `GitError` `Display` impls forward raw upstream messages.** `src/helpers/pgp.rs:33-50`, `src/helpers/git.rs:54-77`. `PgpError::DecryptError("...gpgme stderr...")` writes that stderr verbatim, which can include key IDs, fingerprints, recipient identifiers, and file paths. `GitError::Git(git2::Error)` likewise prints branch / ref / path strings via `git2::Error::Display`. `StoreError::Display` redacts most of its variants but `StoreError::Git(err) => write!(f, "Git error: {err}")` still passes the inner message through. Either fully redact at the `StoreError` boundary or hand-roll `Display` for the lower error types.
+
+**`format_entry` blindly serializes the password slot via `display_value()`.** `src/helpers/parser.rs:41-43`. The model permits any `EntryField` variant in `EntryData::password`; if a future caller stores `Array` or `Multiline` there, the first line of the output contains embedded newlines and the parse round-trip silently truncates the entry. Either `match` only `Password` and `OTP` here (returning a typed error otherwise), or constrain `EntryData::password` to a narrower type at the model level.
+
+**`controller::state_mut` exposes the entire state machine in release builds.** `src/app/controller.rs:43-45`. Returns `&mut AppState`, letting any UI caller mutate `entry_cache` / `current_session` / `tree` directly and bypass every invariant the controller documents at the save phasing comment. Tests use it heavily and that's fine; gate the public method behind `#[cfg(test)]` (mirroring `current_entry_mut`) and provide focused mutators for production code.
+
+**Worker payload types carry path-shaped data across thread boundaries.** `src/app/cache_warmup.rs:9-11` (`CacheWarmupMessage::Failed(PathBuf, String)`) and `src/app/group_preview.rs` `Failed { node, error }`. Even though both error strings go through the redacted `StoreError::Display`, the `PathBuf` / full `PassNode` is still sent on the channel and almost certainly logged at the receive site (`autoload.rs:52` does exactly this with `path.display()`). Either drop the path entirely (identify by an opaque counter) or send the un-display'd `Path` and require the receiver to log only its hash.
+
+**`group_preview` has no cancellation flag.** `src/app/group_preview.rs`. `cache_warmup::load_entries` honours an `Arc<AtomicBool>` cancel; `group_preview` only relies on a generation counter compared on the main loop, so a worker thread keeps decrypting after the user navigates away. For a 5-entry group it's harmless; for a 100-entry one it wastes GPGME calls and CPU. Mirror the autoload cancel pattern.
+
+**`ChangesView` row gesture takes `Cell` then restores it inside the same handler.** `src/ui/changes_view/mod.rs:104-110`. `Cell::take()` empties the cell, then `set(Some(weak))` puts it back. If a second `connect_pressed` interleaves (rare but possible — fast double-click while the first popover is presenting), the second take returns `None` and the gesture silently drops. Replace the take/restore dance with `Rc<RefCell<Option<…>>>` and a non-destructive read.
+
+**Set/steal-data round trip in the `ChangesView` factory.** `src/ui/changes_view/mod.rs:123-191`. `connect_bind` and `connect_unbind` both `steal_data` the `Rc<Cell<…>>`, set the inner value, and `set_data` it back. The `Rc` never actually leaves the row; this is `data()` plus mutation through the existing `Rc`. Two `unsafe` blocks per recycle for no gain. Use `data()` for read-only access and store the `Rc` once in setup.
+
+**`apply_branch_setting` doesn't refresh the changes pane on startup.** `src/ui/window/setup.rs:63-75` is called from `MainWindow::new` before `setup_views`; if the saved branch differs from HEAD, the unpushed-count badge is computed against the wrong branch until the user opens preferences and re-applies. Call `refresh_changes_badge()` (and `reload_changes_view` if visible) at the end of `apply_branch_setting`.
+
+**New-entry dialog accepts unsanitized folder text.** `src/ui/window/new_entry_dialog.rs:91-96`. `PathBuf::from(folder_row.text().trim())` is forwarded straight to the controller; absolute paths and `..` segments rely on `pass::store::validate_folder_path` to reject. That works today, but the dialog could pre-validate and surface a friendlier message before submit. Also the entry name is passed un-trimmed — `create_button` is gated by trimmed-emptiness but the actual create takes the raw `text()`.
+
+## Minor
+
+- **Best-effort cleanup of the local backup ref.** `src/helpers/git.rs:377-382`. When the remote rejects the rollback backup push, the local backup ref deletion is `let _ = …`. A failure leaves a stale `refs/heads/reset/backup/...` that the next rollback's random-suffix path probably won't collide with, but the silent swallow makes diagnosis hard. Log on failure and surface that the local ref persisted.
+- **`restore_previous` doesn't re-stage the restored content.** `src/pass/store/mod.rs:346-371`. After `git::add` fails, we put the previous bytes back on disk but don't re-`add` them; HEAD/index can drift from the working tree. Mirror the rename: re-`add` (or `index.remove_path` if the previous was `None`).
+- **`save_current_entry` re-borrows `current_session_mut` three times.** `src/app/controller.rs:348-409`. Each phase does `ok_or(NoEntrySelected)?`. If phase 1 has already proven the session existed, later phases should `expect(...)` so a real bug surfaces instead of being masked by a generic error.
+- **`delete_folder` evicts the entire cache.** `src/app/controller.rs:317`. Iterate keys and remove only those starting with the deleted prefix.
+- **Per-keystroke allocation in `entry_matches_query`.** `src/app/controller.rs:459`. `display_value().to_lowercase()` allocates per array element per filter per character. Pre-lowercase once, or match per element.
+- **`valid_entry_name` does not reject `\n` / `\r`.** `src/pass/store/mod.rs:448-464`. Names with newlines disrupt anything line-parsing pass output. Add to the rejection list.
+- **`setup_vault` doesn't validate the recipient against `available_recipients()`.** `src/pass/store/mod.rs:107-126`. We trim emptiness and refuse to overwrite, but a typoed recipient lands in `.gpg-id` and only fails on first encrypt — *after* we've committed the init. Validate before writing.
+- **`pgp::decrypt` zeroizes invalid-UTF-8 plaintext only after the error materializes.** `src/helpers/pgp.rs:75-81`. `String::from_utf8(plain_vec)` moves the bytes into the `FromUtf8Error`; we then `into_bytes()` and zeroize. Validate with `str::from_utf8(&plain)` first and only own on success.
+- **OTP `percent_decode` does lossy UTF-8.** `src/helpers/otp.rs:191`. Replacement chars produce a downstream `InvalidSecret` rather than a clearer "URI is malformed" error. Return `OtpError::InvalidUrl` (or similar) when bytes aren't valid UTF-8.
+- **`EntryData` / `EntryField` `PartialEq` is non-constant-time.** `src/pass/model/entry_field.rs:7`, `src/pass/model/entry_data.rs:7`. We don't compare against user input today, but if revert-vs-disk diff is ever exposed at a UI boundary the timing channel matters. Consider `subtle::ConstantTimeEq` if/when that comes up.
+- **`AppState::clear_loaded_entry_state` and `AppState::clear_current_entry` overlap.** `src/app/controller.rs:188` vs `src/app/state/app_state.rs:81`. Two methods clear subtly different subsets. Consolidate.
+- **`setup_vault` clears cache before `reload_tree` runs.** `src/app/controller.rs:103-110`. If reload fails, the user is left with no cache and no session even though the previous vault is still on disk. Reload first, swap state on success.
+- **`find_tree_row_by_path` and `find_tree_position_by_path` duplicate.** `src/ui/vault_view/mod.rs:251-273`. Same loop; collapse to one helper returning `(u32, TreeListRow)`.
+- **`ChangeItem::change()` clones unconditionally.** `src/ui/changes_view/change_item.rs:46-52`. Bind reads four fields; a `with_change(|c| …)` accessor would save one `GitChange` clone per recycle.
+- **Magic constants.** `src/ui/changes_view/mod.rs:379` (`24.0` scroll threshold), `src/ui/entry_view/mod.rs:429` (`48` title char clamp). Name them.
+- **`tree_view_size_index` silently maps unknown nicks to medium.** `src/ui/window/preferences.rs:226-232`. `log::debug!` on the unknown branch so misconfiguration leaves a trace.
+- **Two error UI surfaces with no policy.** `entry_view.show_error` (inline label) vs `show_error_dialog` (Adw alert). The inline label is invisible while `content_stack` is on `empty` or `changes`. Pick one, or branch on visible child.
+- **`select_node_by_path("")` for top-level entries.** `src/ui/window/mod.rs:344`. `node.path.parent()` is `Some("")` for top-level entries; the search-results "select parent in tree" path then tries to select the synthetic root. Confirm it lands on something visible (and doesn't unselect everything).
+- **`set_changes` does not reset `vadjustment`.** `src/ui/changes_view/mod.rs:289-299`. After a fresh `set_changes`, an in-flight scroll near the bottom can re-trigger load-more before the model height re-grows. Reset to top, or guard `should_request_more` against `model.n_items() == 0`.
+- **`PASSWORD_STORE_DIR` `env::set_var`.** `src/pass/store/mod.rs:486-498`. `OnceLock` guarantees a single call, and the call sequence is "main thread before workers spawn"; this is safe in practice on edition 2021. Worth documenting that the OnceLock is the safety guarantee, not the OnceCell semantics.
+
+## Positive
+
+- **Per-ref status verification before destructive force-push.** `src/helpers/git.rs:373-398`, `:509-554`. Backup ref acceptance is verified via `push_update_reference` before the destructive reset; the regression test `rollback_does_not_destroy_remote_when_backup_push_fails` is exactly the right shape.
+- **Atomic write + best-effort restore on save.** `src/pass/store/mod.rs:323-419`. `.gpg.tmp` + `sync_all` + `rename`, with `previous`-bytes restoration on post-rename failure, covers the partial-failure modes most pass clones get wrong. Both with- and without-previous-content paths are tested.
+- **Save phasing and cache invariants are codified and tested.** `src/app/controller.rs:338-410` plus the four `cache_invariant_*` tests. The "cache holds only clean entry data on disk" rule is a kind of invariant that rots silently — keeping it in test code is the right move.
+- **Snapshot-before-setter pattern across the window.** `src/ui/window/mod.rs:318-327, 367-376, 425-432, 515-523`. The repeated `let (is_dirty, is_valid) = { let c = controller.borrow(); … };` *before* any `view.set_*` is exactly right for avoiding setter→signal→`borrow_mut` panics, and the inline comments explaining why are excellent.
+- **Drag-and-drop now carries the row GObject.** `src/ui/entry_view/mod.rs:557-579`. Dropping uses identity rather than the captured ordinal — the prior off-by-one bug under reorder is gone.
+- **`GroupView` activation emits a path string.** `src/ui/group_view/mod.rs:46-51` and `src/ui/group_view/imp.rs:50-55`. Concurrent mutation between emit and handler can no longer mis-resolve `entry-activated`.
+- **OTP timer lifecycle.** `src/ui/entry_view/fields/otp_field_row/mod.rs:90-118`. 1 Hz tick is tied to `connect_map` / `connect_unmap` and `dispose` clears `timer_source` — no orphan timers, no wakeups while off-screen.
+- **Password entry IM hardening.** `src/ui/entry_view/fields/password_field_row/imp.rs:42-44`. `PRIVATE | NO_EMOJI | NO_SPELLCHECK` keep input methods and spellcheck from logging the password.
+- **`generate_password` returns `Zeroizing<String>`.** `src/helpers/password.rs`. The local that holds the cleartext between random-bytes and the GTK widget wipes its allocation on drop.
+- **Popovers `set_parent`-ed are correctly `unparent`-ed on close.** `src/ui/vault_view/mod.rs:459-460`, `src/ui/changes_view/mod.rs:276-281`. The leak that was flagged in round 1 is gone.
+- **Page-size + 1 lookahead.** `src/ui/window/mod.rs:794-811`. Asking for `PAGE_SIZE + 1` and using `len() > PAGE_SIZE` for `has_more` is the clean fix to the "exactly N changes total" off-by-one.
+- **Backup branch name has a random suffix.** `src/helpers/git.rs::backup_branch_name`. Two rollbacks at the same HEAD within the same wall-clock second can no longer collide.
+- **Field-row helpers extracted.** `src/ui/entry_view/fields/mod.rs::wire_delete_button` / `set_entry_editable`. The 12-line `glib::clone!` boilerplate that was duplicated four times is now one call site.
+- **`load_dir` skips non-UTF-8 paths with a log warning.** `src/pass/store/mod.rs::load_dir`. Replaces the previous lossy round-trip that silently mangled names.
+
+## Suggested fix order
+
+1. The four **Critical** items — they're cheap to fix and silently leak.
+2. `AppError`'s Debug + the `Pgp` / `Git` Display redaction — pick a consistent policy.
+3. `state_mut` `cfg(test)` gate.
+4. `format_entry` password-slot constraint.
+5. `group_preview` cancellation flag.
+6. The `ChangesView` factory `Cell::take` race + `set_data`/`steal_data` thrash.
+7. Branch-setting startup refresh.
+8. The Minor list in any order; most are <10-line changes.
