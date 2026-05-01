@@ -4,8 +4,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 ## Critical (security, data loss, panics)
 
-**OTP shared secret displayed in plaintext `gtk::Entry`** (`otp_field_row/imp.rs:33`). The `otpauth://...?secret=JBSWY...` URL contains the credential. Visible by default, no reveal toggle, "Copy URL" exfiltrates trivially. Use `PasswordEntryRow` or split into Issuer/Account + a reveal-gated secret.
-
 **`std::env::set_var` race** (`main.rs:71`, `window/mod.rs:756, 964`). Not thread-safe on Linux (and `unsafe` in Rust 2024). Once `apply_store_dir_setting` runs after the autoload thread has spawned, you have a data race. Set once at startup.
 
 ## Important (correctness, UX, architecture)
