@@ -867,7 +867,10 @@ impl MainWindow {
     }
 
     fn rebuild_vault_tree(&self) {
-        self.update_selection_layout(false);
+        // The selection layout (tree vs split) is set in show_app_view
+        // and refreshed when the show-group-view preference toggles —
+        // it doesn't change between search keystrokes. Skip the call
+        // here so each keystroke only swaps the selection model.
         let search_text = self.imp().vault_view.search_entry().text().to_string();
         let nodes = self.controller().borrow().filtered_tree(&search_text);
         let group_view = self.show_group_view_enabled();
