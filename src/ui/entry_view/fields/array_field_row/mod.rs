@@ -80,7 +80,7 @@ impl ArrayFieldRow {
     pub fn set_editable_mode(&self, editable: bool) {
         let imp = self.imp();
         imp.drag_handle.set_visible(editable);
-        Self::set_entry_editable_mode(&imp.title_entry, editable);
+        super::set_entry_editable(&imp.title_entry, editable);
         imp.add_item_button.set_visible(editable);
         imp.delete_button.set_visible(editable);
 
@@ -185,15 +185,9 @@ impl ArrayFieldRow {
         let entry = container.first_child()?.downcast::<gtk::Entry>().ok()?;
         let delete_button = entry.next_sibling()?.downcast::<gtk::Button>().ok()?;
 
-        Self::set_entry_editable_mode(&entry, editable);
+        super::set_entry_editable(&entry, editable);
         delete_button.set_visible(editable);
         Some(())
-    }
-
-    fn set_entry_editable_mode(entry: &gtk::Entry, editable: bool) {
-        entry.set_editable(editable);
-        entry.set_can_focus(editable);
-        entry.set_has_frame(editable);
     }
 
     fn read_value_row(widget: &gtk::Widget) -> Option<String> {

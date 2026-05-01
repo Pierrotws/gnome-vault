@@ -105,7 +105,7 @@ impl MultilineFieldRow {
     pub fn set_editable_mode(&self, editable: bool) {
         let imp = self.imp();
         imp.drag_handle.set_visible(editable);
-        Self::set_entry_editable_mode(&imp.title_entry, editable);
+        super::set_entry_editable(&imp.title_entry, editable);
         imp.value_view_box.set_visible(!editable);
         imp.value_scrolled_window.set_visible(editable);
         imp.value_text_view.set_editable(editable);
@@ -143,12 +143,6 @@ impl MultilineFieldRow {
         } else {
             value_view_box.append(&plain_text_label(&value));
         }
-    }
-
-    fn set_entry_editable_mode(entry: &gtk::Entry, editable: bool) {
-        entry.set_editable(editable);
-        entry.set_can_focus(editable);
-        entry.set_has_frame(editable);
     }
 
     fn markdown_enabled(&self) -> bool {

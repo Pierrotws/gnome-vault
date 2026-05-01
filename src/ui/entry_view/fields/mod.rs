@@ -25,6 +25,16 @@ pub trait EntryFieldRow {
     }
 }
 
+/// Toggles the standard "this entry is read-only outside edit mode"
+/// flags on a `gtk::Entry`. Plain, multiline, and array rows all set
+/// the same three properties when entering / leaving edit mode; the
+/// helper centralizes the policy.
+pub(super) fn set_entry_editable(entry: &gtk::Entry, editable: bool) {
+    entry.set_editable(editable);
+    entry.set_can_focus(editable);
+    entry.set_has_frame(editable);
+}
+
 /// Wires a field row's delete button to the standard "remove from
 /// parent gtk::Box and mark the EntryView dirty" behavior. Captures
 /// `row` and `entry_view` weakly so the closure cannot keep them alive
