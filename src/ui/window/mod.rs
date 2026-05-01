@@ -355,7 +355,16 @@ impl MainWindow {
                 window.open_entry_node(node);
                 if search_active {
                     if let Some(parent) = parent_path {
-                        window.imp().vault_view.select_node_by_path(&parent);
+                        // The parent group may have been filtered out of the
+                        // current tree by the active search; in that case the
+                        // previous selection silently persists. Log so the
+                        // mismatch is debuggable without spamming on the happy
+                        // path.
+                        if !window.imp().vault_view.select_node_by_path(&parent) {
+                            log::debug!(
+                                "select_node_by_path: parent not in filtered tree"
+                            );
+                        }
                     }
                 }
             }
