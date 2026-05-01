@@ -105,13 +105,18 @@ impl AppController {
     /// Initializes a new password-store vault and reloads application state.
     ///
     /// Updates `PASSWORD_STORE_DIR` so subsequent store operations (which
-    /// read it on every call) resolve to the freshly created vault.
+    /// read it on every call) resolve to the freshly created vault. The
+    /// tree reload runs BEFORE we drop the previous cache and session: if
+    /// it fails, the user is left looking at the previous (still-on-disk)
+    /// vault with their cache intact, instead of a blank window with no
+    /// path back.
     pub fn setup_vault(&mut self, setup: &VaultSetup) -> Result<(), AppError> {
         pass::store::setup_vault(setup)?;
         pass::store::set_password_store_dir_once(&setup.store_dir);
+        let tree = pass::store::load_password_store()?;
         self.state.clear_entry_cache();
         self.state.set_current_session(None);
-        self.reload_tree()?;
+        self.state.set_tree(tree);
         Ok(())
     }
 
@@ -371,6 +376,9 @@ impl AppController {
 
         // Phase 1: rename on disk if needed. If rename fails, nothing on disk
         // has changed and the cache is still valid under the old path.
+        // The session existence was just proven above, so subsequent
+        // re-borrows on the same `&mut self` use `expect(...)` — a None
+        // here would be a real bug, not a recoverable "no entry selected".
         let old_path = if let Some((node, name)) = rename {
             let old_path = node.path.clone();
             let renamed_node = pass::store::rename_entry(&node, &name, self.autopush)?;
@@ -382,7 +390,7 @@ impl AppController {
             let session = self
                 .state
                 .current_session_mut()
-                .ok_or(AppError::NoEntrySelected)?;
+                .expect("session existed at phase start and isn't cleared mid-save");
             session.replace_node(renamed_node);
             Some(old_path)
         } else {
@@ -396,7 +404,7 @@ impl AppController {
             let session = self
                 .state
                 .current_session()
-                .ok_or(AppError::NoEntrySelected)?;
+                .expect("session existed at phase start and isn't cleared mid-save");
             pass::store::save_entry_data(session.node(), session.current(), self.autopush)?;
         }
 
@@ -407,7 +415,7 @@ impl AppController {
         let session = self
             .state
             .current_session_mut()
-            .ok_or(AppError::NoEntrySelected)?;
+            .expect("session existed at phase start and isn't cleared mid-save");
         let node = session.node().clone();
         let entry = session.current().clone();
         session.mark_saved();
