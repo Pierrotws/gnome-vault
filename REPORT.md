@@ -6,7 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **`setup_vault` clears cache before reload still reports the previous tree.** `src/app/controller.rs:109-118`. The reorder lands first, but if the *new* `load_password_store` returns `Ok(empty_vec)` on a freshly-init'd vault with only `.gpg-id`, the user sees an empty vault while the cache they had has been cleared. Cosmetic.
 - **`select_node_by_path`'s return value is ignored at the only call site.** `src/ui/window/mod.rs:355`. If the parent node was filtered out of the current tree by an active search, the previous selection silently persists. A debug-level log on the `false` branch would make this debuggable.
 - **Default fallbacks in `setting_boolean` disagree with the gschema defaults.** `src/ui/window/mod.rs:885-887` (`show-group-view` falls back to `false`; gschema default is `true`), `src/ui/window/preferences.rs:43-44` (`interpret-multiline-as-markdown` falls back to `false`; gschema default is `true`). Mirror the schema, not the opposite.
 - **`set_edit_unlock_state(true, editing, false)` from the lock button hard-codes `is_dirty = false`.** `src/ui/window/mod.rs:453-457`. Correct only because the lock button is gated insensitive when dirty; the third argument silently lies if the gating ever changes. Read the actual `is_dirty` from a snapshot.

@@ -111,6 +111,14 @@ impl AppController {
     /// vault with their cache intact, instead of a blank window with no
     /// path back.
     ///
+    /// The cache flush is gated on the new tree being non-empty for the
+    /// same reason: a freshly init'd vault containing only `.gpg-id`
+    /// loads as `Ok(empty_vec)`, in which case there are no new paths
+    /// that could collide with previously cached plaintexts, so dropping
+    /// the cache provides no security benefit and only loses the user's
+    /// already-decrypted state. As soon as a real entry lands the next
+    /// successful reload clears the (now-stale) cache.
+    ///
     /// Collision case: if the startup `apply_store_dir_setting` already
     /// burned `set_password_store_dir_once`'s `OnceLock` with a
     /// *different* path (e.g. GSettings pointed at /a, no vault there,
@@ -128,7 +136,9 @@ impl AppController {
             return Err(AppError::Save(pass::store::StoreError::RestartRequired));
         }
         let tree = pass::store::load_password_store()?;
-        self.state.clear_entry_cache();
+        if !tree.is_empty() {
+            self.state.clear_entry_cache();
+        }
         self.state.set_current_session(None);
         self.state.set_tree(tree);
         Ok(())
