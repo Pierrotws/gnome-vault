@@ -62,6 +62,15 @@ impl AppState {
         self.entry_cache.remove(path);
     }
 
+    /// Drops every cached entry whose path lies under `prefix`. Used by
+    /// folder-delete to scope eviction to the deleted subtree instead of
+    /// nuking the whole cache and forcing the rest of the vault to
+    /// re-decrypt on next open.
+    pub fn evict_cached_entries_under(&mut self, prefix: &Path) {
+        self.entry_cache
+            .retain(|path, _| !path.starts_with(prefix));
+    }
+
     pub fn clear_entry_cache(&mut self) {
         self.entry_cache.clear();
     }
