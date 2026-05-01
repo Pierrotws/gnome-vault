@@ -38,6 +38,19 @@ pub fn parse_entry(plaintext: &str) -> Option<EntryData> {
 /// chomp indicator so trailing newlines roundtrip.
 pub fn format_entry(entry: &EntryData) -> String {
     let mut out = String::new();
+    // The pass file format requires the first line to be a single
+    // logical token (the secret), so only Password and OTP variants
+    // can occupy the password slot. Array / Multiline / Plain would
+    // emit embedded newlines that the parser would silently truncate
+    // on round-trip — surface that as a debug-build panic instead of
+    // a silently-corrupted file. EntrySession::is_valid already
+    // gates the save path, so this is purely a defense-in-depth
+    // assertion against future model abuse.
+    debug_assert!(
+        matches!(entry.password, EntryField::Password(_) | EntryField::OTP(_)),
+        "format_entry: password slot must be Password or OTP, got {:?}",
+        std::mem::discriminant(&entry.password)
+    );
     let password_str = &entry.password.display_value();
     out.push_str(password_str);
     out.push('\n');
