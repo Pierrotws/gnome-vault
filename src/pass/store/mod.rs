@@ -454,6 +454,8 @@ fn valid_entry_name(name: &str) -> Result<&str, StoreError> {
         || name.contains('/')
         || name.contains('\\')
         || name.contains('\0')
+        || name.contains('\n')
+        || name.contains('\r')
         || name.starts_with('-')
         || name == "."
         || name == ".."

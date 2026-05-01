@@ -2,10 +2,6 @@
 
 A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for crypto, git2 for sync. The previous review's structural issues are largely closed; what's below is a fresh pass that flags issues observed today, grouped by severity.
 
-## Critical
-
-## Important
-
 ## Minor
 
 - **Best-effort cleanup of the local backup ref.** `src/helpers/git.rs:377-382`. When the remote rejects the rollback backup push, the local backup ref deletion is `let _ = …`. A failure leaves a stale `refs/heads/reset/backup/...` that the next rollback's random-suffix path probably won't collide with, but the silent swallow makes diagnosis hard. Log on failure and surface that the local ref persisted.
@@ -13,7 +9,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 - **`save_current_entry` re-borrows `current_session_mut` three times.** `src/app/controller.rs:348-409`. Each phase does `ok_or(NoEntrySelected)?`. If phase 1 has already proven the session existed, later phases should `expect(...)` so a real bug surfaces instead of being masked by a generic error.
 - **`delete_folder` evicts the entire cache.** `src/app/controller.rs:317`. Iterate keys and remove only those starting with the deleted prefix.
 - **Per-keystroke allocation in `entry_matches_query`.** `src/app/controller.rs:459`. `display_value().to_lowercase()` allocates per array element per filter per character. Pre-lowercase once, or match per element.
-- **`valid_entry_name` does not reject `\n` / `\r`.** `src/pass/store/mod.rs:448-464`. Names with newlines disrupt anything line-parsing pass output. Add to the rejection list.
 - **`setup_vault` doesn't validate the recipient against `available_recipients()`.** `src/pass/store/mod.rs:107-126`. We trim emptiness and refuse to overwrite, but a typoed recipient lands in `.gpg-id` and only fails on first encrypt — *after* we've committed the init. Validate before writing.
 - **`pgp::decrypt` zeroizes invalid-UTF-8 plaintext only after the error materializes.** `src/helpers/pgp.rs:75-81`. `String::from_utf8(plain_vec)` moves the bytes into the `FromUtf8Error`; we then `into_bytes()` and zeroize. Validate with `str::from_utf8(&plain)` first and only own on success.
 - **OTP `percent_decode` does lossy UTF-8.** `src/helpers/otp.rs:191`. Replacement chars produce a downstream `InvalidSecret` rather than a clearer "URI is malformed" error. Return `OtpError::InvalidUrl` (or similar) when bytes aren't valid UTF-8.
