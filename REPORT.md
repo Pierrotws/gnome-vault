@@ -4,7 +4,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Minor
 
-- **OTP `percent_decode` does lossy UTF-8.** `src/helpers/otp.rs:191`. Replacement chars produce a downstream `InvalidSecret` rather than a clearer "URI is malformed" error. Return `OtpError::InvalidUrl` (or similar) when bytes aren't valid UTF-8.
 - **`EntryData` / `EntryField` `PartialEq` is non-constant-time.** `src/pass/model/entry_field.rs:7`, `src/pass/model/entry_data.rs:7`. We don't compare against user input today, but if revert-vs-disk diff is ever exposed at a UI boundary the timing channel matters. Consider `subtle::ConstantTimeEq` if/when that comes up.
 - **`select_node_by_path("")` for top-level entries.** `src/ui/window/mod.rs:344`. `node.path.parent()` is `Some("")` for top-level entries; the search-results "select parent in tree" path then tries to select the synthetic root. Confirm it lands on something visible (and doesn't unselect everything).
 - **`PASSWORD_STORE_DIR` `env::set_var`.** `src/pass/store/mod.rs:486-498`. `OnceLock` guarantees a single call, and the call sequence is "main thread before workers spawn"; this is safe in practice on edition 2021. Worth documenting that the OnceLock is the safety guarantee, not the OnceCell semantics.

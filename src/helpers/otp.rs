@@ -23,6 +23,7 @@ pub enum OtpError {
     InvalidSecret,
     InvalidDigits,
     InvalidPeriod,
+    MalformedUrl,
     UnsupportedAlgorithm(String),
     UnsupportedKind(String),
     SystemTime,
@@ -85,15 +86,15 @@ impl TotpConfig {
             .split_once('?')
             .map(|(_, query)| query)
             .unwrap_or_default();
-        let secret = query_value(query, "secret").ok_or(OtpError::MissingSecret)?;
+        let secret = query_value(query, "secret")?.ok_or(OtpError::MissingSecret)?;
         let secret = decode_base32_secret(&secret)?;
 
-        let algorithm = query_value(query, "algorithm").unwrap_or_else(|| "SHA1".into());
+        let algorithm = query_value(query, "algorithm")?.unwrap_or_else(|| "SHA1".into());
         if !algorithm.eq_ignore_ascii_case("SHA1") {
             return Err(OtpError::UnsupportedAlgorithm(algorithm));
         }
 
-        let period = query_value(query, "period")
+        let period = query_value(query, "period")?
             .map(|value| value.parse().map_err(|_| OtpError::InvalidPeriod))
             .transpose()?
             .unwrap_or(DEFAULT_PERIOD);
@@ -101,7 +102,7 @@ impl TotpConfig {
             return Err(OtpError::InvalidPeriod);
         }
 
-        let digits = query_value(query, "digits")
+        let digits = query_value(query, "digits")?
             .map(|value| value.parse().map_err(|_| OtpError::InvalidDigits))
             .transpose()?
             .unwrap_or(DEFAULT_DIGITS);
@@ -151,16 +152,21 @@ fn decode_base32_secret(secret: &str) -> Result<Vec<u8>, OtpError> {
         .map_err(|_| OtpError::InvalidSecret)
 }
 
-fn query_value(query: &str, key: &str) -> Option<String> {
-    query.split('&').find_map(|pair| {
-        let (pair_key, value) = pair.split_once('=')?;
-        pair_key
-            .eq_ignore_ascii_case(key)
-            .then(|| percent_decode(value))
-    })
+fn query_value(query: &str, key: &str) -> Result<Option<String>, OtpError> {
+    query
+        .split('&')
+        .find_map(|pair| {
+            let (pair_key, value) = pair.split_once('=')?;
+            if pair_key.eq_ignore_ascii_case(key) {
+                Some(percent_decode(value))
+            } else {
+                None
+            }
+        })
+        .transpose()
 }
 
-fn percent_decode(value: &str) -> String {
+fn percent_decode(value: &str) -> Result<String, OtpError> {
     let bytes = value.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut index = 0;
@@ -188,7 +194,7 @@ fn percent_decode(value: &str) -> String {
         }
     }
 
-    String::from_utf8_lossy(&out).into_owned()
+    String::from_utf8(out).map_err(|_| OtpError::MalformedUrl)
 }
 
 #[cfg(test)]
