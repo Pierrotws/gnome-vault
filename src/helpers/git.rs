@@ -325,6 +325,12 @@ pub fn revert_commit(project_dir: &Path, commit_id: &str) -> Result<(), GitError
 
     let mut index = repo.index()?;
     if index.has_conflicts() {
+        // Clean up REVERT_HEAD before bailing. Without this the next
+        // git operation in the same repository sees "you have a revert
+        // in progress" and refuses to commit until the user runs
+        // `git revert --abort` by hand. The other early-returns below
+        // already cleanup_state; this one was the missing case.
+        repo.cleanup_state()?;
         return Err(GitError::Conflicts(commit_id.to_string()));
     }
 
