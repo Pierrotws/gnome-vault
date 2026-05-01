@@ -69,6 +69,22 @@ impl ObjectSubclass for OtpFieldRow {
 }
 
 impl ObjectImpl for OtpFieldRow {
+    fn constructed(&self) {
+        self.parent_constructed();
+        // The otpauth:// URL embeds the long-lived shared secret in
+        // its `?secret=...` query parameter; that's strictly worse to
+        // leak than any single OTP code. Tell input methods,
+        // accessibility tooling (Orca will read entry contents
+        // character-by-character), and spellcheck/candidate-window
+        // subsystems that this entry is not for general text input.
+        // Mirrors the hint set used on PasswordFieldRow's
+        // password_entry.
+        self.url_entry.set_input_hints(
+            gtk::InputHints::PRIVATE | gtk::InputHints::NO_EMOJI | gtk::InputHints::NO_SPELLCHECK,
+        );
+        self.url_entry.set_input_purpose(gtk::InputPurpose::Password);
+    }
+
     fn dispose(&self) {
         if let Some(source) = self.timer_source.take() {
             source.remove();
