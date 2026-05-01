@@ -6,8 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 ## Important (correctness, UX, architecture)
 
-**Empty cache check on save failure** (`controller.rs:222-249, 240-249`). `entry_session::is_valid()` rejects empty plain/multiline fields, which are common in real pass entries (e.g. empty `comment:`, empty notes block). Decide if empty is parse-time or save-time refusal and document.
-
 **Autoload thread is unstoppable and uses `mpsc` polling** (`window/mod.rs:1128-1202`). The 100ms polling tick wastes CPU; toggling autoload off in preferences mid-run can't cancel it. Use `glib::MainContext::channel`, store the `SourceId`, expose a cancellation flag.
 
 **No virtualization in changes/group lists** (`changes_view/mod.rs:43-45`, `group_view`). Hand-built `gtk::Box` per commit + gesture controller scales poorly. Use `gtk::ListView` + `gio::ListStore` + `SignalListItemFactory`.
