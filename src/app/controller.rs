@@ -11,7 +11,7 @@ use crate::{
     helpers::git::GitChange,
     pass::{
         self,
-        model::{EntryData, PassNode},
+        model::{EntryData, EntryField, PassNode},
         store::{GpgRecipient, VaultSetup},
     },
 };
@@ -335,6 +335,16 @@ impl AppController {
     /// evicted; entries in other branches stay decrypted so the user
     /// doesn't pay a re-decrypt cost for unrelated entries.
     pub fn delete_folder(&mut self, node: PassNode) -> Result<bool, AppError> {
+        // Defend against UI boundary mistakes — a refactor that wires
+        // an entry-context menu through this method would otherwise
+        // misroute through fs::remove_dir_all on a regular file and
+        // surface a confusing "is a directory" error class. Refuse
+        // explicitly with InvalidFolderPath instead.
+        if !node.is_group() {
+            return Err(AppError::Save(pass::store::StoreError::InvalidFolderPath(
+                node.path.clone(),
+            )));
+        }
         pass::store::delete_folder(&node, self.autopush)?;
 
         let prefix = node.path.clone();
@@ -352,6 +362,13 @@ impl AppController {
 
     /// Deletes the given entry and clears the current session if it was open.
     pub fn delete_entry(&mut self, node: PassNode) -> Result<bool, AppError> {
+        // Defend against UI boundary mistakes — see delete_folder. A
+        // group node would otherwise hit fs::remove_file on a directory.
+        if !node.is_entry() {
+            return Err(AppError::Save(pass::store::StoreError::InvalidEntryName(
+                node.name.clone(),
+            )));
+        }
         pass::store::delete_entry(&node, self.autopush)?;
         self.state.remove_cached_entry(&node.path);
 
@@ -489,8 +506,22 @@ impl AppController {
 
     fn entry_matches_query(&self, entry: &EntryData, query: &str) -> bool {
         entry.fields.iter().any(|(key, value)| {
-            contains_ignore_case(key, query)
-                || contains_ignore_case(&value.display_value(), query)
+            // The key is metadata (e.g. "username", "totp", "url");
+            // the value of a Password / OTP field is the actual
+            // long-lived credential. Substring-matching the value
+            // would leak by-presence info via row-highlight on every
+            // keystroke and put fragments of the secret into IM /
+            // search-history state. Match keys for any field; match
+            // values only for non-secret variants.
+            if contains_ignore_case(key, query) {
+                return true;
+            }
+            match value {
+                EntryField::Password(_) | EntryField::OTP(_) => false,
+                EntryField::Plain(_) | EntryField::Multiline(_) | EntryField::Array(_) => {
+                    contains_ignore_case(&value.display_value(), query)
+                }
+            }
         })
     }
 
