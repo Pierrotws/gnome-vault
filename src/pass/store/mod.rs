@@ -511,12 +511,29 @@ fn validate_folder_path(path: &Path) -> Result<(), StoreError> {
 
 /// Sets `PASSWORD_STORE_DIR` exactly once for the lifetime of the process.
 ///
-/// Subsequent calls log and no-op. `std::env::set_var` is racy on Linux
-/// once any other thread might be reading the environment (autoload
-/// spawns a worker that calls [`password_store_dir`]); gating the one
-/// call this app makes prevents the data race entirely. Preferences
-/// changes to the store directory still write the new value to
-/// GSettings — they just take effect after a restart, which the
+/// Subsequent calls log and no-op. On glibc, `std::env::set_var` racing
+/// against `std::env::var` on another thread is undefined behavior, and
+/// worker threads spawned by autoload later read the variable through
+/// [`password_store_dir`] (which calls `std::env::var`). Soundness here
+/// rests on **two** distinct guarantees, both of which must hold:
+///
+/// 1. **`OnceLock` is the synchronization primitive.** `APPLIED.set(())`
+///    establishes a happens-before edge so the body — the single
+///    `env::set_var` call — runs at most once across all threads. The
+///    safety guarantee comes from `OnceLock`'s synchronization, not from
+///    any `OnceCell`-style lazy-init semantics; we only use it as a
+///    one-shot mutex flag.
+/// 2. **The call sequence places that single call on the main thread
+///    before any worker spawns.** This function is invoked during app
+///    startup, before autoload (or any other code path) creates a
+///    thread that will read the env. Without this ordering, the
+///    `OnceLock`-gated single write would still race a concurrent
+///    `env::var` in a worker; with it, every later read sees the value
+///    already published, no concurrent writers exist, and there is no
+///    data race to worry about. This is sound in practice on Rust 2021.
+///
+/// Preferences changes to the store directory still write the new value
+/// to GSettings — they just take effect after a restart, which the
 /// preferences dialog already tells the user.
 pub fn set_password_store_dir_once(dir: &Path) -> bool {
     static APPLIED: std::sync::OnceLock<()> = std::sync::OnceLock::new();

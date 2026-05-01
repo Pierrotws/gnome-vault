@@ -5,7 +5,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 ## Minor
 
 - **`EntryData` / `EntryField` `PartialEq` is non-constant-time.** `src/pass/model/entry_field.rs:7`, `src/pass/model/entry_data.rs:7`. We don't compare against user input today, but if revert-vs-disk diff is ever exposed at a UI boundary the timing channel matters. Consider `subtle::ConstantTimeEq` if/when that comes up.
-- **`PASSWORD_STORE_DIR` `env::set_var`.** `src/pass/store/mod.rs:486-498`. `OnceLock` guarantees a single call, and the call sequence is "main thread before workers spawn"; this is safe in practice on edition 2021. Worth documenting that the OnceLock is the safety guarantee, not the OnceCell semantics.
 
 ## Positive
 
