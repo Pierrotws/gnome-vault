@@ -317,7 +317,6 @@ impl AppController {
             name: title.to_string(),
             path: folder_path.join(format!("{title}.gpg")),
             kind: crate::pass::model::PassNodeKind::Entry,
-            children: Vec::new(),
         };
         let candidate = EntrySession::new(candidate_node, entry.clone());
         if !candidate.is_valid() {
@@ -498,9 +497,8 @@ impl AppController {
             return Some(node.clone());
         }
 
-        if node.is_group() {
-            let children = node
-                .children
+        if let crate::pass::model::PassNodeKind::Group(orig_children) = &node.kind {
+            let children = orig_children
                 .iter()
                 .filter_map(|child| self.filtered_node(child, query))
                 .collect::<Vec<_>>();
@@ -509,9 +507,11 @@ impl AppController {
                 return None;
             }
 
-            let mut node = node.clone();
-            node.children = children;
-            return Some(node);
+            return Some(PassNode {
+                name: node.name.clone(),
+                path: node.path.clone(),
+                kind: crate::pass::model::PassNodeKind::Group(children),
+            });
         }
 
         self.state
@@ -541,9 +541,8 @@ impl AppController {
     }
 
     fn uncached_entry_nodes_from(&self, node: &PassNode) -> Vec<PassNode> {
-        if node.is_group() {
-            return node
-                .children
+        if let crate::pass::model::PassNodeKind::Group(children) = &node.kind {
+            return children
                 .iter()
                 .flat_map(|child| self.uncached_entry_nodes_from(child))
                 .collect();
@@ -593,7 +592,6 @@ mod tests {
             name: name.into(),
             path: PathBuf::from(path),
             kind: PassNodeKind::Entry,
-            children: Vec::new(),
         }
     }
 
@@ -601,8 +599,7 @@ mod tests {
         PassNode {
             name: name.into(),
             path: PathBuf::from(path),
-            kind: PassNodeKind::Group,
-            children,
+            kind: PassNodeKind::Group(children),
         }
     }
 
@@ -633,8 +630,8 @@ mod tests {
 
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].name, "Personal");
-        assert_eq!(filtered[0].children.len(), 1);
-        assert_eq!(filtered[0].children[0].name, "Email");
+        assert_eq!(filtered[0].children().len(), 1);
+        assert_eq!(filtered[0].children()[0].name, "Email");
     }
 
     #[test]
@@ -650,7 +647,7 @@ mod tests {
 
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].name, "Work");
-        assert_eq!(filtered[0].children.len(), 1);
+        assert_eq!(filtered[0].children().len(), 1);
     }
 
     #[test]

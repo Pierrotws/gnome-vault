@@ -167,7 +167,6 @@ mod tests {
             name: "old".into(),
             path: PathBuf::from("folder/old.gpg"),
             kind: PassNodeKind::Entry,
-            children: Vec::new(),
         }
     }
 

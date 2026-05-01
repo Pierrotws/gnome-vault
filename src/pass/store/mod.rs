@@ -54,8 +54,7 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
             nodes.push(PassNode {
                 name: name_str.to_string(),
                 path: relative_path(root, &path),
-                kind: PassNodeKind::Group,
-                children,
+                kind: PassNodeKind::Group(children),
             });
         } else if file_type.is_file() {
             if path.extension().and_then(|e| e.to_str()) == Some("gpg") {
@@ -69,14 +68,13 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
                     name: stem,
                     path: relative_path(root, &path),
                     kind: PassNodeKind::Entry,
-                    children: Vec::new(),
                 });
             }
         }
     }
     nodes.sort_by(|a, b| match (&a.kind, &b.kind) {
-        (PassNodeKind::Group, PassNodeKind::Entry) => std::cmp::Ordering::Less,
-        (PassNodeKind::Entry, PassNodeKind::Group) => std::cmp::Ordering::Greater,
+        (PassNodeKind::Group(_), PassNodeKind::Entry) => std::cmp::Ordering::Less,
+        (PassNodeKind::Entry, PassNodeKind::Group(_)) => std::cmp::Ordering::Greater,
         _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
     //Returns
@@ -285,7 +283,6 @@ pub fn create_entry_data(
         name: name.to_string(),
         path: folder_path.join(format!("{name}.gpg")),
         kind: PassNodeKind::Entry,
-        children: Vec::new(),
     };
 
     let store_dir = password_store_dir();
@@ -333,7 +330,6 @@ pub fn rename_entry(
         name: new_name.to_string(),
         path: new_relative_path,
         kind: node.kind.clone(),
-        children: node.children.clone(),
     })
 }
 

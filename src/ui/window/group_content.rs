@@ -57,8 +57,7 @@ impl MainWindow {
         let pseudo_group = PassNode {
             name: format!("Results for \u{201C}{search_text}\u{201D}"),
             path: PathBuf::new(),
-            kind: PassNodeKind::Group,
-            children: Vec::new(),
+            kind: PassNodeKind::Group(Vec::new()),
         };
         let entries: Vec<GroupEntry> = leaves
             .into_iter()
@@ -96,13 +95,12 @@ impl MainWindow {
         PassNode {
             name: "Vault".to_string(),
             path: PathBuf::new(),
-            kind: PassNodeKind::Group,
-            children,
+            kind: PassNodeKind::Group(children),
         }
     }
 
     fn group_entries_for(&self, node: &PassNode) -> Vec<GroupEntry> {
-        node.children
+        node.children()
             .iter()
             .filter(|child| child.is_entry())
             .map(|child| GroupEntry {
@@ -124,7 +122,7 @@ impl MainWindow {
         }
 
         let entries: Vec<PassNode> = group
-            .children
+            .children()
             .iter()
             .filter(|child| child.is_entry())
             .cloned()
@@ -240,7 +238,7 @@ fn collect_matching_leaves(
         if node.is_entry() {
             out.push((node.clone(), parent.cloned()));
         } else {
-            collect_matching_leaves(&node.children, Some(node), out);
+            collect_matching_leaves(node.children(), Some(node), out);
         }
     }
 }

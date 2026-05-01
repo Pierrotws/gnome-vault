@@ -6,8 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **`PassNode::children` is always allocated even for entries.** `src/pass/model/pass_node.rs:18-19`. Empty Vecs don't allocate so the cost is just a pointer-tag, but `enum PassNodeKind { Group(Vec<PassNode>), Entry }` would let the type system enforce the invariant.
-
 ## Positive
 
 - **Atomic-write protocol with per-byte rollback now has direct unit tests.** `src/pass/store/mod.rs:404-418, 676-734`. `write_atomically_replaces_destination_and_removes_temp` and `restore_previous_writes_back_or_removes` exercise the rollback primitive directly rather than only end-to-end. Previous-bytes capture before rename plus restore-and-restage on commit failure is exactly the rare "got it right" pattern.

@@ -217,7 +217,6 @@ impl MainWindow {
                         name: entry_name,
                         path: PathBuf::from(entry_path),
                         kind: PassNodeKind::Entry,
-                        children: Vec::new(),
                     };
                     window.confirm_delete_entry(node);
                 }
@@ -231,8 +230,7 @@ impl MainWindow {
                     let node = PassNode {
                         name: folder_name,
                         path: PathBuf::from(folder_path),
-                        kind: PassNodeKind::Group,
-                        children: Vec::new(),
+                        kind: PassNodeKind::Group(Vec::new()),
                     };
                     window.confirm_delete_folder(node);
                 }

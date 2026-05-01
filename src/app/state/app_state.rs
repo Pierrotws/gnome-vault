@@ -119,7 +119,6 @@ mod tests {
             name: path.into(),
             path: PathBuf::from(path),
             kind: PassNodeKind::Entry,
-            children: Vec::new(),
         }
     }
 

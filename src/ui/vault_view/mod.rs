@@ -74,7 +74,7 @@ impl VaultView {
 
                 let node = boxed.borrow::<PassNode>();
                 match node.kind {
-                    PassNodeKind::Group => {
+                    PassNodeKind::Group(_) => {
                         row.set_expanded(!row.is_expanded());
                         obj.emit_by_name::<()>("group-activated", &[]);
                     }
@@ -400,7 +400,7 @@ pub fn build_tree_factory(size: TreeViewSize) -> gtk::SignalListItemFactory {
         label.set_label(&node.name);
 
         match node.kind {
-            PassNodeKind::Group => {
+            PassNodeKind::Group(_) => {
                 icon.set_icon_name(Some("folder-symbolic"));
             }
             PassNodeKind::Entry => {
@@ -551,7 +551,7 @@ pub fn build_selection_from_nodes_with_autoexpand(
             return None;
         }
 
-        let child_store = build_store_from_nodes(&node.children);
+        let child_store = build_store_from_nodes(node.children());
         Some(child_store.upcast::<gio::ListModel>())
     });
 
@@ -569,8 +569,7 @@ pub fn build_group_selection_with_root(
     let root = PassNode {
         name: "Vault".to_string(),
         path: PathBuf::new(),
-        kind: PassNodeKind::Group,
-        children: nodes.to_vec(),
+        kind: PassNodeKind::Group(nodes.to_vec()),
     };
     let root_store = build_store_from_nodes(&[root]);
 
@@ -583,7 +582,7 @@ pub fn build_group_selection_with_root(
         }
 
         let child_groups = node
-            .children
+            .children()
             .iter()
             .filter(|child| child.is_group())
             .cloned()
