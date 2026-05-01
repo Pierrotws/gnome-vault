@@ -572,4 +572,18 @@ mod tests {
             vec![("user".into(), EntryField::Plain("alice".into()))]
         );
     }
+
+    #[test]
+    fn strips_leading_utf8_bom_from_password() {
+        // Some editors prepend a BOM (U+FEFF) to "plain text" files. The
+        // parser must strip it from the first line, otherwise the
+        // password silently mismatches by a leading invisible character.
+        let entry = parse_entry("\u{feff}hunter2\nuser: alice\n").unwrap();
+
+        assert_eq!(entry.password, EntryField::Password("hunter2".into()));
+        assert_eq!(
+            entry.fields,
+            vec![("user".into(), EntryField::Plain("alice".into()))]
+        );
+    }
 }

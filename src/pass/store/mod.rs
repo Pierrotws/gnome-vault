@@ -724,4 +724,45 @@ mod tests {
 
         fs::remove_dir_all(dir).unwrap();
     }
+
+    #[test]
+    fn rejects_path_traversal_in_entry_names() {
+        // Path-shaped or reserved names must be refused before any
+        // filesystem op so an entry can't escape the store root.
+        for name in [
+            "..",
+            ".",
+            "a/b",
+            "a\\b",
+            "with\0null",
+            "-leading-dash",
+            ".gpg-id",
+            ".gpg-id.gpg",
+            ".gitattributes",
+            "",
+            "  ",
+        ] {
+            let err = valid_entry_name(name).unwrap_err();
+            assert!(
+                matches!(err, StoreError::InvalidEntryName(_)),
+                "name {name:?} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_absolute_and_parent_dir_in_folder_paths() {
+        assert!(matches!(
+            validate_folder_path(Path::new("/etc")),
+            Err(StoreError::InvalidFolderPath(_))
+        ));
+        assert!(matches!(
+            validate_folder_path(Path::new("a/../etc")),
+            Err(StoreError::InvalidFolderPath(_))
+        ));
+        // Plain relative paths are accepted; the canonicalize-based
+        // ensure_inside_store check below catches symlink escapes.
+        assert!(validate_folder_path(Path::new("Personal/Work")).is_ok());
+        assert!(validate_folder_path(Path::new("")).is_ok());
+    }
 }
