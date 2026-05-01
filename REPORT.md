@@ -6,7 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **`save_current_entry`'s `let _ = old_path` is dead code.** `src/app/controller.rs:422`. Either use the binding (e.g. `debug_assert!(self.state.cached_entry(&path).is_none())` on the old path before installing the new) or remove it entirely. The "// already removed above; bind to mark intent" comment misleads.
 - **`rebuild_vault_tree` calls `update_selection_layout(false)` on every search keystroke.** `src/ui/window/mod.rs:784-798`. Layout doesn't change between keystrokes; only the selection model does.
 - **`EntryView::resize_title_entry` runs per keystroke and also updates the hidden `title_label`.** `src/ui/entry_view/mod.rs:433-444, 123-133`. The label is only visible when the entry is hidden. Move the label update into `set_editable_mode(false)` so it refreshes when leaving edit mode, not on every keystroke.
 - **Magic numbers `Duration::from_millis(100)`, `Duration::from_millis(50)`, `for _ in 0..32`, `for _ in 0..16` in autoload + group_content.** `src/ui/window/autoload.rs:43, 54`, `src/ui/window/group_content.rs:151, 156`. Pull these next to the existing `CHANGES_PAGE_SIZE` etc. consts so the polling cadence is one grep away.

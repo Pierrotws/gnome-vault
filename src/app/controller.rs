@@ -425,7 +425,7 @@ impl AppController {
         // The session existence was just proven above, so subsequent
         // re-borrows on the same `&mut self` use `expect(...)` — a None
         // here would be a real bug, not a recoverable "no entry selected".
-        let old_path = if let Some((node, name)) = rename {
+        if let Some((node, name)) = rename {
             let old_path = node.path.clone();
             let renamed_node = pass::store::rename_entry(&node, &name, self.autopush)?;
             // Disk has been renamed. Drop the stale cache entry under the
@@ -438,10 +438,7 @@ impl AppController {
                 .current_session_mut()
                 .expect("session existed at phase start and isn't cleared mid-save");
             session.replace_node(renamed_node);
-            Some(old_path)
-        } else {
-            None
-        };
+        }
 
         // Phase 2: write the body. On failure we leave the (already-renamed)
         // disk state alone but propagate so the user retries; the session is
@@ -465,7 +462,6 @@ impl AppController {
         let node = session.node().clone();
         let entry = session.current().clone();
         session.mark_saved();
-        let _ = old_path; // already removed above; bind to mark intent
         self.state.cache_entry(&node, entry);
         Ok(())
     }
