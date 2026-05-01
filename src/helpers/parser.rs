@@ -1,3 +1,5 @@
+use zeroize::Zeroizing;
+
 use crate::{
     helpers::otp,
     pass::model::{EntryData, EntryField},
@@ -36,8 +38,13 @@ pub fn parse_entry(plaintext: &str) -> Option<EntryData> {
 /// Scalars that could be misread by a YAML parser are double-quoted and escaped.
 /// Multiline fields are always emitted as literal block scalars with an explicit
 /// chomp indicator so trailing newlines roundtrip.
-pub fn format_entry(entry: &EntryData) -> String {
-    let mut out = String::new();
+///
+/// Returns `Zeroizing<String>` so the assembled cleartext (which contains
+/// every secret in the entry: primary password / OTP url / each field
+/// value) is wiped from memory when the wrapper drops, instead of
+/// surviving in raw heap until the allocator reuses the block.
+pub fn format_entry(entry: &EntryData) -> Zeroizing<String> {
+    let mut out = Zeroizing::new(String::new());
     // The pass file format requires the first line to be a single
     // logical token (the secret), so only Password and OTP variants
     // can occupy the password slot. Array / Multiline / Plain would
@@ -505,7 +512,7 @@ mod tests {
         };
 
         assert_eq!(
-            format_entry(&entry),
+            format_entry(&entry).as_str(),
             "secret\nusername: test\nnotes: |-\n  Test1\n  test2\n  Multiline\ntags:\n  - elem1\n  - elem2\n"
         );
     }
