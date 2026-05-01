@@ -40,6 +40,12 @@ impl AppController {
         &self.state
     }
 
+    /// Direct mutable access to `AppState`, bypassing every save /
+    /// rename / cache invariant the controller documents. Tests use it
+    /// to stage specifically-shaped fixtures; release code must drive
+    /// state through the dedicated mutator methods (`open_node`,
+    /// `save_current_entry`, `delete_entry`, …).
+    #[cfg(test)]
     pub fn state_mut(&mut self) -> &mut AppState {
         &mut self.state
     }
