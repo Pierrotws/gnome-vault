@@ -414,6 +414,25 @@ fn write_atomically(tmp_path: &Path, final_path: &Path, bytes: &[u8]) -> io::Res
         let _ = fs::remove_file(tmp_path);
         return Err(err);
     }
+    // After the rename, the directory entry change itself isn't durable
+    // until the parent directory is fsynced. Without this an unclean
+    // shutdown (power loss, kernel panic) can revert the file's name to
+    // the prior content — best case — or, on some filesystems / mount
+    // options, leave the new file with stale metadata pointing at a
+    // zero-length blob. Best-effort: log and continue if the parent
+    // doesn't open as a directory (network mounts, /proc-style FS).
+    if let Some(parent) = final_path.parent() {
+        match fs::File::open(parent) {
+            Ok(dir) => {
+                if let Err(err) = dir.sync_all() {
+                    log::warn!("parent dir fsync after atomic write failed: {err}");
+                }
+            }
+            Err(err) => {
+                log::warn!("parent dir open for fsync failed: {err}");
+            }
+        }
+    }
     Ok(())
 }
 
