@@ -14,7 +14,6 @@ use crate::{
 #[derive(Default)]
 pub struct AppState {
     tree: Vec<PassNode>,
-    selected_node: Option<PassNode>,
     current_session: Option<EntrySession>,
     /// Decrypted entry cache keyed by password-store relative path.
     ///
@@ -35,14 +34,6 @@ impl AppState {
 
     pub fn set_tree(&mut self, tree: Vec<PassNode>) {
         self.tree = tree;
-    }
-
-    pub fn selected_node(&self) -> Option<&PassNode> {
-        self.selected_node.as_ref()
-    }
-
-    pub fn set_selected_node(&mut self, node: Option<PassNode>) {
-        self.selected_node = node;
     }
 
     pub fn current_session(&self) -> Option<&EntrySession> {
@@ -82,10 +73,6 @@ impl AppState {
             .unwrap_or(false)
     }
 
-    pub fn clear_current_entry(&mut self) {
-        self.selected_node = None;
-        self.current_session = None;
-    }
 }
 
 #[cfg(test)]

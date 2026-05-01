@@ -4,8 +4,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Critical
 
-**`AppState::selected_node` is unwired dead state.** `src/app/state/app_state.rs:13`, `:36-42`, `:82`. Written by `set_selected_node` / `clear_current_entry` and read only by an internal getter; the actual current-edit-target is `current_session`. A future contributor adding "selection persistence" features against `selected_node()` would silently get stale or empty data. Either delete it or wire it through `open_node` / `set_current_session` and document the relationship.
-
 ## Important
 
 **`AppError`'s auto-`Debug` re-leaks the paths that `Display` redacts.** `src/app/app_error.rs:7` and the `// Use `{err:?}` (Debug) for log diagnostics` comment at `:32`. The `Display` impls for `AppError` and `StoreError` were carefully sanitized; the `Debug` derive expands to e.g. `Save(Io(Os { code: 2, kind: NotFound, message: "No such file or directory" }))` plus the original path argument. The doc comment actively recommends `{err:?}` for logs. Either hand-roll `Debug` so it matches the redaction policy of `Display`, or change the comment to "do not log this — log only `Display` form".
