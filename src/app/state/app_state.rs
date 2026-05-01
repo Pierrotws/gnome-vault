@@ -7,7 +7,11 @@ use crate::{
     pass::model::{EntryData, PassNode},
 };
 
-#[derive(Clone, Default)]
+// `Clone` is intentionally *not* derived — cloning AppState would
+// deep-clone the entire entry_cache, multiplying every plaintext
+// EntryField allocation. Use the controller's mutating API instead;
+// if a snapshot is ever needed, build it explicitly.
+#[derive(Default)]
 pub struct AppState {
     tree: Vec<PassNode>,
     selected_node: Option<PassNode>,
