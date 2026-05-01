@@ -126,6 +126,19 @@ impl EntryView {
                 this.mark_changed();
             }
         ));
+        // Enter-to-save: pressing Enter in the title entry behaves like
+        // clicking the save button when the entry is in saveable state.
+        // Falling silently otherwise mirrors how toolbar Save reacts to
+        // the disabled button.
+        imp.title_entry.connect_activate(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                if this.imp().save_button.is_sensitive() {
+                    this.emit_by_name::<()>("save-requested", &[]);
+                }
+            }
+        ));
     }
 
     pub fn display_empty(&self) {
