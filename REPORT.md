@@ -4,18 +4,9 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Minor
 
-- **`save_current_entry` re-borrows `current_session_mut` three times.** `src/app/controller.rs:348-409`. Each phase does `ok_or(NoEntrySelected)?`. If phase 1 has already proven the session existed, later phases should `expect(...)` so a real bug surfaces instead of being masked by a generic error.
 - **OTP `percent_decode` does lossy UTF-8.** `src/helpers/otp.rs:191`. Replacement chars produce a downstream `InvalidSecret` rather than a clearer "URI is malformed" error. Return `OtpError::InvalidUrl` (or similar) when bytes aren't valid UTF-8.
 - **`EntryData` / `EntryField` `PartialEq` is non-constant-time.** `src/pass/model/entry_field.rs:7`, `src/pass/model/entry_data.rs:7`. We don't compare against user input today, but if revert-vs-disk diff is ever exposed at a UI boundary the timing channel matters. Consider `subtle::ConstantTimeEq` if/when that comes up.
-- **`AppState::clear_loaded_entry_state` and `AppState::clear_current_entry` overlap.** `src/app/controller.rs:188` vs `src/app/state/app_state.rs:81`. Two methods clear subtly different subsets. Consolidate.
-- **`setup_vault` clears cache before `reload_tree` runs.** `src/app/controller.rs:103-110`. If reload fails, the user is left with no cache and no session even though the previous vault is still on disk. Reload first, swap state on success.
-- **`find_tree_row_by_path` and `find_tree_position_by_path` duplicate.** `src/ui/vault_view/mod.rs:251-273`. Same loop; collapse to one helper returning `(u32, TreeListRow)`.
-- **`ChangeItem::change()` clones unconditionally.** `src/ui/changes_view/change_item.rs:46-52`. Bind reads four fields; a `with_change(|c| …)` accessor would save one `GitChange` clone per recycle.
-- **Magic constants.** `src/ui/changes_view/mod.rs:379` (`24.0` scroll threshold), `src/ui/entry_view/mod.rs:429` (`48` title char clamp). Name them.
-- **`tree_view_size_index` silently maps unknown nicks to medium.** `src/ui/window/preferences.rs:226-232`. `log::debug!` on the unknown branch so misconfiguration leaves a trace.
-- **Two error UI surfaces with no policy.** `entry_view.show_error` (inline label) vs `show_error_dialog` (Adw alert). The inline label is invisible while `content_stack` is on `empty` or `changes`. Pick one, or branch on visible child.
 - **`select_node_by_path("")` for top-level entries.** `src/ui/window/mod.rs:344`. `node.path.parent()` is `Some("")` for top-level entries; the search-results "select parent in tree" path then tries to select the synthetic root. Confirm it lands on something visible (and doesn't unselect everything).
-- **`set_changes` does not reset `vadjustment`.** `src/ui/changes_view/mod.rs:289-299`. After a fresh `set_changes`, an in-flight scroll near the bottom can re-trigger load-more before the model height re-grows. Reset to top, or guard `should_request_more` against `model.n_items() == 0`.
 - **`PASSWORD_STORE_DIR` `env::set_var`.** `src/pass/store/mod.rs:486-498`. `OnceLock` guarantees a single call, and the call sequence is "main thread before workers spawn"; this is safe in practice on edition 2021. Worth documenting that the OnceLock is the safety guarantee, not the OnceCell semantics.
 
 ## Positive
