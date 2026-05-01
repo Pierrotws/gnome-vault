@@ -1,14 +1,14 @@
 mod change_item;
+mod change_row;
 mod imp;
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use adw::subclass::prelude::*;
 use gtk::{gdk, gio, glib, prelude::*};
 
 pub use change_item::ChangeItem;
+use change_row::ChangeRow;
 
 use crate::helpers::git::GitChange;
 
@@ -68,7 +68,9 @@ impl ChangesView {
                 .downcast_ref::<gtk::ListItem>()
                 .expect("Factory item is a gtk::ListItem");
 
-            let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+            let row = ChangeRow::new();
+            row.set_orientation(gtk::Orientation::Horizontal);
+            row.set_spacing(8);
             row.set_margin_top(6);
             row.set_margin_bottom(6);
             row.set_margin_start(6);
@@ -93,25 +95,23 @@ impl ChangesView {
             row.append(&icon);
             row.append(&content);
 
-            // Per-row item cell driven by `connect_bind`. The gesture
-            // closure clones the cell and reads from it at click time so
-            // a single GestureClick controller serves every recycled use
-            // of this row template.
-            let current: Rc<RefCell<Option<glib::WeakRef<ChangeItem>>>> =
-                Rc::new(RefCell::new(None));
+            // The row is a `ChangeRow`, a subclassed `gtk::Box` with a
+            // typed `current` cell. The gesture closure resolves "this"
+            // commit at click time via `row.current()`, so a single
+            // GestureClick controller serves every recycled use of this
+            // row template.
             let gesture = gtk::GestureClick::new();
             gesture.set_button(gdk::BUTTON_SECONDARY);
             let view_for_gesture = view_weak.clone();
-            let current_for_gesture = current.clone();
+            let row_for_gesture = row.downgrade();
             gesture.connect_pressed(move |gesture, _, x, y| {
                 let Some(view) = view_for_gesture.upgrade() else {
                     return;
                 };
-                let Some(item) = current_for_gesture
-                    .borrow()
-                    .as_ref()
-                    .and_then(|weak| weak.upgrade())
-                else {
+                let Some(row) = row_for_gesture.upgrade() else {
+                    return;
+                };
+                let Some(item) = row.current() else {
                     return;
                 };
                 let change = item.change();
@@ -122,12 +122,6 @@ impl ChangesView {
                 view.show_row_popover(&widget, x, y, change);
             });
             row.add_controller(gesture);
-
-            // Stash the per-row cell on the row widget itself so bind
-            // can find it without cloning the controller.
-            unsafe {
-                row.set_data("changes-row-current", current);
-            }
 
             item.set_child(Some(&row));
         });
@@ -142,8 +136,8 @@ impl ChangesView {
                 .expect("Bound item is a ChangeItem");
             let row = item
                 .child()
-                .and_then(|w| w.downcast::<gtk::Box>().ok())
-                .expect("ListItem child is a gtk::Box");
+                .and_then(|w| w.downcast::<ChangeRow>().ok())
+                .expect("ListItem child is a ChangeRow");
 
             let icon = row
                 .first_child()
@@ -187,14 +181,7 @@ impl ChangesView {
             // Refresh the per-row item pointer so the right-click
             // gesture resolves to *this* commit while the row is bound.
             let weak = glib::object::ObjectExt::downgrade(&change_item);
-            unsafe {
-                let cell = row
-                    .data::<Rc<RefCell<Option<glib::WeakRef<ChangeItem>>>>>(
-                        "changes-row-current",
-                    )
-                    .expect("setup installed changes-row-current");
-                *cell.as_ref().borrow_mut() = Some(weak);
-            }
+            row.set_current(Some(weak));
         });
 
         factory.connect_unbind(|_, item| {
@@ -203,18 +190,11 @@ impl ChangesView {
                 .expect("Factory item is a gtk::ListItem");
             let row = item
                 .child()
-                .and_then(|w| w.downcast::<gtk::Box>().ok())
-                .expect("ListItem child is a gtk::Box");
+                .and_then(|w| w.downcast::<ChangeRow>().ok())
+                .expect("ListItem child is a ChangeRow");
             // Drop the weak ref so a stale gesture firing during
             // recycling doesn't resolve to the wrong commit.
-            unsafe {
-                let cell = row
-                    .data::<Rc<RefCell<Option<glib::WeakRef<ChangeItem>>>>>(
-                        "changes-row-current",
-                    )
-                    .expect("setup installed changes-row-current");
-                *cell.as_ref().borrow_mut() = None;
-            }
+            row.set_current(None);
         });
 
         imp.changes_list.set_factory(Some(&factory));

@@ -6,7 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **`unsafe { row.set_data / data }` in `ChangesView` depends on a key string.** `src/ui/changes_view/mod.rs:128-130, 190-217`. `data::<T>()` casts blindly to `T`; if anyone collides on `"changes-row-current"` with a different type, the deref is UB. Either wrap the type in a newtype that's unique to this call site, or consider an alternative storage shape that doesn't need `unsafe`.
 - **`setup_vault` clears cache before reload still reports the previous tree.** `src/app/controller.rs:109-118`. The reorder lands first, but if the *new* `load_password_store` returns `Ok(empty_vec)` on a freshly-init'd vault with only `.gpg-id`, the user sees an empty vault while the cache they had has been cleared. Cosmetic.
 - **`select_node_by_path`'s return value is ignored at the only call site.** `src/ui/window/mod.rs:355`. If the parent node was filtered out of the current tree by an active search, the previous selection silently persists. A debug-level log on the `false` branch would make this debuggable.
 - **Default fallbacks in `setting_boolean` disagree with the gschema defaults.** `src/ui/window/mod.rs:885-887` (`show-group-view` falls back to `false`; gschema default is `true`), `src/ui/window/preferences.rs:43-44` (`interpret-multiline-as-markdown` falls back to `false`; gschema default is `true`). Mirror the schema, not the opposite.
