@@ -146,12 +146,6 @@ heading</property>
                                               </object>
                                             </child>
                                             <child>
-                                              <object class="GtkButton" id="add_array_field_button">
-                                                <property name="label">Array</property>
-                                                <property name="halign">0</property>
-                                              </object>
-                                            </child>
-                                            <child>
                                               <object class="GtkButton" id="add_multiline_field_button">
                                                 <property name="label">Multiline</property>
                                                 <property name="halign">0</property>

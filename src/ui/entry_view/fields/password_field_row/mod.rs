@@ -72,13 +72,13 @@ impl EntryFieldRow for PasswordFieldRow {
     fn set_entry_field(&self, field: &EntryField) {
         self.set_key(PASSWORD_KEY);
         // Match the variant explicitly. Other field rows (Plain,
-        // Multiline, Array, OTP) shouldn't reach this row, but
-        // display_value on EntryField::Array would join values with
-        // newlines and stuff them into the cleartext password row —
-        // visible after the eye-toggle, copied by the copy button,
-        // and saved back as the new primary password. Refuse anything
-        // that isn't Password and log so a future caller spotting
-        // the warning can route through the correct field row.
+        // Multiline, OTP) shouldn't reach this row, but display_value
+        // on a non-Password variant would stuff cleartext into the
+        // password row — visible after the eye-toggle, copied by the
+        // copy button, and saved back as the new primary password.
+        // Refuse anything that isn't Password and log so a future
+        // caller spotting the warning can route through the correct
+        // field row.
         match field {
             EntryField::Password(value) => self.set_text(value),
             other => {

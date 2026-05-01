@@ -12,9 +12,10 @@ pub enum EntryField {
     Plain(String),
     /// One-time password URI or secret.
     OTP(String),
-    /// A YAML-style sequence field.
-    Array(Vec<String>),
-    /// A YAML-style block scalar field.
+    /// A YAML-style block scalar field. The parser also folds legacy
+    /// YAML sequences (`key:\n  - elem1\n  - elem2`) into this variant
+    /// by joining items with newlines, so on-disk arrays still
+    /// round-trip when the user opens an existing vault.
     Multiline(String),
 }
 
@@ -25,7 +26,6 @@ impl std::fmt::Debug for EntryField {
             EntryField::Password(_) => "Password",
             EntryField::Plain(_) => "Plain",
             EntryField::OTP(_) => "OTP",
-            EntryField::Array(_) => "Array",
             EntryField::Multiline(_) => "Multiline",
         };
         write!(f, "{name}(<redacted>)")
@@ -39,7 +39,6 @@ impl std::fmt::Debug for EntryField {
             EntryField::Password(v) => f.debug_tuple("Password").field(v).finish(),
             EntryField::Plain(v) => f.debug_tuple("Plain").field(v).finish(),
             EntryField::OTP(v) => f.debug_tuple("OTP").field(v).finish(),
-            EntryField::Array(v) => f.debug_tuple("Array").field(v).finish(),
             EntryField::Multiline(v) => f.debug_tuple("Multiline").field(v).finish(),
         }
     }
@@ -48,15 +47,13 @@ impl std::fmt::Debug for EntryField {
 impl EntryField {
     /// Returns a display-oriented string for the field value.
     ///
-    /// Arrays are joined with newlines for clipboard/UI display. Storage
-    /// formatting is handled separately by `helpers::parser`.
+    /// Storage formatting is handled separately by `helpers::parser`.
     pub fn display_value(&self) -> Cow<'_, str> {
         match self {
             EntryField::Password(s)
             | EntryField::Plain(s)
             | EntryField::OTP(s)
             | EntryField::Multiline(s) => Cow::Borrowed(s),
-            EntryField::Array(arr) => Cow::Owned(arr.join("\n")),
         }
     }
 }

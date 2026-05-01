@@ -44,9 +44,6 @@ pub struct EntryView {
     pub delete_button: TemplateChild<gtk::Button>,
 
     #[template_child]
-    pub add_array_field_button: TemplateChild<gtk::Button>,
-
-    #[template_child]
     pub add_otp_field_button: TemplateChild<gtk::Button>,
 
     #[template_child]

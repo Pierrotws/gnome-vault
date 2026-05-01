@@ -518,7 +518,7 @@ impl AppController {
             }
             match value {
                 EntryField::Password(_) | EntryField::OTP(_) => false,
-                EntryField::Plain(_) | EntryField::Multiline(_) | EntryField::Array(_) => {
+                EntryField::Plain(_) | EntryField::Multiline(_) => {
                     contains_ignore_case(&value.display_value(), query)
                 }
             }
@@ -669,13 +669,13 @@ mod tests {
     }
 
     #[test]
-    fn filters_cached_entries_by_array_field_value() {
+    fn filters_cached_entries_by_multiline_field_value() {
         let mut controller = AppController::new();
         let node = entry_node("Server", "Server.gpg");
         controller.state_mut().set_tree(vec![node.clone()]);
         controller.state_mut().cache_entry(
             &node,
-            entry_with_value(EntryField::Array(vec!["primary".into(), "backup".into()])),
+            entry_with_value(EntryField::Multiline("primary\nbackup".into())),
         );
 
         let filtered = controller.filtered_tree("backup");

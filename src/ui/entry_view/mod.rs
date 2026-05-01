@@ -10,7 +10,7 @@ use crate::app::state::EntryViewData;
 use crate::helpers::{clipboard, otp};
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
-use fields::{ArrayFieldRow, EntryFieldRow, MultilineFieldRow, OtpFieldRow, PlainFieldRow};
+use fields::{EntryFieldRow, MultilineFieldRow, OtpFieldRow, PlainFieldRow};
 
 /// Maximum number of characters the title `EntryRow` widens to before
 /// it stops growing. Past this point the title visibly truncates with
@@ -65,14 +65,6 @@ impl EntryView {
             self,
             move |_| {
                 let row = PlainFieldRow::new_empty(&this);
-                this.append_custom_field_row(&row);
-            }
-        ));
-        imp.add_array_field_button.connect_clicked(glib::clone!(
-            #[weak(rename_to = this)]
-            self,
-            move |_| {
-                let row = ArrayFieldRow::new(&this, "List", &[]);
                 this.append_custom_field_row(&row);
             }
         ));
@@ -403,9 +395,6 @@ impl EntryView {
         if let Some(row) = PlainFieldRow::from_entry_field(self, key, field) {
             return Some(row.upcast());
         }
-        if let Some(row) = ArrayFieldRow::from_entry_field(self, key, field) {
-            return Some(row.upcast());
-        }
         if let Some(row) = OtpFieldRow::from_entry_field(self, key, field) {
             return Some(row.upcast());
         }
@@ -482,13 +471,6 @@ impl EntryView {
 
             return Some(row.named_entry_field());
         }
-        if let Ok(row) = widget.clone().downcast::<ArrayFieldRow>() {
-            if row.is_empty() {
-                return None;
-            }
-
-            return Some(row.named_entry_field());
-        }
         if let Ok(row) = widget.clone().downcast::<OtpFieldRow>() {
             if row.is_empty() {
                 return None;
@@ -509,11 +491,6 @@ impl EntryView {
 
     fn set_field_row_editable(widget: &gtk::Widget, editable: bool) {
         if let Ok(row) = widget.clone().downcast::<PlainFieldRow>() {
-            row.set_editable_mode(editable);
-            return;
-        }
-
-        if let Ok(row) = widget.clone().downcast::<ArrayFieldRow>() {
             row.set_editable_mode(editable);
             return;
         }
@@ -593,10 +570,6 @@ impl EntryView {
 
     fn field_row_drag_handle(row: &gtk::ListBoxRow) -> Option<gtk::Widget> {
         if let Ok(row) = row.clone().downcast::<PlainFieldRow>() {
-            return Some(row.drag_handle());
-        }
-
-        if let Ok(row) = row.clone().downcast::<ArrayFieldRow>() {
             return Some(row.drag_handle());
         }
 

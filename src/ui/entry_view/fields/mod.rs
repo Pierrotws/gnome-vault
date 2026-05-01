@@ -1,4 +1,3 @@
-mod array_field_row;
 mod multiline_field_row;
 mod otp_field_row;
 mod password_field_row;
@@ -9,7 +8,6 @@ use gtk::{glib, prelude::*};
 use crate::pass::model::EntryField;
 use crate::ui::entry_view::EntryView;
 
-pub use array_field_row::ArrayFieldRow;
 pub use multiline_field_row::MultilineFieldRow;
 pub use otp_field_row::OtpFieldRow;
 pub use password_field_row::PasswordFieldRow;
@@ -26,8 +24,8 @@ pub trait EntryFieldRow {
 }
 
 /// Toggles the standard "this entry is read-only outside edit mode"
-/// flags on a `gtk::Entry`. Plain, multiline, and array rows all set
-/// the same three properties when entering / leaving edit mode; the
+/// flags on a `gtk::Entry`. Plain and multiline rows both set the
+/// same three properties when entering / leaving edit mode; the
 /// helper centralizes the policy.
 pub(super) fn set_entry_editable(entry: &gtk::Entry, editable: bool) {
     entry.set_editable(editable);
@@ -38,7 +36,7 @@ pub(super) fn set_entry_editable(entry: &gtk::Entry, editable: bool) {
 /// Wires a field row's delete button to the standard "remove from
 /// parent gtk::Box and mark the EntryView dirty" behavior. Captures
 /// `row` and `entry_view` weakly so the closure cannot keep them alive
-/// past their lifetime, mirroring the per-row pattern that the four
+/// past their lifetime, mirroring the per-row pattern that the
 /// custom-field rows previously duplicated.
 pub(super) fn wire_delete_button(
     button: &gtk::Button,

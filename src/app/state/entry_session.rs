@@ -258,7 +258,6 @@ mod tests {
                 fields: vec![
                     ("comment".into(), EntryField::Plain(String::new())),
                     ("notes".into(), EntryField::Multiline(String::new())),
-                    ("tags".into(), EntryField::Array(Vec::new())),
                 ],
             },
         );

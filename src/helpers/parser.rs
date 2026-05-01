@@ -68,15 +68,6 @@ pub fn format_entry(entry: &EntryData) -> Zeroizing<String> {
         }
 
         match value {
-            EntryField::Array(values) => {
-                out.push_str(&format_yaml_scalar(key));
-                out.push_str(":\n");
-                for item in values {
-                    out.push_str("  - ");
-                    out.push_str(&format_yaml_scalar(item));
-                    out.push('\n');
-                }
-            }
             EntryField::Multiline(value) => {
                 out.push_str(&format_yaml_scalar(key));
                 let (indicator, body) = multiline_block_parts(value);
@@ -154,16 +145,24 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
 
         if value.is_empty() && next_significant_line(lines, index + 1).is_some_and(is_array_item) {
             index += 1;
-            let mut values = Vec::new();
-
+            // ArrayFieldRow has been removed from the UI; legacy on-disk
+            // YAML sequences are folded into a Multiline value (one item
+            // per line) so existing entries still round-trip and the
+            // user can see / edit the content as plain multiline text.
+            // The next save will rewrite the field as a YAML block
+            // scalar instead of a sequence.
+            let mut joined = Zeroizing::new(String::new());
             while index < lines.len() && !is_top_level_field(lines[index]) {
                 if let Some(item) = parse_array_item(lines[index]) {
-                    values.push(parse_yaml_scalar(item));
+                    if !joined.is_empty() {
+                        joined.push('\n');
+                    }
+                    joined.push_str(&parse_yaml_scalar(item));
                 }
                 index += 1;
             }
 
-            fields.push((key, EntryField::Array(values)));
+            fields.push((key, EntryField::Multiline(std::mem::take(&mut *joined))));
             continue;
         }
 
@@ -190,9 +189,6 @@ fn parse_secret_field(value: &str) -> EntryField {
 fn should_skip_field(key: &str, value: &EntryField) -> bool {
     let key_is_empty = key.trim().is_empty();
     match value {
-        EntryField::Array(values) => {
-            key_is_empty && values.iter().all(|value| value.trim().is_empty())
-        }
         EntryField::Password(value)
         | EntryField::Plain(value)
         | EntryField::OTP(value)
@@ -473,7 +469,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_plain_array_and_literal_multiline_fields() {
+    fn parses_legacy_array_sequences_as_multiline() {
+        // Legacy on-disk YAML sequences (`tags:\n  - elem1\n  - elem2`)
+        // were emitted by older versions of this app while the
+        // ArrayFieldRow widget existed. After the widget was removed
+        // we still parse them — folded into a Multiline value, one
+        // item per line — so existing vaults open without losing data.
+        // The next save rewrites the field as a YAML block scalar.
         let entry = parse_entry(
             "secret\nusername: test\nnotes: |\n  Test1\n  test2\n  Multiline\ntags:\n  - elem1\n  - elem2\n",
         )
@@ -490,7 +492,7 @@ mod tests {
                 ),
                 (
                     "tags".into(),
-                    EntryField::Array(vec!["elem1".into(), "elem2".into()])
+                    EntryField::Multiline("elem1\nelem2".into())
                 ),
             ]
         );
@@ -510,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    fn writes_array_and_multiline_fields_as_yaml() {
+    fn writes_multiline_fields_as_yaml_block_scalars() {
         let entry = EntryData {
             password: EntryField::Password("secret".into()),
             fields: vec![
@@ -519,16 +521,12 @@ mod tests {
                     "notes".into(),
                     EntryField::Multiline("Test1\ntest2\nMultiline".into()),
                 ),
-                (
-                    "tags".into(),
-                    EntryField::Array(vec!["elem1".into(), "elem2".into()]),
-                ),
             ],
         };
 
         assert_eq!(
             format_entry(&entry).as_str(),
-            "secret\nusername: test\nnotes: |-\n  Test1\n  test2\n  Multiline\ntags:\n  - elem1\n  - elem2\n"
+            "secret\nusername: test\nnotes: |-\n  Test1\n  test2\n  Multiline\n"
         );
     }
 
@@ -536,27 +534,15 @@ mod tests {
     fn quotes_and_parses_yaml_sensitive_scalars() {
         let entry = EntryData {
             password: EntryField::Password("secret".into()),
-            fields: vec![
-                (
-                    "url".into(),
-                    EntryField::Plain("https://example.invalid/a: b".into()),
-                ),
-                (
-                    "tags".into(),
-                    EntryField::Array(vec![
-                        "hash # value".into(),
-                        "- leading dash".into(),
-                        "quote \" slash \\".into(),
-                    ]),
-                ),
-            ],
+            fields: vec![(
+                "url".into(),
+                EntryField::Plain("https://example.invalid/a: b".into()),
+            )],
         };
 
         let formatted = format_entry(&entry);
 
         assert!(formatted.contains("url: \"https://example.invalid/a: b\""));
-        assert!(formatted.contains("  - \"hash # value\""));
-        assert!(formatted.contains("  - \"- leading dash\""));
         assert_eq!(parse_entry(&formatted), Some(entry));
     }
 

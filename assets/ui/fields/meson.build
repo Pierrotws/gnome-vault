@@ -20,13 +20,6 @@ if use_blueprint
     command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
   )
 
-  array_field_row_ui = custom_target(
-    'array-field-row-ui',
-    input: 'array_field_row.blp',
-    output: 'array_field_row.ui',
-    command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
-  )
-
   otp_field_row_ui = custom_target(
     'otp-field-row-ui',
     input: 'otp_field_row.blp',
@@ -49,12 +42,6 @@ else
   multiline_field_row_ui = configure_file(
     input: 'multiline_field_row.ui',
     output: 'multiline_field_row.ui',
-    copy: true,
-  )
-
-  array_field_row_ui = configure_file(
-    input: 'array_field_row.ui',
-    output: 'array_field_row.ui',
     copy: true,
   )
 
