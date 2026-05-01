@@ -226,7 +226,17 @@ impl MainWindow {
 fn tree_view_size_index(nick: &str) -> u32 {
     match nick {
         "small" => 0,
+        "medium" => 1,
         "large" => 2,
-        _ => 1,
+        unknown => {
+            // Schema migration / hand-edited GSettings can leave a nick
+            // we don't recognise. Snap to medium so the dropdown still
+            // shows a sensible default, but leave a breadcrumb in the
+            // journal so the misconfiguration isn't completely silent.
+            log::debug!(
+                "tree_view_size_index: unknown tree-view-size nick {unknown:?}; defaulting to medium"
+            );
+            1
+        }
     }
 }
