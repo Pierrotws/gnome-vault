@@ -14,7 +14,6 @@ pub struct GpgRecipient {
 }
 
 /// Errors raised by GPGME operations and `.gpg-id` handling.
-#[derive(Debug)]
 pub enum PgpError {
     ContextError(String),
     InvalidPath(PathBuf),
@@ -30,12 +29,58 @@ pub enum PgpError {
     NoKeys(String),
 }
 
+// Hand-rolled Debug matches Display's redaction posture so a stray
+// `log::warn!("{err:?}")` or any panic via `.unwrap()` / `.expect()`
+// (both render their cause via `Debug`) doesn't put gpgme stderr,
+// key fingerprints, recipient ids, or absolute store paths into
+// journalctl. Tests get verbose Debug under `cfg(test)` so
+// `assert!(matches!(...))` panic messages stay useful.
+#[cfg(not(test))]
+impl std::fmt::Debug for PgpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            PgpError::ContextError(_) => "ContextError",
+            PgpError::InvalidPath(_) => "InvalidPath",
+            PgpError::ReadError { .. } => "ReadError",
+            PgpError::LoadingError(_) => "LoadingError",
+            PgpError::DecryptError(_) => "DecryptError",
+            PgpError::EncryptError(_) => "EncryptError",
+            PgpError::Utf8Error(_) => "Utf8Error",
+            PgpError::NoRecipients(_) => "NoRecipients",
+            PgpError::NoKeys(_) => "NoKeys",
+        };
+        write!(f, "PgpError::{name}(<redacted>)")
+    }
+}
+
+#[cfg(test)]
+impl std::fmt::Debug for PgpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PgpError::ContextError(s) => f.debug_tuple("ContextError").field(s).finish(),
+            PgpError::InvalidPath(p) => f.debug_tuple("InvalidPath").field(p).finish(),
+            PgpError::ReadError { path, source } => f
+                .debug_struct("ReadError")
+                .field("path", path)
+                .field("source", source)
+                .finish(),
+            PgpError::LoadingError(s) => f.debug_tuple("LoadingError").field(s).finish(),
+            PgpError::DecryptError(s) => f.debug_tuple("DecryptError").field(s).finish(),
+            PgpError::EncryptError(s) => f.debug_tuple("EncryptError").field(s).finish(),
+            PgpError::Utf8Error(s) => f.debug_tuple("Utf8Error").field(s).finish(),
+            PgpError::NoRecipients(p) => f.debug_tuple("NoRecipients").field(p).finish(),
+            PgpError::NoKeys(s) => f.debug_tuple("NoKeys").field(s).finish(),
+        }
+    }
+}
+
 // Display intentionally drops the upstream gpgme error string from the
 // variants that wrap one (ContextError, LoadingError, DecryptError,
 // EncryptError, NoKeys). gpgme stderr can echo key fingerprints,
 // recipient identifiers, and absolute store paths — none of which
-// belong in a UI error toast. The auto-derived `Debug` keeps the full
-// context for `{err:?}` log output.
+// belong in a UI error toast. With Debug now redacted too (see above),
+// neither `{err}` nor `{err:?}` puts the upstream string anywhere a
+// log scrubber would have to handle.
 impl std::fmt::Display for PgpError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

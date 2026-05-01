@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use crate::helpers::{git, pgp};
 
-#[derive(Debug)]
 pub enum StoreError {
     Io(std::io::Error),
     Git(git::GitError),
@@ -27,6 +26,55 @@ pub enum StoreError {
     /// session. The wizard handles this by persisting the new path
     /// to GSettings and asking the user to restart.
     RestartRequired,
+}
+
+// Hand-rolled `Debug` matches `Display`'s redaction posture so a
+// stray `log::warn!("{err:?}")` or any panic via `.unwrap()` /
+// `.expect()` (both render their cause via `Debug`) doesn't put
+// secret-bearing path/name strings into journalctl. Tests get
+// verbose Debug under `cfg(test)` to keep `assert!(matches!(...))`
+// failure messages useful — see the `EntryField` template.
+#[cfg(not(test))]
+impl std::fmt::Debug for StoreError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            StoreError::Io(_) => "Io",
+            StoreError::Git(_) => "Git",
+            StoreError::Pgp(_) => "Pgp",
+            StoreError::MissingParent(_) => "MissingParent",
+            StoreError::EmptyFile(_) => "EmptyFile",
+            StoreError::InvalidEntryName(_) => "InvalidEntryName",
+            StoreError::InvalidRecipient => "InvalidRecipient",
+            StoreError::InvalidFolderPath(_) => "InvalidFolderPath",
+            StoreError::DestinationExists(_) => "DestinationExists",
+            StoreError::PushFailed(_) => "PushFailed",
+            StoreError::RestartRequired => "RestartRequired",
+        };
+        write!(f, "StoreError::{name}(<redacted>)")
+    }
+}
+
+#[cfg(test)]
+impl std::fmt::Debug for StoreError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StoreError::Io(err) => f.debug_tuple("Io").field(err).finish(),
+            StoreError::Git(err) => f.debug_tuple("Git").field(err).finish(),
+            StoreError::Pgp(err) => f.debug_tuple("Pgp").field(err).finish(),
+            StoreError::MissingParent(p) => f.debug_tuple("MissingParent").field(p).finish(),
+            StoreError::EmptyFile(p) => f.debug_tuple("EmptyFile").field(p).finish(),
+            StoreError::InvalidEntryName(s) => f.debug_tuple("InvalidEntryName").field(s).finish(),
+            StoreError::InvalidRecipient => f.debug_struct("InvalidRecipient").finish(),
+            StoreError::InvalidFolderPath(p) => {
+                f.debug_tuple("InvalidFolderPath").field(p).finish()
+            }
+            StoreError::DestinationExists(p) => {
+                f.debug_tuple("DestinationExists").field(p).finish()
+            }
+            StoreError::PushFailed(s) => f.debug_tuple("PushFailed").field(s).finish(),
+            StoreError::RestartRequired => f.debug_struct("RestartRequired").finish(),
+        }
+    }
 }
 
 // `Display` produces the user-facing message and intentionally avoids
