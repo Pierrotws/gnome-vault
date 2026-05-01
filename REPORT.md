@@ -2,8 +2,6 @@
 
 A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for crypto, git2 for sync. Two prior review rounds have closed the structural issues; this pass is grouped by severity and focuses on what's actually wrong NOW.
 
-## Critical
-
 ## Important
 
 **Strong-self captures form a `MainWindow` ↔ template-child reference cycle.** `src/ui/window/mod.rs:87-509` (every `let window = self.clone();` in `setup_callbacks`), `src/ui/window/autoload.rs:42-43`, `src/ui/window/group_content.rs:154-155`. Each closure connected to a template child holds a strong `MainWindow` reference; the template child is itself owned by the window, so the cycle is `MainWindow → template_child → handler → MainWindow`. Today benign — the app holds a single `MainWindow` and disposes it at exit — but the `glib::clone!(#[weak(rename_to = window)] self, ...)` shape is already used in `preferences.rs` and `new_entry_dialog.rs`. Convert `setup_callbacks` and the two timers to weak captures so the window is safe to destroy independently of the app shell, and so a closed-but-not-disposed window with a still-running autoload tick can actually finish.
@@ -56,14 +54,3 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 - **`generate_password`'s rejection-sampled `random_index` is unbiased.** `src/helpers/password.rs:74-86`. The `zone = u64::MAX - (u64::MAX % max_u64)` reject-and-retry is textbook unbiased sampling; the required-character placement plus Fisher-Yates shuffle makes the position uniformly random.
 - **`set_password_store_dir_once` documents both soundness guarantees.** `src/pass/store/mod.rs:512-550`. The two-clause argument (`OnceLock` synchronization + main-thread-before-workers ordering) is exactly the right level of detail for an `env::set_var`. The fallback in `password_store_dir` to a relative path with a log warning instead of a panic is graceful in unusual session-manager environments.
 - **`sanitize_user_id` strips bidi-override and control characters from key UIDs.** `src/helpers/pgp.rs:210-229`. The recipient picker can't be visually spoofed by a key with `U+202E` in its UID; `replaces_bidi_overrides_and_controls` pins it.
-
-## Suggested fix order
-
-1. The four **Critical** items — they're cheap to fix and silently leak.
-2. `revert_commit` cleanup-on-conflict + encrypt-path key validation + atomic-write parent fsync — error-recovery posture.
-3. `mark_saved` name drift + `evict_cached_entries_under` empty-prefix guard — state machine integrity.
-4. Strong-self captures in window setup_callbacks + autoload toggle race + entry-delete confirm — UX hardening.
-5. `Debug` redaction on `StoreError` / `PgpError` data variants + cache hit/miss log — security posture.
-6. `entry_matches_query` skipping Password/OTP values — search-side leak.
-7. `PasswordFieldRow` variant guard + `MultilineFieldRow` keystroke rebuild — UI correctness.
-8. The Minor list in any order; most are small.
