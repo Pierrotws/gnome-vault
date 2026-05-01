@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::super::EntryView;
-use super::EntryFieldRow;
+use super::{CustomFieldRow, EntryFieldRow};
 
 mod imp;
 
@@ -258,5 +258,19 @@ impl EntryFieldRow for OtpFieldRow {
         if let EntryField::OTP(value) = field {
             self.set_url(value);
         }
+    }
+}
+
+impl CustomFieldRow for OtpFieldRow {
+    fn set_editable_mode(&self, editable: bool) {
+        OtpFieldRow::set_editable_mode(self, editable);
+    }
+
+    fn is_empty(&self) -> bool {
+        OtpFieldRow::is_empty(self)
+    }
+
+    fn drag_handle(&self) -> gtk::Widget {
+        OtpFieldRow::drag_handle(self)
     }
 }

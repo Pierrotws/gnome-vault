@@ -5,7 +5,7 @@ use crate::helpers::clipboard;
 use crate::pass::model::EntryField;
 
 use super::super::EntryView;
-use super::EntryFieldRow;
+use super::{CustomFieldRow, EntryFieldRow};
 
 mod imp;
 
@@ -202,5 +202,19 @@ impl EntryFieldRow for MultilineFieldRow {
         if let EntryField::Multiline(value) = field {
             self.set_value(value);
         }
+    }
+}
+
+impl CustomFieldRow for MultilineFieldRow {
+    fn set_editable_mode(&self, editable: bool) {
+        MultilineFieldRow::set_editable_mode(self, editable);
+    }
+
+    fn is_empty(&self) -> bool {
+        MultilineFieldRow::is_empty(self)
+    }
+
+    fn drag_handle(&self) -> gtk::Widget {
+        MultilineFieldRow::drag_handle(self)
     }
 }

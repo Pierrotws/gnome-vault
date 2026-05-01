@@ -4,7 +4,7 @@ use crate::helpers::clipboard;
 use crate::pass::model::EntryField;
 
 use super::super::EntryView;
-use super::EntryFieldRow;
+use super::{CustomFieldRow, EntryFieldRow};
 
 mod imp;
 
@@ -146,5 +146,19 @@ impl EntryFieldRow for PlainFieldRow {
         if let EntryField::Plain(value) = field {
             self.set_value(value);
         }
+    }
+}
+
+impl CustomFieldRow for PlainFieldRow {
+    fn set_editable_mode(&self, editable: bool) {
+        PlainFieldRow::set_editable_mode(self, editable);
+    }
+
+    fn is_empty(&self) -> bool {
+        PlainFieldRow::is_empty(self)
+    }
+
+    fn drag_handle(&self) -> gtk::Widget {
+        PlainFieldRow::drag_handle(self)
     }
 }

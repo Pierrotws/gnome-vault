@@ -23,6 +23,41 @@ pub trait EntryFieldRow {
     }
 }
 
+/// Behavior shared by the three custom-field row variants the user
+/// can append to an entry (`PlainFieldRow`, `OtpFieldRow`,
+/// `MultilineFieldRow`). PasswordFieldRow is the entry's primary
+/// field — it isn't reorderable and doesn't have an "empty" notion —
+/// so it deliberately doesn't implement this trait.
+///
+/// Centralizing the trio makes [`with_custom_field_row`] a single
+/// downcast cascade per call rather than three open-coded ladders in
+/// the entry view; adding a new variant is one impl plus one downcast
+/// case in the helper.
+pub trait CustomFieldRow: EntryFieldRow {
+    fn set_editable_mode(&self, editable: bool);
+    fn is_empty(&self) -> bool;
+    fn drag_handle(&self) -> gtk::Widget;
+}
+
+/// Downcasts `widget` to whichever custom-field row variant it is and
+/// runs `f` against the typed reference; returns `None` if the widget
+/// is not a custom-field row.
+pub(super) fn with_custom_field_row<F, R>(widget: &gtk::Widget, f: F) -> Option<R>
+where
+    F: FnOnce(&dyn CustomFieldRow) -> R,
+{
+    if let Ok(row) = widget.clone().downcast::<PlainFieldRow>() {
+        return Some(f(&row));
+    }
+    if let Ok(row) = widget.clone().downcast::<OtpFieldRow>() {
+        return Some(f(&row));
+    }
+    if let Ok(row) = widget.clone().downcast::<MultilineFieldRow>() {
+        return Some(f(&row));
+    }
+    None
+}
+
 /// Toggles the standard "this entry is read-only outside edit mode"
 /// flags on a `gtk::Entry`. Plain and multiline rows both set the
 /// same three properties when entering / leaving edit mode; the

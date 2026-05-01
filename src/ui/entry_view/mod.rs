@@ -10,7 +10,10 @@ use crate::app::state::EntryViewData;
 use crate::helpers::{clipboard, otp};
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
-use fields::{EntryFieldRow, MultilineFieldRow, OtpFieldRow, PlainFieldRow};
+use fields::{
+    with_custom_field_row, CustomFieldRow, EntryFieldRow, MultilineFieldRow, OtpFieldRow,
+    PlainFieldRow,
+};
 
 /// Maximum number of characters the title `EntryRow` widens to before
 /// it stops growing. Past this point the title visibly truncates with
@@ -472,45 +475,18 @@ impl EntryView {
     }
 
     fn read_field_row(widget: &gtk::Widget) -> Option<(String, EntryField)> {
-        if let Ok(row) = widget.clone().downcast::<PlainFieldRow>() {
-            if row.is_empty() {
-                return None;
+        with_custom_field_row(widget, |row| {
+            if CustomFieldRow::is_empty(row) {
+                None
+            } else {
+                Some(row.named_entry_field())
             }
-
-            return Some(row.named_entry_field());
-        }
-        if let Ok(row) = widget.clone().downcast::<OtpFieldRow>() {
-            if row.is_empty() {
-                return None;
-            }
-
-            return Some(row.named_entry_field());
-        }
-        if let Ok(row) = widget.clone().downcast::<MultilineFieldRow>() {
-            if row.is_empty() {
-                return None;
-            }
-
-            return Some(row.named_entry_field());
-        }
-
-        None
+        })
+        .flatten()
     }
 
     fn set_field_row_editable(widget: &gtk::Widget, editable: bool) {
-        if let Ok(row) = widget.clone().downcast::<PlainFieldRow>() {
-            row.set_editable_mode(editable);
-            return;
-        }
-
-        if let Ok(row) = widget.clone().downcast::<OtpFieldRow>() {
-            row.set_editable_mode(editable);
-            return;
-        }
-
-        if let Ok(row) = widget.clone().downcast::<MultilineFieldRow>() {
-            row.set_editable_mode(editable);
-        }
+        with_custom_field_row(widget, |row| row.set_editable_mode(editable));
     }
 
     fn append_custom_field_row<R>(&self, row: &R)
@@ -577,19 +553,7 @@ impl EntryView {
     }
 
     fn field_row_drag_handle(row: &gtk::ListBoxRow) -> Option<gtk::Widget> {
-        if let Ok(row) = row.clone().downcast::<PlainFieldRow>() {
-            return Some(row.drag_handle());
-        }
-
-        if let Ok(row) = row.clone().downcast::<OtpFieldRow>() {
-            return Some(row.drag_handle());
-        }
-
-        if let Ok(row) = row.clone().downcast::<MultilineFieldRow>() {
-            return Some(row.drag_handle());
-        }
-
-        None
+        with_custom_field_row(row.upcast_ref::<gtk::Widget>(), |row| row.drag_handle())
     }
 
     fn move_custom_field_row(
