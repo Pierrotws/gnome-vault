@@ -1,6 +1,5 @@
 use adw::subclass::prelude::*;
 use glib::subclass::InitializingObject;
-use gtk::prelude::*;
 use gtk::{glib, CompositeTemplate, TemplateChild};
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -40,12 +39,12 @@ impl ObjectImpl for GeneratePasswordView {
         self.obj().setup();
     }
 
-    fn dispose(&self) {
-        let obj = self.obj();
-        while let Some(child) = obj.first_child() {
-            child.unparent();
-        }
-    }
+    // No manual unparent loop here. `adw::Bin` already owns its single
+    // child via a `child` property and unparents it in its own dispose
+    // handler. Doing it ourselves first would leave Bin's priv->child
+    // pointing at an already-unparented (and possibly freed) widget,
+    // tripping `gtk_widget_unparent: assertion 'GTK_IS_WIDGET(widget)'
+    // failed` when Bin's dispose runs next.
 }
 
 impl WidgetImpl for GeneratePasswordView {}
