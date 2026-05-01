@@ -12,6 +12,12 @@ pub use change_item::ChangeItem;
 
 use crate::helpers::git::GitChange;
 
+/// Number of pixels remaining at the bottom of the scrolled window
+/// before we trigger a load-more emit. Tuned so that fast scrollers
+/// feel "close to the edge" without round-tripping a load on every
+/// stray pixel of overscroll.
+const LOAD_MORE_TRIGGER_MARGIN: f64 = 24.0;
+
 glib::wrapper! {
     pub struct ChangesView(ObjectSubclass<imp::ChangesView>)
         @extends gtk::Widget, gtk::Box,
@@ -156,23 +162,27 @@ impl ChangesView {
                 .and_then(|w| w.downcast::<gtk::Label>().ok())
                 .expect("Second content child is the meta label");
 
-            let change = change_item.change();
-            if change.is_pushed {
-                title.set_use_markup(false);
-                title.set_label(&change.summary);
-            } else {
-                title.set_use_markup(true);
-                title.set_markup(&format!(
-                    "<i>{}</i>",
-                    glib::markup_escape_text(&change.summary)
+            // Bind reads four fields from the change; borrow it via
+            // `with_change` instead of cloning the whole struct per
+            // recycle.
+            change_item.with_change(|change| {
+                if change.is_pushed {
+                    title.set_use_markup(false);
+                    title.set_label(&change.summary);
+                } else {
+                    title.set_use_markup(true);
+                    title.set_markup(&format!(
+                        "<i>{}</i>",
+                        glib::markup_escape_text(&change.summary)
+                    ));
+                }
+                meta.set_label(&format!(
+                    "{} · {}",
+                    change.author,
+                    format_author_time(change)
                 ));
-            }
-            meta.set_label(&format!(
-                "{} · {}",
-                change.author,
-                format_author_time(&change)
-            ));
-            meta.set_tooltip_text(Some(&change.short_id));
+                meta.set_tooltip_text(Some(&change.short_id));
+            });
 
             // Refresh the per-row item pointer so the right-click
             // gesture resolves to *this* commit while the row is bound.
@@ -289,6 +299,13 @@ impl ChangesView {
         imp.is_loading_more.set(false);
         let items: Vec<ChangeItem> = changes.iter().cloned().map(ChangeItem::new).collect();
         model.extend_from_slice(&items);
+        // Scroll back to the top: a fresh set_changes is conceptually a
+        // reset, but the scroll position would otherwise persist from
+        // the previous list. Worse, a value near the bottom can re-arm
+        // load-more before the new model has grown to its full height
+        // (n_items() is non-zero again, has_more is true), causing a
+        // spurious load-more emit immediately after the reset.
+        imp.changes_scrolled_window.vadjustment().set_value(0.0);
     }
 
     pub fn append_changes(&self, changes: &[GitChange], has_more: bool) {
@@ -371,7 +388,8 @@ impl ChangesView {
             return false;
         }
 
-        adjustment.value() + adjustment.page_size() >= adjustment.upper() - 24.0
+        adjustment.value() + adjustment.page_size()
+            >= adjustment.upper() - LOAD_MORE_TRIGGER_MARGIN
     }
 }
 

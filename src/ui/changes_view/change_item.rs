@@ -39,15 +39,21 @@ impl ChangeItem {
         obj
     }
 
-    /// Returns a clone of the wrapped `GitChange`. Cheaper-than-clone
-    /// access via a borrowed `Ref` is intentionally not exposed because
-    /// the item factory's bind callback always wants owned strings to
-    /// hand to `set_label` / `set_markup`.
+    /// Returns a clone of the wrapped `GitChange`. Prefer `with_change`
+    /// in hot paths (e.g. the bind callback) — it avoids cloning the
+    /// inner `GitChange` for callers that only need to read fields.
     pub fn change(&self) -> GitChange {
-        self.imp()
-            .change
-            .borrow()
-            .clone()
-            .expect("ChangeItem must be initialized via ChangeItem::new")
+        self.with_change(GitChange::clone)
+    }
+
+    /// Borrows the wrapped `GitChange` and runs `f` with it. Saves a
+    /// per-recycle `GitChange` clone in the bind callback, where the
+    /// factory just needs to read four fields (summary, author,
+    /// is_pushed, short_id) into the row widgets.
+    pub fn with_change<R>(&self, f: impl FnOnce(&GitChange) -> R) -> R {
+        let change = self.imp().change.borrow();
+        f(change
+            .as_ref()
+            .expect("ChangeItem must be initialized via ChangeItem::new"))
     }
 }
