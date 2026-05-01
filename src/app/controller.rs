@@ -435,7 +435,7 @@ impl AppController {
     }
 
     fn filtered_node(&self, node: &PassNode, query: &str) -> Option<PassNode> {
-        if node.name.to_lowercase().contains(query) {
+        if contains_ignore_case(&node.name, query) {
             return Some(node.clone());
         }
 
@@ -462,8 +462,8 @@ impl AppController {
 
     fn entry_matches_query(&self, entry: &EntryData, query: &str) -> bool {
         entry.fields.iter().any(|(key, value)| {
-            key.to_lowercase().contains(query)
-                || value.display_value().to_lowercase().contains(query)
+            contains_ignore_case(key, query)
+                || contains_ignore_case(&value.display_value(), query)
         })
     }
 
@@ -482,6 +482,29 @@ impl AppController {
             Vec::new()
         }
     }
+}
+
+/// Case-insensitive substring match. `lower_needle` is expected to
+/// already be lowercased by the caller (the search query is lowercased
+/// once at the top of `filtered_tree`); this avoids re-lowercasing
+/// every cached field on every keystroke. The ASCII fast path skips
+/// allocation entirely; only mixed-Unicode haystacks fall back to the
+/// allocating `to_lowercase`.
+fn contains_ignore_case(haystack: &str, lower_needle: &str) -> bool {
+    if lower_needle.is_empty() {
+        return true;
+    }
+    if haystack.is_ascii() && lower_needle.is_ascii() {
+        let needle = lower_needle.as_bytes();
+        if haystack.len() < needle.len() {
+            return false;
+        }
+        return haystack
+            .as_bytes()
+            .windows(needle.len())
+            .any(|window| window.iter().zip(needle).all(|(h, n)| h.eq_ignore_ascii_case(n)));
+    }
+    haystack.to_lowercase().contains(lower_needle)
 }
 
 #[cfg(test)]
