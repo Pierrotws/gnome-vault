@@ -1,18 +1,7 @@
 # Gnome-Vault — Full Code Review
 
-A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for crypto, git2 for sync. Architecture is generally sound — clean layer separation (UI → controller → store → helpers), typed errors with `From` impls, well-tested parser/OTP/git helpers, modern `OnceLock` signal patterns. The issues below are the things to fix before shipping.
-
-## Critical (security, data loss, panics)
-
-## Important (correctness, UX, architecture)
-
-**No virtualization in changes/group lists** (`changes_view/mod.rs:43-45`, `group_view`). Hand-built `gtk::Box` per commit + gesture controller scales poorly. Use `gtk::ListView` + `gio::ListStore` + `SignalListItemFactory`.
-
-**OTP detection auto-promotes any `otpauth://`-shaped paste** (`entry_view/mod.rs:383-395`). If a user pastes a TOTP URL into a password field, it silently becomes an OTP field. Require explicit action.
-
 ## Minor
 
-- Field-row code duplication: per-row `is_empty`/`key`/`set_key`/`drag_handle` and the copy-button wiring still differ across the four custom rows in template-field name and secondary inspectors; pulling them into a single helper would need a macro that takes `imp.<field_name>` paths. (`delete_button` and the gtk::Entry editable-mode toggle are now centralized in `fields::wire_delete_button` / `fields::set_entry_editable`.)
 - Tests: save/delete/revert/rollback orchestration in `AppController` is still uncovered, pgp encrypt/decrypt round-trip is untested, the password generator has no statistical tests, and CRLF / non-UTF8 names are still uncovered. (BOM strip, path-traversal name validation, absolute / parent-dir folder-path rejection, and per-folder `.gpg-id` walk now have unit tests.)
 
 ## Done well

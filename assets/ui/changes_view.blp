@@ -25,10 +25,10 @@ template $ChangesView : Gtk.Box {
         vexpand: true;
         hexpand: true;
 
-        child: Box changes_box {
-            orientation: vertical;
-            spacing: 6;
-            valign: start;
+        child: ListView changes_list {
+            single-click-activate: false;
+            show-separators: true;
+            css-classes: ["navigation-sidebar"];
         };
     }
 }

@@ -1,14 +1,13 @@
-use std::cell::RefCell;
+use std::cell::OnceCell;
 
 use adw::subclass::prelude::*;
+use gtk::gio;
 use gtk::prelude::*;
 use gtk::{
     glib,
     glib::{subclass::InitializingObject, subclass::Signal},
     CompositeTemplate, TemplateChild,
 };
-
-use crate::pass::model::PassNode;
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/group_view.ui")]
@@ -20,9 +19,11 @@ pub struct GroupView {
     pub group_count_label: TemplateChild<gtk::Label>,
 
     #[template_child]
-    pub entries_list: TemplateChild<gtk::ListBox>,
+    pub entries_list: TemplateChild<gtk::ListView>,
 
-    pub entries: RefCell<Vec<PassNode>>,
+    /// Backing store for the ListView. Holds [`super::GroupItem`]
+    /// objects so the SignalListItemFactory recycles rows.
+    pub model: OnceCell<gio::ListStore>,
 }
 
 #[glib::object_subclass]

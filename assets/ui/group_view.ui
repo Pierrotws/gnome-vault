@@ -38,8 +38,8 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
         <property name="vexpand">true</property>
         <property name="hscrollbar-policy">2</property>
         <child>
-          <object class="GtkListBox" id="entries_list">
-            <property name="selection-mode">0</property>
+          <object class="GtkListView" id="entries_list">
+            <property name="single-click-activate">true</property>
             <property name="css-classes">navigation-sidebar</property>
           </object>
         </child>

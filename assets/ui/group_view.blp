@@ -29,8 +29,8 @@ template $GroupView : Box {
         vexpand: true;
         hscrollbar-policy: never;
 
-        ListBox entries_list {
-            selection-mode: none;
+        ListView entries_list {
+            single-click-activate: true;
             css-classes: ["navigation-sidebar"];
         }
     }

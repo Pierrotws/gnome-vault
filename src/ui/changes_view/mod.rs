@@ -1,9 +1,14 @@
+mod change_item;
 mod imp;
 
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use adw::subclass::prelude::*;
-use gtk::{gdk, glib, prelude::*};
+use gtk::{gdk, gio, glib, prelude::*};
+
+pub use change_item::ChangeItem;
 
 use crate::helpers::git::GitChange;
 
@@ -19,6 +24,8 @@ impl ChangesView {
     }
 
     pub fn setup_callbacks(&self) {
+        self.install_list_model();
+
         let adjustment = self.imp().changes_scrolled_window.vadjustment();
         adjustment.connect_value_changed(glib::clone!(
             #[weak(rename_to = this)]
@@ -34,34 +41,271 @@ impl ChangesView {
         ));
     }
 
+    /// Wires the `ListView` to a `gio::ListStore<ChangeItem>` and a
+    /// `SignalListItemFactory` that recycles row widgets. Each row is a
+    /// horizontal box (icon + title/meta column) with a right-click
+    /// gesture; bind installs the active `ChangeItem` into a per-row
+    /// `Cell<Option<glib::WeakRef<ChangeItem>>>` so the gesture's
+    /// closure can read the *current* item — which moves between
+    /// recycled widgets — at click time.
+    fn install_list_model(&self) {
+        let imp = self.imp();
+        let model = gio::ListStore::new::<ChangeItem>();
+        let _ = imp.model.set(model.clone());
+        let selection = gtk::NoSelection::new(Some(model));
+        imp.changes_list.set_model(Some(&selection));
+
+        let factory = gtk::SignalListItemFactory::new();
+        let view_weak = self.downgrade();
+        factory.connect_setup(move |_, item| {
+            let item = item
+                .downcast_ref::<gtk::ListItem>()
+                .expect("Factory item is a gtk::ListItem");
+
+            let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+            row.set_margin_top(6);
+            row.set_margin_bottom(6);
+            row.set_margin_start(6);
+            row.set_margin_end(6);
+
+            let icon = gtk::Image::from_icon_name("view-list-symbolic");
+            icon.set_valign(gtk::Align::Start);
+
+            let content = gtk::Box::new(gtk::Orientation::Vertical, 2);
+            content.set_hexpand(true);
+
+            let title = gtk::Label::new(None);
+            title.set_xalign(0.0);
+            title.set_wrap(true);
+
+            let meta = gtk::Label::new(None);
+            meta.set_xalign(0.0);
+            meta.add_css_class("dim-label");
+
+            content.append(&title);
+            content.append(&meta);
+            row.append(&icon);
+            row.append(&content);
+
+            // Per-row item cell driven by `connect_bind`. The gesture
+            // closure clones the cell and reads from it at click time so
+            // a single GestureClick controller serves every recycled use
+            // of this row template.
+            let current: Rc<Cell<Option<glib::WeakRef<ChangeItem>>>> =
+                Rc::new(Cell::new(None));
+            let gesture = gtk::GestureClick::new();
+            gesture.set_button(gdk::BUTTON_SECONDARY);
+            let view_for_gesture = view_weak.clone();
+            let current_for_gesture = current.clone();
+            gesture.connect_pressed(move |gesture, _, x, y| {
+                let Some(view) = view_for_gesture.upgrade() else {
+                    return;
+                };
+                let Some(weak) = current_for_gesture.take() else {
+                    return;
+                };
+                // Put the weak ref back so a second click on the same
+                // row still resolves; `Cell::take` left it empty.
+                let item = weak.upgrade();
+                current_for_gesture.set(Some(weak));
+                let Some(item) = item else { return; };
+                let change = item.change();
+
+                let Some(widget) = gesture.widget() else {
+                    return;
+                };
+                view.show_row_popover(&widget, x, y, change);
+            });
+            row.add_controller(gesture);
+
+            // Stash the per-row cell on the row widget itself so bind
+            // can find it without cloning the controller.
+            unsafe {
+                row.set_data("changes-row-current", current);
+            }
+
+            item.set_child(Some(&row));
+        });
+
+        factory.connect_bind(|_, item| {
+            let item = item
+                .downcast_ref::<gtk::ListItem>()
+                .expect("Factory item is a gtk::ListItem");
+            let change_item = item
+                .item()
+                .and_then(|o| o.downcast::<ChangeItem>().ok())
+                .expect("Bound item is a ChangeItem");
+            let row = item
+                .child()
+                .and_then(|w| w.downcast::<gtk::Box>().ok())
+                .expect("ListItem child is a gtk::Box");
+
+            let icon = row
+                .first_child()
+                .and_then(|w| w.downcast::<gtk::Image>().ok())
+                .expect("First child is the icon");
+            let content = icon
+                .next_sibling()
+                .and_then(|w| w.downcast::<gtk::Box>().ok())
+                .expect("Second child is the content box");
+            let title = content
+                .first_child()
+                .and_then(|w| w.downcast::<gtk::Label>().ok())
+                .expect("First content child is the title label");
+            let meta = title
+                .next_sibling()
+                .and_then(|w| w.downcast::<gtk::Label>().ok())
+                .expect("Second content child is the meta label");
+
+            let change = change_item.change();
+            if change.is_pushed {
+                title.set_use_markup(false);
+                title.set_label(&change.summary);
+            } else {
+                title.set_use_markup(true);
+                title.set_markup(&format!(
+                    "<i>{}</i>",
+                    glib::markup_escape_text(&change.summary)
+                ));
+            }
+            meta.set_label(&format!(
+                "{} · {}",
+                change.author,
+                format_author_time(&change)
+            ));
+            meta.set_tooltip_text(Some(&change.short_id));
+
+            // Refresh the per-row item pointer so the right-click
+            // gesture resolves to *this* commit while the row is bound.
+            let cell = unsafe {
+                row.steal_data::<Rc<Cell<Option<glib::WeakRef<ChangeItem>>>>>(
+                    "changes-row-current",
+                )
+            }
+            .expect("setup installed changes-row-current");
+            let weak = glib::object::ObjectExt::downgrade(&change_item);
+            cell.set(Some(weak));
+            unsafe {
+                row.set_data("changes-row-current", cell);
+            }
+        });
+
+        factory.connect_unbind(|_, item| {
+            let item = item
+                .downcast_ref::<gtk::ListItem>()
+                .expect("Factory item is a gtk::ListItem");
+            let row = item
+                .child()
+                .and_then(|w| w.downcast::<gtk::Box>().ok())
+                .expect("ListItem child is a gtk::Box");
+            // Drop the weak ref so a stale gesture firing during
+            // recycling doesn't resolve to the wrong commit.
+            let cell = unsafe {
+                row.steal_data::<Rc<Cell<Option<glib::WeakRef<ChangeItem>>>>>(
+                    "changes-row-current",
+                )
+            }
+            .expect("setup installed changes-row-current");
+            cell.set(None);
+            unsafe {
+                row.set_data("changes-row-current", cell);
+            }
+        });
+
+        imp.changes_list.set_factory(Some(&factory));
+    }
+
+    /// Builds and presents the per-row right-click popover. Pulled out
+    /// of the gesture closure so the heavy widget construction lives in
+    /// `&self` rather than a per-row factory captured closure.
+    fn show_row_popover(&self, widget: &gtk::Widget, x: f64, y: f64, change: GitChange) {
+        let popover = gtk::Popover::new();
+        popover.set_parent(widget);
+        popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
+
+        let actions = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        actions.set_margin_top(6);
+        actions.set_margin_bottom(6);
+        actions.set_margin_start(6);
+        actions.set_margin_end(6);
+
+        let undo_button = gtk::Button::with_label("Undo this change");
+        let rollback_button = gtk::Button::with_label("Discard later changes");
+        rollback_button.add_css_class("destructive-action");
+        let push_button = (!change.is_pushed).then(|| gtk::Button::with_label("Sync to remote"));
+
+        let undo_commit_id = change.id.clone();
+        let rollback_commit_id = change.id.clone();
+        undo_button.connect_clicked(glib::clone!(
+            #[weak]
+            popover,
+            #[weak(rename_to = obj)]
+            self,
+            move |_| {
+                popover.popdown();
+                obj.emit_by_name::<()>("revert-change-requested", &[&undo_commit_id]);
+            }
+        ));
+        rollback_button.connect_clicked(glib::clone!(
+            #[weak]
+            popover,
+            #[weak(rename_to = obj)]
+            self,
+            move |_| {
+                popover.popdown();
+                obj.emit_by_name::<()>("rollback-change-requested", &[&rollback_commit_id]);
+            }
+        ));
+        if let Some(push_button) = push_button {
+            push_button.connect_clicked(glib::clone!(
+                #[weak]
+                popover,
+                #[weak(rename_to = obj)]
+                self,
+                move |_| {
+                    popover.popdown();
+                    obj.emit_by_name::<()>("push-requested", &[]);
+                }
+            ));
+            actions.append(&push_button);
+        }
+
+        actions.append(&undo_button);
+        actions.append(&rollback_button);
+        popover.set_child(Some(&actions));
+        popover.connect_closed(|popover| {
+            // GtkPopover with `set_parent` is not auto-unparented on
+            // close; without this every right-click would leak a
+            // popover for the lifetime of the row.
+            popover.unparent();
+        });
+        popover.popup();
+    }
+
     /// Replaces the visible commit list. The caller decides `has_more`
     /// explicitly so a full first page that happens to equal
     /// `CHANGES_PAGE_SIZE` doesn't falsely arm load-more.
     pub fn set_changes(&self, changes: &[GitChange], has_more: bool) {
         let imp = self.imp();
-        while let Some(child) = imp.changes_box.first_child() {
-            imp.changes_box.remove(&child);
-        }
-
+        let model = imp.model.get().expect("model installed in setup_callbacks");
+        model.remove_all();
         imp.empty_label.set_visible(changes.is_empty());
         imp.has_more_changes.set(has_more);
         imp.is_loading_more.set(false);
-        for change in changes {
-            imp.changes_box.append(&self.build_change_row(change));
-        }
+        let items: Vec<ChangeItem> = changes.iter().cloned().map(ChangeItem::new).collect();
+        model.extend_from_slice(&items);
     }
 
     pub fn append_changes(&self, changes: &[GitChange], has_more: bool) {
         let imp = self.imp();
-        let has_existing_changes = imp.changes_box.first_child().is_some();
-
+        let model = imp.model.get().expect("model installed in setup_callbacks");
+        let had_existing = model.n_items() > 0;
         imp.empty_label
-            .set_visible(!has_existing_changes && changes.is_empty());
+            .set_visible(!had_existing && changes.is_empty());
         imp.has_more_changes.set(has_more);
         imp.is_loading_more.set(false);
-        for change in changes {
-            imp.changes_box.append(&self.build_change_row(change));
-        }
+        let items: Vec<ChangeItem> = changes.iter().cloned().map(ChangeItem::new).collect();
+        model.extend_from_slice(&items);
     }
 
     pub fn set_loading_more(&self, is_loading_more: bool) {
@@ -124,123 +368,6 @@ impl ChangesView {
             f(&obj, commit_id);
             None
         })
-    }
-
-    fn build_change_row(&self, change: &GitChange) -> gtk::Box {
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        row.set_margin_top(6);
-        row.set_margin_bottom(6);
-        row.set_margin_start(6);
-        row.set_margin_end(6);
-
-        let icon = gtk::Image::from_icon_name("view-list-symbolic");
-        icon.set_valign(gtk::Align::Start);
-
-        let content = gtk::Box::new(gtk::Orientation::Vertical, 2);
-        content.set_hexpand(true);
-
-        let title = gtk::Label::new(None);
-        title.set_xalign(0.0);
-        title.set_wrap(true);
-        if change.is_pushed {
-            title.set_label(&change.summary);
-        } else {
-            title.set_use_markup(true);
-            title.set_markup(&format!(
-                "<i>{}</i>",
-                glib::markup_escape_text(&change.summary)
-            ));
-        }
-
-        let meta = gtk::Label::new(Some(&format!(
-            "{} · {}",
-            change.author,
-            format_author_time(change)
-        )));
-        meta.set_xalign(0.0);
-        meta.add_css_class("dim-label");
-        // Surface the underlying commit id only as a tooltip so users who
-        // want it (debugging, scripting) can still find it without it
-        // cluttering the row.
-        meta.set_tooltip_text(Some(&change.short_id));
-
-        content.append(&title);
-        content.append(&meta);
-        row.append(&icon);
-        row.append(&content);
-
-        let commit_id = change.id.clone();
-        let is_pushed = change.is_pushed;
-        let this_weak = self.downgrade();
-        let gesture = gtk::GestureClick::new();
-        gesture.set_button(gdk::BUTTON_SECONDARY);
-        gesture.connect_pressed(move |gesture, _, x, y| {
-            let Some(this) = this_weak.upgrade() else {
-                return;
-            };
-            let Some(widget) = gesture.widget() else {
-                return;
-            };
-
-            let popover = gtk::Popover::new();
-            popover.set_parent(&widget);
-            popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
-
-            let actions = gtk::Box::new(gtk::Orientation::Vertical, 6);
-            actions.set_margin_top(6);
-            actions.set_margin_bottom(6);
-            actions.set_margin_start(6);
-            actions.set_margin_end(6);
-
-            let undo_button = gtk::Button::with_label("Undo this change");
-            let rollback_button = gtk::Button::with_label("Discard later changes");
-            rollback_button.add_css_class("destructive-action");
-            let push_button = (!is_pushed).then(|| gtk::Button::with_label("Sync to remote"));
-
-            let undo_commit_id = commit_id.clone();
-            let rollback_commit_id = commit_id.clone();
-            undo_button.connect_clicked(glib::clone!(
-                #[weak]
-                popover,
-                #[weak(rename_to = obj)]
-                this,
-                move |_| {
-                    popover.popdown();
-                    obj.emit_by_name::<()>("revert-change-requested", &[&undo_commit_id]);
-                }
-            ));
-            rollback_button.connect_clicked(glib::clone!(
-                #[weak]
-                popover,
-                #[weak(rename_to = obj)]
-                this,
-                move |_| {
-                    popover.popdown();
-                    obj.emit_by_name::<()>("rollback-change-requested", &[&rollback_commit_id]);
-                }
-            ));
-            if let Some(push_button) = push_button {
-                push_button.connect_clicked(glib::clone!(
-                    #[weak]
-                    popover,
-                    #[weak(rename_to = obj)]
-                    this,
-                    move |_| {
-                        popover.popdown();
-                        obj.emit_by_name::<()>("push-requested", &[]);
-                    }
-                ));
-                actions.append(&push_button);
-            }
-
-            actions.append(&undo_button);
-            actions.append(&rollback_button);
-            popover.set_child(Some(&actions));
-            popover.popup();
-        });
-        row.add_controller(gesture);
-
-        row
     }
 
     fn should_request_more(&self, adjustment: &gtk::Adjustment) -> bool {

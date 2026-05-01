@@ -1,6 +1,7 @@
-use std::cell::Cell;
+use std::cell::{Cell, OnceCell};
 
 use adw::subclass::prelude::*;
+use gtk::gio;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::{
@@ -18,7 +19,12 @@ pub struct ChangesView {
     pub changes_scrolled_window: TemplateChild<gtk::ScrolledWindow>,
 
     #[template_child]
-    pub changes_box: TemplateChild<gtk::Box>,
+    pub changes_list: TemplateChild<gtk::ListView>,
+
+    /// Backing store for the ListView. Holds [`super::ChangeItem`] objects
+    /// so the SignalListItemFactory recycles row widgets instead of
+    /// instantiating one widget per commit.
+    pub model: OnceCell<gio::ListStore>,
 
     pub is_loading_more: Cell<bool>,
     pub has_more_changes: Cell<bool>,

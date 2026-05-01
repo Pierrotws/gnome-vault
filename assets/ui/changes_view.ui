@@ -33,10 +33,10 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
         <property name="vexpand">true</property>
         <property name="hexpand">true</property>
         <property name="child">
-          <object class="GtkBox" id="changes_box">
-            <property name="orientation">1</property>
-            <property name="spacing">6</property>
-            <property name="valign">1</property>
+          <object class="GtkListView" id="changes_list">
+            <property name="single-click-activate">false</property>
+            <property name="show-separators">true</property>
+            <property name="css-classes">navigation-sidebar</property>
           </object>
         </property>
       </object>
