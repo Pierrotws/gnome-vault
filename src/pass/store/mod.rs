@@ -114,11 +114,22 @@ pub fn setup_vault(setup: &VaultSetup) -> Result<(), StoreError> {
     // stale id would only fail on the *first encrypt* — by which point
     // we've already committed the init and the user has to delete the
     // half-set-up vault by hand.
+    //
+    // `available_recipients` populates `candidate.id` via
+    // `key.fingerprint().or_else(key.id())`, so we may have the full
+    // fingerprint (40 hex) even when the user pasted a short/long key
+    // id (8/16 hex). Match suffix as well as full equality so a hand-
+    // edited GSettings key like `1A2B3C4D` resolves against the same
+    // key its fingerprint would. Comparison is case-insensitive
+    // because gpg accepts mixed case in hex ids.
     let recipients = pgp::available_recipients()?;
-    if !recipients
-        .iter()
-        .any(|candidate| candidate.id == recipient)
-    {
+    let recipient_matches = |candidate: &pgp::GpgRecipient| {
+        candidate.id.eq_ignore_ascii_case(recipient)
+            || (recipient.len() < candidate.id.len()
+                && candidate.id[candidate.id.len() - recipient.len()..]
+                    .eq_ignore_ascii_case(recipient))
+    };
+    if !recipients.iter().any(recipient_matches) {
         return Err(StoreError::InvalidRecipient);
     }
 
