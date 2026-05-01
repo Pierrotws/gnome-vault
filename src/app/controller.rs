@@ -97,9 +97,18 @@ impl AppController {
         self.branch.as_deref()
     }
 
-    /// Sets the configured branch. An empty string is treated as "no override".
+    /// Sets the configured branch. An empty (or all-whitespace) string is
+    /// treated as "no override". The stored value is trimmed so the getter
+    /// returns the same canonical form set_branch saw.
     pub fn set_branch(&mut self, branch: Option<String>) {
-        self.branch = branch.filter(|b| !b.trim().is_empty());
+        self.branch = branch.and_then(|b| {
+            let trimmed = b.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        });
     }
 
     /// Initializes a new password-store vault and reloads application state.
