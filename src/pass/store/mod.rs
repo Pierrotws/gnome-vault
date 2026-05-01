@@ -365,11 +365,11 @@ fn write_entry_data(
     // If even the restore fails we surface the original error and log; the
     // user can recover via git history.
     if let Err(err) = git::add(&store_dir, &output_path) {
-        restore_previous(&output_path, previous.as_deref());
+        restore_previous(&store_dir, &output_path, previous.as_deref());
         return Err(StoreError::Git(err));
     }
     if let Err(err) = git::commit(&store_dir, message) {
-        restore_previous(&output_path, previous.as_deref());
+        restore_previous(&store_dir, &output_path, previous.as_deref());
         return Err(StoreError::Git(err));
     }
     if autopush {
@@ -408,14 +408,31 @@ fn write_atomically(tmp_path: &Path, final_path: &Path, bytes: &[u8]) -> io::Res
 /// failure. If `previous` is `None` the file did not exist before, so we
 /// remove the new one. Failures here are logged and swallowed: the caller
 /// will surface the original error.
-fn restore_previous(output_path: &Path, previous: Option<&[u8]>) {
-    let result = match previous {
+///
+/// After restoring the worktree we also bring the index back in sync so a
+/// `git::add` that partially succeeded — or a `git::commit` that ran after
+/// a successful add — doesn't leave the index pointing at the new bytes
+/// while the worktree holds the previous ones.
+fn restore_previous(store_dir: &Path, output_path: &Path, previous: Option<&[u8]>) {
+    let restore_result = match previous {
         Some(bytes) => fs::write(output_path, bytes),
         None => fs::remove_file(output_path),
     };
-    if let Err(err) = result {
+    if let Err(err) = restore_result {
         log::warn!(
             "failed to restore previous entry at {}: {err}",
+            output_path.display()
+        );
+        return;
+    }
+
+    let index_result = match previous {
+        Some(_) => git::add(store_dir, output_path),
+        None => git::remove(store_dir, output_path),
+    };
+    if let Err(err) = index_result {
+        log::warn!(
+            "restored entry at {} but failed to re-stage the index: {err}",
             output_path.display()
         );
     }
@@ -665,17 +682,19 @@ mod tests {
     fn restore_previous_writes_back_or_removes() {
         // With Some(prev), restore_previous puts the bytes back. With None,
         // it deletes the post-rename file. This is the building block of the
-        // rollback-on-error path in write_entry_data.
+        // rollback-on-error path in write_entry_data. The index re-stage
+        // step in restore_previous fails-soft (the temp dir isn't a git
+        // repo) — it logs and swallows, which is the documented contract.
         let dir = temp_dir("restore-previous");
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("entry.gpg");
 
         fs::write(&path, b"new").unwrap();
-        restore_previous(&path, Some(b"old"));
+        restore_previous(&dir, &path, Some(b"old"));
         assert_eq!(fs::read(&path).unwrap(), b"old");
 
         fs::write(&path, b"new").unwrap();
-        restore_previous(&path, None);
+        restore_previous(&dir, &path, None);
         assert!(
             !path.exists(),
             "no-previous rollback should remove the file"
