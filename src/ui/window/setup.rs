@@ -1,13 +1,14 @@
 //! Vault setup wizard: GSettings → env propagation, recipient lookup, and
 //! the first-run "create a vault here" form.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 
+use crate::app::app_error::AppError;
 use crate::app::controller::AppController;
-use crate::pass::store::VaultSetup;
+use crate::pass::store::{StoreError, VaultSetup};
 use crate::ui::vault_view::{build_tree_factory, TreeViewSize};
 
 use super::{MainWindow, SETUP_PROVIDER_NONE};
@@ -157,18 +158,9 @@ impl MainWindow {
 
         match setup_result {
             Ok(()) => {
-                if self.settings_has_key("store-dir") {
-                    if let Err(err) = self
-                        .settings()
-                        .set_string("store-dir", &store_dir.to_string_lossy())
-                    {
-                        self.show_error_dialog(&err.to_string());
-                        return;
-                    }
-                } else {
-                    log::warn!(
-                        "GSettings schema is missing store-dir; vault path was not persisted"
-                    );
+                if let Err(err) = self.persist_store_dir_setting(&store_dir) {
+                    self.show_error_dialog(&err);
+                    return;
                 }
                 self.rebuild_vault_tree();
                 if let Err(err) = self.reload_changes_view() {
@@ -180,8 +172,38 @@ impl MainWindow {
                 self.show_app_view();
                 self.start_autoload_if_enabled();
             }
+            // The on-disk vault was created successfully but the running
+            // process can no longer retarget PASSWORD_STORE_DIR. Persist
+            // the new path to GSettings so the next launch loads it, and
+            // tell the user to restart. We deliberately stay on the
+            // setup view — switching to the app view would show the
+            // *previous* vault's tree, which would confuse the user
+            // about whether the wizard succeeded.
+            Err(AppError::Save(StoreError::RestartRequired)) => {
+                if let Err(err) = self.persist_store_dir_setting(&store_dir) {
+                    self.show_error_dialog(&err);
+                    return;
+                }
+                self.show_error_dialog(&StoreError::RestartRequired.to_string());
+            }
             Err(err) => self.show_error_dialog(&err.to_string()),
         }
+    }
+
+    /// Writes the chosen vault path to GSettings so the next launch
+    /// resolves to it. Returns the user-facing error message on failure
+    /// (logs a warning if the schema is missing the key, in which case
+    /// persistence is silently skipped — older builds without the
+    /// schema definition still get a working vault for the current
+    /// session).
+    fn persist_store_dir_setting(&self, store_dir: &Path) -> Result<(), String> {
+        if !self.settings_has_key("store-dir") {
+            log::warn!("GSettings schema is missing store-dir; vault path was not persisted");
+            return Ok(());
+        }
+        self.settings()
+            .set_string("store-dir", &store_dir.to_string_lossy())
+            .map_err(|err| err.to_string())
     }
 
     pub(super) fn setup_recipient_model(&self) {

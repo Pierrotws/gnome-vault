@@ -110,9 +110,23 @@ impl AppController {
     /// it fails, the user is left looking at the previous (still-on-disk)
     /// vault with their cache intact, instead of a blank window with no
     /// path back.
+    ///
+    /// Collision case: if the startup `apply_store_dir_setting` already
+    /// burned `set_password_store_dir_once`'s `OnceLock` with a
+    /// *different* path (e.g. GSettings pointed at /a, no vault there,
+    /// user typed /b in the wizard), the on-disk vault is created at
+    /// `setup.store_dir` but the env var still points at the previously
+    /// pinned path. We can't safely re-pin (env::set_var racing
+    /// concurrent env::var on glibc is UB), so we surface
+    /// `StoreError::RestartRequired` and let the wizard persist the new
+    /// path to GSettings + prompt the user to restart.
     pub fn setup_vault(&mut self, setup: &VaultSetup) -> Result<(), AppError> {
         pass::store::setup_vault(setup)?;
-        pass::store::set_password_store_dir_once(&setup.store_dir);
+        if !pass::store::set_password_store_dir_once(&setup.store_dir)
+            && pass::store::password_store_dir() != setup.store_dir
+        {
+            return Err(AppError::Save(pass::store::StoreError::RestartRequired));
+        }
         let tree = pass::store::load_password_store()?;
         self.state.clear_entry_cache();
         self.state.set_current_session(None);

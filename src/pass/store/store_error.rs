@@ -19,6 +19,14 @@ pub enum StoreError {
     /// "your change was saved locally but did not reach the remote" rather
     /// than implying the save itself failed.
     PushFailed(String),
+    /// The vault was created on disk at the requested path, but the
+    /// running process's `PASSWORD_STORE_DIR` is pinned (via the
+    /// startup `apply_store_dir_setting` path that burns
+    /// `set_password_store_dir_once`'s `OnceLock`) to a different
+    /// location. The new vault is therefore not reachable in this
+    /// session. The wizard handles this by persisting the new path
+    /// to GSettings and asking the user to restart.
+    RestartRequired,
 }
 
 // `Display` produces the user-facing message and intentionally avoids
@@ -44,6 +52,9 @@ impl std::fmt::Display for StoreError {
             StoreError::PushFailed(_) => {
                 f.write_str("Saved locally but failed to push to remote")
             }
+            StoreError::RestartRequired => {
+                f.write_str("Vault created. Restart the app to load it from the new location.")
+            }
         }
     }
 }
@@ -60,7 +71,8 @@ impl std::error::Error for StoreError {
             | StoreError::InvalidRecipient
             | StoreError::InvalidFolderPath(_)
             | StoreError::DestinationExists(_)
-            | StoreError::PushFailed(_) => None,
+            | StoreError::PushFailed(_)
+            | StoreError::RestartRequired => None,
         }
     }
 }
