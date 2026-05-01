@@ -12,7 +12,11 @@ pub enum CacheWarmupMessage {
     /// are themselves the secret labels, and the receive site logs to
     /// stderr/journalctl. The user can re-attempt by opening the entry
     /// directly, where the error surfaces in the UI.
-    Failed(usize, String),
+    ///
+    /// Named fields to match `GroupPreviewMessage::Failed`'s shape; both
+    /// payloads carry the same (row index, redacted error) and the
+    /// shared shape lets future code parameterize over them.
+    Failed { index: usize, error: String },
     Finished,
 }
 
@@ -33,7 +37,10 @@ pub fn load_entries(
             }
             let message = match AppController::load_entry_for_cache(&node) {
                 Ok(entry) => CacheWarmupMessage::Loaded(node, entry),
-                Err(err) => CacheWarmupMessage::Failed(index, err.to_string()),
+                Err(err) => CacheWarmupMessage::Failed {
+                    index,
+                    error: err.to_string(),
+                },
             };
             if sender.send(message).is_err() {
                 return;

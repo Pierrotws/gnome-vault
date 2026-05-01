@@ -6,7 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **`cache_warmup` and `group_preview` message types disagree on shape.** `src/app/cache_warmup.rs:8-17` (`Failed(usize, String)`) vs `src/app/group_preview.rs:8-23` (`Failed { index, error }`). Both are the same protocol with same threading model. Unify on the named-fields shape, or extract a single `app::entry_loader` parameterized over per-row context.
 - **`PgpError::Utf8Error` carries a stale string literal.** `src/helpers/pgp.rs:80-84`. Every call site stuffs the same hardcoded text. Simplify to a unit variant.
 - **`percent_decode` mishandles a `%XX` escape at the very end of a query value.** `src/helpers/otp.rs:180`. The guard is `b'%' if index + 2 < bytes.len()`, which excludes the case where `%XX` IS the last three bytes (then `index + 2 == bytes.len() - 1`, the slice `value[index + 1..index + 3]` would still be in bounds). A trailing `%2F` falls into the byte branch and `%`, `2`, `F` survive into base32 decoding. Change the guard to `index + 3 <= bytes.len()`. Add a regression test for `secret=ABCD%2F` at the URL tail.
 - **`setup_vault` doesn't validate the recipient against `pgp::available_recipients()` output structure.** `src/pass/store/mod.rs:117-123`. The check `candidate.id == recipient` works against raw fingerprint/key-id strings, but `available_recipients` populates `id` via `key.fingerprint().or_else(key.id())` — fingerprint vs short-id can mismatch on the same key. Edge case for users who configure GSettings by hand.
