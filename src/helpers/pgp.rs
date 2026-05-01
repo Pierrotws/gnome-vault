@@ -106,6 +106,28 @@ pub fn encrypt(plaintext: &str, recipient_ids: &[String]) -> Result<Vec<u8>, Pgp
         .collect::<std::result::Result<Vec<Key>, gpgme::Error>>()
         .map_err(|e| PgpError::NoKeys(e.to_string()))?;
 
+    // Re-validate every fetched key. setup_vault checks at init time but
+    // a key can be revoked, expired, or otherwise marked bad after the
+    // vault was created. Without this, gpgme's behavior on a bad-but-
+    // resolvable key depends on the user's gpg.conf — and silently
+    // producing ciphertext encrypted to an unusable key is the worst
+    // failure mode (the entry only fails on next decrypt, when there
+    // is no path back).
+    if let Some(rejected) = keys
+        .iter()
+        .find(|key| !key.can_encrypt() || key.is_bad())
+    {
+        let id = rejected
+            .fingerprint()
+            .ok()
+            .or_else(|| rejected.id().ok())
+            .unwrap_or("<unknown>")
+            .to_string();
+        return Err(PgpError::NoKeys(format!(
+            "recipient key {id} is unusable (revoked, expired, or disabled)"
+        )));
+    }
+
     let key_refs = keys.iter().collect::<Vec<_>>();
 
     let mut ciphertext = Vec::new();
@@ -171,6 +193,11 @@ pub fn recipient_ids(store_dir: &Path) -> Result<Vec<String>, PgpError> {
 ///
 /// This mirrors `pass(1)` semantics, where each subdirectory may override its
 /// recipients by providing its own `.gpg-id` file.
+///
+/// `entry_parent` MUST be inside `store_root` — both are canonicalized
+/// before the containment check. If `entry_parent` resolves outside the
+/// store root, the function returns `PgpError::InvalidPath` rather than
+/// walking up to `/` and picking up a stray `.gpg-id` (e.g. `$HOME/.gpg-id`).
 pub fn recipient_ids_for(store_root: &Path, entry_parent: &Path) -> Result<Vec<String>, PgpError> {
     // Use canonicalized variants when both sides exist so that ancestor checks
     // are robust against path quirks (trailing components, `.` segments, etc.).
@@ -185,6 +212,16 @@ pub fn recipient_ids_for(store_root: &Path, entry_parent: &Path) -> Result<Vec<S
     } else {
         entry_parent.to_path_buf()
     };
+
+    // Reject anything that doesn't sit under the store root. Without
+    // this, the upward walk below would eventually reach `/` and read
+    // any stray `.gpg-id` it finds (the user's $HOME, /etc, ...). The
+    // only current caller — write_entry_data — pre-validates via
+    // ensure_inside_store, but this helper is `pub` and the contract
+    // would be implicit.
+    if !start.starts_with(&canonical_root) && !start.starts_with(store_root) {
+        return Err(PgpError::InvalidPath(entry_parent.to_path_buf()));
+    }
 
     let mut current: Option<&Path> = Some(start.as_path());
     while let Some(dir) = current {
