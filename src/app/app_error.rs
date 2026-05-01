@@ -8,6 +8,14 @@ use crate::pass::store::StoreError;
 pub enum AppError {
     Io(io::Error),
     Save(StoreError),
+    /// The local commit succeeded but pushing to the remote failed.
+    ///
+    /// Lifted out of `Save(StoreError::PushFailed)` so callers can
+    /// branch on "saved locally, push failed" without re-introspecting
+    /// `StoreError`. The wrapped `String` is the redacted display
+    /// message from `StoreError`; do not re-render it through
+    /// `StoreError::Display` in callers.
+    PushFailed(String),
     NoEntrySelected,
     /// The current edit session does not satisfy the validation rules in
     /// [`EntrySession::is_valid`](crate::app::state::EntrySession::is_valid).
@@ -24,7 +32,12 @@ impl From<std::io::Error> for AppError {
 
 impl From<StoreError> for AppError {
     fn from(err: StoreError) -> Self {
-        AppError::Save(err)
+        match err {
+            // Promote PushFailed so the UI can show "saved locally, push
+            // failed" without pattern-matching back through StoreError.
+            StoreError::PushFailed(msg) => AppError::PushFailed(msg),
+            other => AppError::Save(other),
+        }
     }
 }
 
@@ -39,6 +52,9 @@ impl std::fmt::Display for AppError {
         match self {
             AppError::Io(err) => write!(f, "I/O error ({})", err.kind()),
             AppError::Save(err) => write!(f, "{err}"),
+            AppError::PushFailed(_) => {
+                f.write_str("Saved locally but failed to push to remote")
+            }
             AppError::NoEntrySelected => f.write_str("No entry selected"),
             AppError::InvalidEntry => f.write_str("Entry is not valid"),
         }
