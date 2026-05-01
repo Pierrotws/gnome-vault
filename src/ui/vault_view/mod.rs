@@ -233,14 +233,14 @@ impl VaultView {
         ancestors.reverse();
 
         for ancestor in &ancestors {
-            if let Some(row) = find_tree_row_by_path(&tree_model, ancestor) {
+            if let Some((_, row)) = find_tree_entry_by_path(&tree_model, ancestor) {
                 if !row.is_expanded() {
                     row.set_expanded(true);
                 }
             }
         }
 
-        let Some(position) = find_tree_position_by_path(&tree_model, target_path) else {
+        let Some((position, _)) = find_tree_entry_by_path(&tree_model, target_path) else {
             return false;
         };
         selection.set_selected(position);
@@ -248,25 +248,18 @@ impl VaultView {
     }
 }
 
-fn find_tree_row_by_path(model: &gtk::TreeListModel, target: &Path) -> Option<gtk::TreeListRow> {
+/// Linear search by node path. Returns the first `(position, row)` whose
+/// path equals `target`, or `None` if no row matches.
+fn find_tree_entry_by_path(
+    model: &gtk::TreeListModel,
+    target: &Path,
+) -> Option<(u32, gtk::TreeListRow)> {
     for index in 0..model.n_items() {
         let Some(row) = model.row(index) else {
             continue;
         };
         if tree_row_path_matches(&row, target) {
-            return Some(row);
-        }
-    }
-    None
-}
-
-fn find_tree_position_by_path(model: &gtk::TreeListModel, target: &Path) -> Option<u32> {
-    for index in 0..model.n_items() {
-        let Some(row) = model.row(index) else {
-            continue;
-        };
-        if tree_row_path_matches(&row, target) {
-            return Some(index);
+            return Some((index, row));
         }
     }
     None
