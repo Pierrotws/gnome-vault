@@ -6,8 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Important
 
-**New-entry dialog accepts unsanitized folder text.** `src/ui/window/new_entry_dialog.rs:91-96`. `PathBuf::from(folder_row.text().trim())` is forwarded straight to the controller; absolute paths and `..` segments rely on `pass::store::validate_folder_path` to reject. That works today, but the dialog could pre-validate and surface a friendlier message before submit. Also the entry name is passed un-trimmed — `create_button` is gated by trimmed-emptiness but the actual create takes the raw `text()`.
-
 ## Minor
 
 - **Best-effort cleanup of the local backup ref.** `src/helpers/git.rs:377-382`. When the remote rejects the rollback backup push, the local backup ref deletion is `let _ = …`. A failure leaves a stale `refs/heads/reset/backup/...` that the next rollback's random-suffix path probably won't collide with, but the silent swallow makes diagnosis hard. Log on failure and surface that the local ref persisted.

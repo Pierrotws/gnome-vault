@@ -3,7 +3,7 @@
 //! Layout lives in `assets/ui/new_entry_dialog.blp`; this module wires the
 //! signals and the create-entry flow.
 
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -51,13 +51,23 @@ impl MainWindow {
         dialog.set_transient_for(Some(self));
         folder_row.set_text(folder_path.as_deref().unwrap_or(""));
 
-        name_row.connect_changed(glib::clone!(
+        let refresh_create_button = glib::clone!(
             #[weak]
             create_button,
-            move |row| {
-                create_button.set_sensitive(!row.text().trim().is_empty());
+            #[weak]
+            name_row,
+            #[weak]
+            folder_row,
+            move || {
+                let name_ok = !name_row.text().trim().is_empty();
+                let folder_ok = is_valid_folder_input(folder_row.text().trim());
+                create_button.set_sensitive(name_ok && folder_ok);
             }
-        ));
+        );
+        let refresh_for_name = refresh_create_button.clone();
+        name_row.connect_changed(move |_| refresh_for_name());
+        let refresh_for_folder = refresh_create_button.clone();
+        folder_row.connect_changed(move |_| refresh_for_folder());
 
         cancel_button.connect_clicked(glib::clone!(
             #[weak]
@@ -88,10 +98,16 @@ impl MainWindow {
                     password: EntryField::Password((*generated).clone()),
                     fields: Vec::new(),
                 };
+                // The store does its own validation, but feeding it the
+                // raw GString here would let surrounding whitespace land
+                // in `valid_entry_name` and trip a confusing
+                // "Invalid entry name" error for input that the
+                // create-button enable rule already accepted.
                 let folder_path = PathBuf::from(folder_row.text().trim());
+                let entry_name = name_row.text();
                 let result = window.controller().borrow_mut().create_entry(
                     &folder_path,
-                    &name_row.text(),
+                    entry_name.trim(),
                     entry,
                 );
 
@@ -115,4 +131,24 @@ impl MainWindow {
 
         dialog.present();
     }
+}
+
+/// Cheap pre-check that mirrors `pass::store::validate_folder_path`. The
+/// store re-validates on submit (and rejects symlink escapes via
+/// canonicalization, which we can't run from a UI thread without
+/// blocking on disk); this only catches the obvious "absolute path or
+/// `..` segment" inputs so the create button can be greyed out before
+/// the user clicks it. An empty string is accepted — that means
+/// "create at the vault root".
+fn is_valid_folder_input(text: &str) -> bool {
+    if text.is_empty() {
+        return true;
+    }
+    let path = Path::new(text);
+    if path.is_absolute() {
+        return false;
+    }
+    !path
+        .components()
+        .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
 }
