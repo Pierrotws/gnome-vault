@@ -128,18 +128,27 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
         let value = value.trim();
         if let Some(block) = parse_block_indicator(value) {
             index += 1;
-            let mut block_lines = Vec::new();
-
             // A block or sequence belongs to the preceding top-level key until
-            // the next non-indented mapping line starts.
+            // the next non-indented mapping line starts. Collect indent-stripped
+            // line slices into a Vec<&str> rather than a Vec<String>: the
+            // slices borrow from the input plaintext (which the caller already
+            // wraps in Zeroizing) so the body bytes are NOT copied into raw
+            // heap allocations that would survive past drop without zeroizing.
+            let mut block_lines: Vec<&str> = Vec::new();
             while index < lines.len() && !is_top_level_field(lines[index]) {
-                block_lines.push(strip_yaml_indent(lines[index]).to_string());
+                block_lines.push(strip_yaml_indent(lines[index]));
                 index += 1;
             }
 
-            let value = parse_block_scalar(block, &block_lines);
+            // parse_block_scalar returns Zeroizing<String>; mem::take moves
+            // the inner String into EntryField::Multiline (itself
+            // ZeroizeOnDrop), leaving the Zeroizing wrapper with an empty
+            // String to drop harmlessly. No clone, no transient unwrapped
+            // exposure.
+            let mut value = parse_block_scalar(block, &block_lines);
+            let owned = std::mem::take(&mut *value);
 
-            fields.push((key, EntryField::Multiline(value)));
+            fields.push((key, EntryField::Multiline(owned)));
             continue;
         }
 
@@ -284,11 +293,17 @@ fn parse_block_indicator(value: &str) -> Option<BlockIndicator> {
     Some(BlockIndicator { style, chomp })
 }
 
-fn parse_block_scalar(block: BlockIndicator, lines: &[String]) -> String {
-    let mut value = match block.style {
+/// Builds the body of a YAML block scalar from its indent-stripped
+/// lines. The returned `Zeroizing<String>` wipes the assembled body
+/// bytes when dropped — important because for entries whose `notes`
+/// or similar field carries an SSH key or TOTP recovery codes, those
+/// bytes would otherwise sit in raw heap allocations until the
+/// allocator reused the block.
+fn parse_block_scalar(block: BlockIndicator, lines: &[&str]) -> Zeroizing<String> {
+    let mut value = Zeroizing::new(match block.style {
         BlockStyle::Literal => literal_block_lines(lines),
         BlockStyle::Folded => fold_block_lines(lines),
-    };
+    });
 
     match block.chomp {
         Chomp::Strip => {
@@ -310,7 +325,7 @@ fn parse_block_scalar(block: BlockIndicator, lines: &[String]) -> String {
     value
 }
 
-fn literal_block_lines(lines: &[String]) -> String {
+fn literal_block_lines(lines: &[&str]) -> String {
     if lines.is_empty() {
         return String::new();
     }
@@ -320,7 +335,7 @@ fn literal_block_lines(lines: &[String]) -> String {
     out
 }
 
-fn fold_block_lines(lines: &[String]) -> String {
+fn fold_block_lines(lines: &[&str]) -> String {
     if lines.is_empty() {
         return String::new();
     }
