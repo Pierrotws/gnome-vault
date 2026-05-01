@@ -448,7 +448,13 @@ impl MainWindow {
                 let entry_view = window.imp().entry_view.clone();
                 let editing = !entry_view.is_editable_mode();
                 entry_view.set_editable_mode(editing);
-                window.set_edit_unlock_state(true, editing, false);
+                // Read the live dirty flag rather than hard-coding `false`.
+                // The lock button is gated insensitive while dirty so this
+                // path is only reachable when has_unsaved_changes() is
+                // false, but threading the snapshot through avoids lying
+                // to set_edit_unlock_state if that gating ever loosens.
+                let is_dirty = window.controller().borrow().has_unsaved_changes();
+                window.set_edit_unlock_state(true, editing, is_dirty);
             }
         ));
 
