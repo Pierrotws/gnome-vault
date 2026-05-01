@@ -4,7 +4,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Minor
 
-- **Best-effort cleanup of the local backup ref.** `src/helpers/git.rs:377-382`. When the remote rejects the rollback backup push, the local backup ref deletion is `let _ = …`. A failure leaves a stale `refs/heads/reset/backup/...` that the next rollback's random-suffix path probably won't collide with, but the silent swallow makes diagnosis hard. Log on failure and surface that the local ref persisted.
 - **`restore_previous` doesn't re-stage the restored content.** `src/pass/store/mod.rs:346-371`. After `git::add` fails, we put the previous bytes back on disk but don't re-`add` them; HEAD/index can drift from the working tree. Mirror the rename: re-`add` (or `index.remove_path` if the previous was `None`).
 - **`save_current_entry` re-borrows `current_session_mut` three times.** `src/app/controller.rs:348-409`. Each phase does `ok_or(NoEntrySelected)?`. If phase 1 has already proven the session existed, later phases should `expect(...)` so a real bug surfaces instead of being masked by a generic error.
 - **`delete_folder` evicts the entire cache.** `src/app/controller.rs:317`. Iterate keys and remove only those starting with the deleted prefix.

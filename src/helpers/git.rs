@@ -380,9 +380,18 @@ pub fn rollback_to_commit(project_dir: &Path, commit_id: &str) -> Result<String,
     if let Some(reason) = backup_status {
         // Roll back the local backup ref so we don't leak it on retry, then
         // surface a typed error so callers can present a recovery message.
-        let _ = repo
+        // If the local delete itself fails, log it: the next rollback's
+        // random-suffix backup name will most likely not collide, but a
+        // stale `refs/heads/reset/backup/...` accumulating silently is
+        // exactly the kind of state we want a hint about in the journal.
+        if let Err(err) = repo
             .find_reference(&backup_ref)
-            .and_then(|mut reference| reference.delete());
+            .and_then(|mut reference| reference.delete())
+        {
+            log::warn!(
+                "rollback aborted ({reason}); failed to delete local backup ref {backup_ref}: {err}"
+            );
+        }
         return Err(GitError::BackupRejected(reason));
     }
 
