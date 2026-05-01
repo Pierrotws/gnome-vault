@@ -128,20 +128,30 @@ impl MainWindow {
         // user never sees a blank-subtitle flicker for entries autoload (or
         // a recent save) has already populated. Only the cache misses are
         // dispatched to the decrypt worker.
+        //
+        // Snapshot subtitles while the controller borrow is live, then drop
+        // the borrow before driving setters: `update_entry_subtitle` fires
+        // `model.items_changed`, and emitting list-model signals while a
+        // controller borrow is held risks re-entrant `borrow_mut` panics if
+        // any future listener decides to call back into the controller.
         let mut to_load: Vec<(usize, PassNode)> = Vec::new();
+        let mut cache_hits: Vec<(usize, PassNode, Option<String>)> = Vec::new();
         {
             let controller = self.controller();
             let controller = controller.borrow();
             for (index, node) in entries.iter().enumerate() {
                 if let Some(cached) = controller.state().cached_entry(&node.path) {
                     let subtitle = entry_preview::subtitle(cached);
-                    self.imp()
-                        .group_view
-                        .update_entry_subtitle(index, node, subtitle.as_deref());
+                    cache_hits.push((index, node.clone(), subtitle));
                 } else {
                     to_load.push((index, node.clone()));
                 }
             }
+        }
+        for (index, node, subtitle) in &cache_hits {
+            self.imp()
+                .group_view
+                .update_entry_subtitle(*index, node, subtitle.as_deref());
         }
         if to_load.is_empty() {
             return;
