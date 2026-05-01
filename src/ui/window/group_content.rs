@@ -151,50 +151,60 @@ impl MainWindow {
         *self.imp().group_preview_cancel.borrow_mut() = Some(Arc::clone(&cancel));
         let receiver = group_preview::load_group_previews(to_load, Arc::clone(&cancel));
 
-        let window = self.clone();
-        glib::timeout_add_local(Duration::from_millis(50), move || {
-            if window.imp().group_preview_generation.get() != generation {
-                cancel.store(true, Ordering::Relaxed);
-                return glib::ControlFlow::Break;
-            }
+        glib::timeout_add_local(
+            Duration::from_millis(50),
+            glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                #[upgrade_or]
+                glib::ControlFlow::Break,
+                move || {
+                    if window.imp().group_preview_generation.get() != generation {
+                        cancel.store(true, Ordering::Relaxed);
+                        return glib::ControlFlow::Break;
+                    }
 
-            for _ in 0..16 {
-                match receiver.try_recv() {
-                    Ok(GroupPreviewMessage::Loaded { index, node, entry }) => {
-                        let subtitle = entry_preview::subtitle(&entry);
-                        window
-                            .controller()
-                            .borrow_mut()
-                            .cache_loaded_entry(&node, entry);
-                        window.imp().group_view.update_entry_subtitle(
-                            index,
-                            &node,
-                            subtitle.as_deref(),
-                        );
+                    for _ in 0..16 {
+                        match receiver.try_recv() {
+                            Ok(GroupPreviewMessage::Loaded { index, node, entry }) => {
+                                let subtitle = entry_preview::subtitle(&entry);
+                                window
+                                    .controller()
+                                    .borrow_mut()
+                                    .cache_loaded_entry(&node, entry);
+                                window.imp().group_view.update_entry_subtitle(
+                                    index,
+                                    &node,
+                                    subtitle.as_deref(),
+                                );
+                            }
+                            Ok(GroupPreviewMessage::Failed { index, error }) => {
+                                // The node path is deliberately not threaded
+                                // through: it is itself the secret label and
+                                // this log can land in journalctl.
+                                log::warn!(
+                                    "Failed to load entry preview at row {index}: {error}"
+                                );
+                            }
+                            Ok(GroupPreviewMessage::Finished) => {
+                                // Generation already matched at the top of this
+                                // tick, so the imp cell still holds our flag —
+                                // clear it now that the worker is done.
+                                window.imp().group_preview_cancel.borrow_mut().take();
+                                return glib::ControlFlow::Break;
+                            }
+                            Err(mpsc::TryRecvError::Empty) => break,
+                            Err(mpsc::TryRecvError::Disconnected) => {
+                                window.imp().group_preview_cancel.borrow_mut().take();
+                                return glib::ControlFlow::Break;
+                            }
+                        }
                     }
-                    Ok(GroupPreviewMessage::Failed { index, error }) => {
-                        // The node path is deliberately not threaded
-                        // through: it is itself the secret label and
-                        // this log can land in journalctl.
-                        log::warn!("Failed to load entry preview at row {index}: {error}");
-                    }
-                    Ok(GroupPreviewMessage::Finished) => {
-                        // Generation already matched at the top of this
-                        // tick, so the imp cell still holds our flag —
-                        // clear it now that the worker is done.
-                        window.imp().group_preview_cancel.borrow_mut().take();
-                        return glib::ControlFlow::Break;
-                    }
-                    Err(mpsc::TryRecvError::Empty) => break,
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        window.imp().group_preview_cancel.borrow_mut().take();
-                        return glib::ControlFlow::Break;
-                    }
+
+                    glib::ControlFlow::Continue
                 }
-            }
-
-            glib::ControlFlow::Continue
-        });
+            ),
+        );
     }
 }
 

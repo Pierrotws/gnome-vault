@@ -46,69 +46,77 @@ impl MainWindow {
         *imp.autoload_cancel.borrow_mut() = Some(Arc::clone(&cancel));
         let receiver = cache_warmup::load_entries(nodes, Arc::clone(&cancel));
 
-        let window = self.clone();
-        glib::timeout_add_local(Duration::from_millis(100), move || {
-            // Honor cancellation set by stop_autoload_cache or by a
-            // start_autoload_cache that replaced us; the worker thread
-            // checks the same flag, so we usually see Finished shortly
-            // after, but break early to free the timer.
-            if cancel.load(Ordering::Relaxed) {
-                clear_if_still_ours(&window, &cancel);
-                return glib::ControlFlow::Break;
-            }
-            let mut finished = false;
+        glib::timeout_add_local(
+            Duration::from_millis(100),
+            glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                #[upgrade_or]
+                glib::ControlFlow::Break,
+                move || {
+                    // Honor cancellation set by stop_autoload_cache or by a
+                    // start_autoload_cache that replaced us; the worker thread
+                    // checks the same flag, so we usually see Finished shortly
+                    // after, but break early to free the timer.
+                    if cancel.load(Ordering::Relaxed) {
+                        clear_if_still_ours(&window, &cancel);
+                        return glib::ControlFlow::Break;
+                    }
+                    let mut finished = false;
 
-            for _ in 0..32 {
-                match receiver.try_recv() {
-                    Ok(CacheWarmupMessage::Loaded(node, entry)) => {
-                        window
-                            .controller()
-                            .borrow_mut()
-                            .cache_loaded_entry(&node, entry);
+                    for _ in 0..32 {
+                        match receiver.try_recv() {
+                            Ok(CacheWarmupMessage::Loaded(node, entry)) => {
+                                window
+                                    .controller()
+                                    .borrow_mut()
+                                    .cache_loaded_entry(&node, entry);
+                            }
+                            Ok(CacheWarmupMessage::Failed(index, err)) => {
+                                // The path is deliberately not threaded through:
+                                // pass-store paths *are* the secret labels and
+                                // this log can land in journalctl. The opaque
+                                // index is enough to count failures.
+                                log::warn!("Failed to autoload entry #{index}: {err}");
+                            }
+                            Ok(CacheWarmupMessage::Finished) => {
+                                finished = true;
+                                break;
+                            }
+                            Err(mpsc::TryRecvError::Empty) => break,
+                            Err(mpsc::TryRecvError::Disconnected) => {
+                                finished = true;
+                                break;
+                            }
+                        }
                     }
-                    Ok(CacheWarmupMessage::Failed(index, err)) => {
-                        // The path is deliberately not threaded through:
-                        // pass-store paths *are* the secret labels and
-                        // this log can land in journalctl. The opaque
-                        // index is enough to count failures.
-                        log::warn!("Failed to autoload entry #{index}: {err}");
-                    }
-                    Ok(CacheWarmupMessage::Finished) => {
-                        finished = true;
-                        break;
-                    }
-                    Err(mpsc::TryRecvError::Empty) => break,
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        finished = true;
-                        break;
+
+                    // Tree/right-pane refresh is deferred to autoload completion.
+                    // Refreshing every tick (100 ms) tore down the search-results
+                    // rows mid-click; the user could not reliably select an entry.
+                    // While autoload runs, the search the user typed reflects
+                    // whatever is in cache so far; new field-content matches will
+                    // appear when they keep typing (each keystroke rebuilds) or
+                    // when autoload finishes.
+                    if finished {
+                        if clear_if_still_ours(&window, &cancel)
+                            && !window
+                                .imp()
+                                .vault_view
+                                .search_entry()
+                                .text()
+                                .trim()
+                                .is_empty()
+                        {
+                            window.rebuild_vault_tree();
+                        }
+                        glib::ControlFlow::Break
+                    } else {
+                        glib::ControlFlow::Continue
                     }
                 }
-            }
-
-            // Tree/right-pane refresh is deferred to autoload completion.
-            // Refreshing every tick (100 ms) tore down the search-results
-            // rows mid-click; the user could not reliably select an entry.
-            // While autoload runs, the search the user typed reflects
-            // whatever is in cache so far; new field-content matches will
-            // appear when they keep typing (each keystroke rebuilds) or
-            // when autoload finishes.
-            if finished {
-                if clear_if_still_ours(&window, &cancel)
-                    && !window
-                        .imp()
-                        .vault_view
-                        .search_entry()
-                        .text()
-                        .trim()
-                        .is_empty()
-                {
-                    window.rebuild_vault_tree();
-                }
-                glib::ControlFlow::Break
-            } else {
-                glib::ControlFlow::Continue
-            }
-        });
+            ),
+        );
     }
 
     /// Signals the in-flight autoload worker (if any) to stop. The

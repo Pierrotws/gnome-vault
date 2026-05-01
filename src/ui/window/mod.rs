@@ -83,42 +83,45 @@ impl MainWindow {
     pub fn setup_callbacks(&self) {
         let imp = self.imp();
 
-        {
-            let window = self.clone();
-
-            imp.new_entry_button.connect_clicked(move |_| {
+        imp.new_entry_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 window.show_new_entry_dialog(None);
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.preferences_button.connect_clicked(move |_| {
+        imp.preferences_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 window.show_preferences_dialog();
-            });
-        }
+            }
+        ));
 
         {
             // set_position re-emits notify::position, which re-enters this
             // handler. Without blocking, the only thing preventing
             // re-entry is the bounds check below — fragile. Stash the
             // handler id and block it across the corrective set_position.
-            let window = self.clone();
             let handler_id: Rc<RefCell<Option<glib::SignalHandlerId>>> =
                 Rc::new(RefCell::new(None));
             let handler_id_inner = handler_id.clone();
-            let id = imp.main_paned.connect_position_notify(move |paned| {
-                if window.show_group_view_enabled() && paned.position() < GROUP_TREE_WIDTH {
-                    if let Some(id) = handler_id_inner.borrow().as_ref() {
-                        paned.block_signal(id);
-                        paned.set_position(GROUP_TREE_WIDTH);
-                        paned.unblock_signal(id);
-                    } else {
-                        paned.set_position(GROUP_TREE_WIDTH);
+            let id = imp.main_paned.connect_position_notify(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |paned| {
+                    if window.show_group_view_enabled() && paned.position() < GROUP_TREE_WIDTH {
+                        if let Some(id) = handler_id_inner.borrow().as_ref() {
+                            paned.block_signal(id);
+                            paned.set_position(GROUP_TREE_WIDTH);
+                            paned.unblock_signal(id);
+                        } else {
+                            paned.set_position(GROUP_TREE_WIDTH);
+                        }
                     }
                 }
-            });
+            ));
             *handler_id.borrow_mut() = Some(id);
         }
 
@@ -140,56 +143,56 @@ impl MainWindow {
             *handler_id.borrow_mut() = Some(id);
         }
 
-        {
-            let window = self.clone();
-
-            imp.vault_view
-                .connect_create_entry_requested(move |_, folder_path| {
+        imp.vault_view
+            .connect_create_entry_requested(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |_, folder_path| {
                     window.show_new_entry_dialog(Some(folder_path));
-                });
-        }
+                }
+            ));
 
-        {
-            let window = self.clone();
-
-            imp.changes_view
-                .connect_revert_change_requested(move |_, commit_id| {
+        imp.changes_view
+            .connect_revert_change_requested(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |_, commit_id| {
                     window.confirm_revert_change(&commit_id);
-                });
-        }
+                }
+            ));
 
-        {
-            let window = self.clone();
-
-            imp.changes_view
-                .connect_rollback_change_requested(move |_, commit_id| {
+        imp.changes_view
+            .connect_rollback_change_requested(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |_, commit_id| {
                     window.confirm_rollback_change(&commit_id);
-                });
-        }
+                }
+            ));
 
-        {
-            let window = self.clone();
-
-            imp.changes_view.connect_push_requested(move |_| {
+        imp.changes_view.connect_push_requested(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 window.push_changes();
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.changes_view.connect_load_more_requested(move |_| {
+        imp.changes_view.connect_load_more_requested(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 if let Err(err) = window.load_more_changes() {
                     window.imp().changes_view.set_loading_more(false);
                     window.imp().entry_view.show_error(&err.to_string());
                 }
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.changes_button.connect_clicked(move |_| {
+        imp.changes_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 if window.controller().borrow().has_unsaved_changes() {
                     window
                         .imp()
@@ -202,14 +205,14 @@ impl MainWindow {
                     return;
                 }
                 window.show_changes_content();
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.vault_view
-                .connect_delete_entry_requested(move |_, entry_path, entry_name| {
+        imp.vault_view
+            .connect_delete_entry_requested(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |_, entry_path, entry_name| {
                     let node = PassNode {
                         name: entry_name,
                         path: PathBuf::from(entry_path),
@@ -217,14 +220,14 @@ impl MainWindow {
                         children: Vec::new(),
                     };
                     window.confirm_delete_entry(node);
-                });
-        }
+                }
+            ));
 
-        {
-            let window = self.clone();
-
-            imp.vault_view
-                .connect_delete_folder_requested(move |_, folder_path, folder_name| {
+        imp.vault_view
+            .connect_delete_folder_requested(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |_, folder_path, folder_name| {
                     let node = PassNode {
                         name: folder_name,
                         path: PathBuf::from(folder_path),
@@ -232,13 +235,13 @@ impl MainWindow {
                         children: Vec::new(),
                     };
                     window.confirm_delete_folder(node);
-                });
-        }
+                }
+            ));
 
-        {
-            let window = self.clone();
-
-            imp.vault_view.connect_entry_selected(move |nav| {
+        imp.vault_view.connect_entry_selected(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |nav| {
                 let Some(node) = nav.selected_node() else {
                     return;
                 };
@@ -255,13 +258,13 @@ impl MainWindow {
                 }
 
                 window.open_entry_node(node);
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.vault_view.connect_group_activated(move |nav| {
+        imp.vault_view.connect_group_activated(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |nav| {
                 if !window.show_group_view_enabled() {
                     return;
                 }
@@ -293,14 +296,14 @@ impl MainWindow {
                 }
 
                 window.show_group_content(&node);
-            });
-        }
+            }
+        ));
 
-        {
-            let controller = self.controller();
-            let window = self.clone();
-
-            imp.entry_view.connect_entry_changed(move |view| {
+        imp.entry_view.connect_entry_changed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |view| {
+                let controller = window.controller();
                 if controller.borrow().current_session().is_none() {
                     return;
                 }
@@ -328,13 +331,13 @@ impl MainWindow {
                     }
                     Err(err) => view.show_error(&err.to_string()),
                 }
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.group_view.connect_entry_activated(move |_, node| {
+        imp.group_view.connect_entry_activated(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_, node| {
                 let search_active = !window
                     .imp()
                     .vault_view
@@ -355,14 +358,14 @@ impl MainWindow {
                         window.imp().vault_view.select_node_by_path(&parent);
                     }
                 }
-            });
-        }
+            }
+        ));
 
-        {
-            let controller = self.controller();
-            let window = self.clone();
-
-            imp.entry_view.connect_save_requested(move |view| {
+        imp.entry_view.connect_save_requested(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |view| {
+                let controller = window.controller();
                 let result = controller.borrow_mut().save_current_entry();
 
                 match result {
@@ -390,23 +393,23 @@ impl MainWindow {
                     }
                     Err(err) => view.show_error(&err.to_string()),
                 }
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.entry_view.connect_delete_requested(move |_| {
+        imp.entry_view.connect_delete_requested(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 window.confirm_delete_current_entry();
-            });
-        }
+            }
+        ));
 
-        {
-            let controller = self.controller();
-            let entry_view = imp.entry_view.clone();
-            let window = self.clone();
-
-            imp.entry_view.connect_revert_requested(move |_| {
+        imp.entry_view.connect_revert_requested(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
+                let controller = window.controller();
+                let entry_view = window.imp().entry_view.clone();
                 let result = controller.borrow_mut().revert_current_entry();
 
                 match result {
@@ -426,69 +429,69 @@ impl MainWindow {
                     }
                     Err(err) => entry_view.show_error(&err.to_string()),
                 }
-            });
-        }
+            }
+        ));
 
-        {
-            let entry_view = imp.entry_view.clone();
-            let window = self.clone();
-
-            imp.lock_vault_button.connect_clicked(move |_| {
+        imp.lock_vault_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
+                let entry_view = window.imp().entry_view.clone();
                 let editing = !entry_view.is_editable_mode();
                 entry_view.set_editable_mode(editing);
                 window.set_edit_unlock_state(true, editing, false);
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.vault_view.connect_search_changed(move |_| {
+        imp.vault_view.connect_search_changed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 window.rebuild_vault_tree();
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.setup_path_row.connect_changed(move |_| {
+        imp.setup_path_row.connect_changed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 window.update_create_vault_button();
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.setup_recipient_row.connect_selected_notify(move |_| {
+        imp.setup_recipient_row.connect_selected_notify(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 window.update_create_vault_button();
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.setup_remote_row.connect_changed(move |_| {
+        imp.setup_remote_row.connect_changed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 window.update_create_vault_button();
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.setup_provider_row.connect_selected_notify(move |row| {
+        imp.setup_provider_row.connect_selected_notify(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |row| {
                 let sync_enabled = row.selected() != SETUP_PROVIDER_NONE;
                 window.imp().setup_remote_row.set_sensitive(sync_enabled);
                 window.update_create_vault_button();
-            });
-        }
+            }
+        ));
 
-        {
-            let window = self.clone();
-
-            imp.create_vault_button.connect_clicked(move |_| {
+        imp.create_vault_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
                 window.create_vault_from_setup();
-            });
-        }
+            }
+        ));
     }
 
     pub fn get_entry_view(&self) -> EntryView {

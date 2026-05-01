@@ -4,8 +4,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Important
 
-**Strong-self captures form a `MainWindow` ↔ template-child reference cycle.** `src/ui/window/mod.rs:87-509` (every `let window = self.clone();` in `setup_callbacks`), `src/ui/window/autoload.rs:42-43`, `src/ui/window/group_content.rs:154-155`. Each closure connected to a template child holds a strong `MainWindow` reference; the template child is itself owned by the window, so the cycle is `MainWindow → template_child → handler → MainWindow`. Today benign — the app holds a single `MainWindow` and disposes it at exit — but the `glib::clone!(#[weak(rename_to = window)] self, ...)` shape is already used in `preferences.rs` and `new_entry_dialog.rs`. Convert `setup_callbacks` and the two timers to weak captures so the window is safe to destroy independently of the app shell, and so a closed-but-not-disposed window with a still-running autoload tick can actually finish.
-
 ## Minor
 
 - **Setter holds an `AppController` immutable borrow across a `ListModel::items_changed` notification.** `src/ui/window/group_content.rs:131-145`. The cache-hit loop holds `controller.borrow()` for its entire duration and synchronously calls `update_entry_subtitle`, which fires `model.items_changed`. No current listener re-enters the controller, but the snapshot pattern used elsewhere is the safe shape: collect `(index, subtitle)` while the borrow is live, drop the borrow, then call setters.
