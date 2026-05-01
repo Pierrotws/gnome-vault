@@ -96,6 +96,11 @@ pub struct MainWindow {
     /// preferences can stop an in-flight cache warmup.
     pub autoload_cancel: RefCell<Option<Arc<AtomicBool>>>,
     pub group_preview_generation: Cell<u64>,
+    /// Shared with the in-flight group-preview worker. Navigating away
+    /// from a group (or starting a new preview load) sets the previous
+    /// flag so the worker stops decrypting the rest of the queue
+    /// instead of running to completion in the background.
+    pub group_preview_cancel: RefCell<Option<Arc<AtomicBool>>>,
     pub setup_recipients: RefCell<Vec<crate::pass::store::GpgRecipient>>,
 }
 

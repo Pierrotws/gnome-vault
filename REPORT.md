@@ -6,8 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Important
 
-**`group_preview` has no cancellation flag.** `src/app/group_preview.rs`. `cache_warmup::load_entries` honours an `Arc<AtomicBool>` cancel; `group_preview` only relies on a generation counter compared on the main loop, so a worker thread keeps decrypting after the user navigates away. For a 5-entry group it's harmless; for a 100-entry one it wastes GPGME calls and CPU. Mirror the autoload cancel pattern.
-
 **New-entry dialog accepts unsanitized folder text.** `src/ui/window/new_entry_dialog.rs:91-96`. `PathBuf::from(folder_row.text().trim())` is forwarded straight to the controller; absolute paths and `..` segments rely on `pass::store::validate_folder_path` to reject. That works today, but the dialog could pre-validate and surface a friendlier message before submit. Also the entry name is passed un-trimmed — `create_button` is gated by trimmed-emptiness but the actual create takes the raw `text()`.
 
 ## Minor
@@ -52,10 +50,4 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Suggested fix order
 
-1. The four **Critical** items — they're cheap to fix and silently leak.
-2. `AppError`'s Debug + the `Pgp` / `Git` Display redaction — pick a consistent policy.
-3. `state_mut` `cfg(test)` gate.
-4. `format_entry` password-slot constraint.
-5. `group_preview` cancellation flag.
-6. Branch-setting startup refresh.
-7. The Minor list in any order; most are <10-line changes.
+1. The Minor list in any order; most are <10-line changes.

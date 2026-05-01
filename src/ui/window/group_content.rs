@@ -1,5 +1,6 @@
 use std::path::PathBuf;
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
 use adw::{prelude::*, subclass::prelude::*};
@@ -71,9 +72,13 @@ impl MainWindow {
         imp.window_title.set_subtitle("Search");
         // Bump the preview generation so any in-flight subtitle load from a
         // previous (non-search) group view doesn't overwrite parent-path
-        // subtitles when its results trickle in.
+        // subtitles when its results trickle in. Also cancel its worker
+        // so it stops decrypting the rest of the queue in the background.
         let generation = self.imp().group_preview_generation.get().wrapping_add(1);
         self.imp().group_preview_generation.set(generation);
+        if let Some(previous) = self.imp().group_preview_cancel.borrow_mut().take() {
+            previous.store(true, Ordering::Relaxed);
+        }
     }
 
     fn root_group_node(&self) -> PassNode {
@@ -101,6 +106,13 @@ impl MainWindow {
     fn start_group_subtitle_load(&self, group: &PassNode) {
         let generation = self.imp().group_preview_generation.get().wrapping_add(1);
         self.imp().group_preview_generation.set(generation);
+        // Stop any in-flight worker from a previous group view. The
+        // generation bump above already detaches the previous timer
+        // from the channel, but the worker thread itself keeps
+        // decrypting until its queue empties without this.
+        if let Some(previous) = self.imp().group_preview_cancel.borrow_mut().take() {
+            previous.store(true, Ordering::Relaxed);
+        }
 
         let entries: Vec<PassNode> = group
             .children
@@ -135,11 +147,14 @@ impl MainWindow {
             return;
         }
 
-        let receiver = group_preview::load_group_previews(to_load);
+        let cancel = Arc::new(AtomicBool::new(false));
+        *self.imp().group_preview_cancel.borrow_mut() = Some(Arc::clone(&cancel));
+        let receiver = group_preview::load_group_previews(to_load, Arc::clone(&cancel));
 
         let window = self.clone();
         glib::timeout_add_local(Duration::from_millis(50), move || {
             if window.imp().group_preview_generation.get() != generation {
+                cancel.store(true, Ordering::Relaxed);
                 return glib::ControlFlow::Break;
             }
 
@@ -163,9 +178,18 @@ impl MainWindow {
                         // this log can land in journalctl.
                         log::warn!("Failed to load entry preview at row {index}: {error}");
                     }
-                    Ok(GroupPreviewMessage::Finished) => return glib::ControlFlow::Break,
+                    Ok(GroupPreviewMessage::Finished) => {
+                        // Generation already matched at the top of this
+                        // tick, so the imp cell still holds our flag —
+                        // clear it now that the worker is done.
+                        window.imp().group_preview_cancel.borrow_mut().take();
+                        return glib::ControlFlow::Break;
+                    }
                     Err(mpsc::TryRecvError::Empty) => break,
-                    Err(mpsc::TryRecvError::Disconnected) => return glib::ControlFlow::Break,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        window.imp().group_preview_cancel.borrow_mut().take();
+                        return glib::ControlFlow::Break;
+                    }
                 }
             }
 
