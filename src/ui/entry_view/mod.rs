@@ -264,7 +264,14 @@ impl EntryView {
         self.emit_by_name::<()>("entry-changed", &[]);
     }
 
-    pub fn show_error(&self, msg: &str) {
+    /// Pops an `adw::AlertDialog` with the supplied message, parented on
+    /// this `EntryView`. Despite the name's hint at an inline label, this
+    /// is the standard error-dialog helper for cases where the
+    /// `EntryView` is the nearest reachable widget host (i.e. an entry is
+    /// open or the entry pane is wired up). For early-startup paths
+    /// without an `EntryView` (e.g. the setup wizard), see
+    /// `MainWindow::show_error_dialog`.
+    pub fn show_error_dialog(&self, msg: &str) {
         let dialog = adw::AlertDialog::builder()
             .heading("Error")
             .body(msg)

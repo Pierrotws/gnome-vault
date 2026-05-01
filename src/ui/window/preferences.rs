@@ -63,12 +63,12 @@ impl MainWindow {
             move |row| {
                 let settings = window.settings();
                 if let Err(err) = settings.set_boolean("autopush", row.is_active()) {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                     return;
                 }
                 window.apply_autopush_setting();
                 if let Err(err) = window.reload_changes_view() {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                 }
             }
         ));
@@ -81,12 +81,12 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error("GSettings schema is missing autoload");
+                        .show_error_dialog("GSettings schema is missing autoload");
                     return;
                 }
                 let settings = window.settings();
                 if let Err(err) = settings.set_boolean("autoload", row.is_active()) {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                     return;
                 }
                 if row.is_active() {
@@ -105,12 +105,12 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error("GSettings schema is missing show-group-view");
+                        .show_error_dialog("GSettings schema is missing show-group-view");
                     return;
                 }
                 let settings = window.settings();
                 if let Err(err) = settings.set_boolean("show-group-view", row.is_active()) {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                     return;
                 }
                 window.update_selection_layout(true);
@@ -129,14 +129,14 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error("GSettings schema is missing interpret-multiline-as-markdown");
+                        .show_error_dialog("GSettings schema is missing interpret-multiline-as-markdown");
                     return;
                 }
                 let settings = window.settings();
                 if let Err(err) =
                     settings.set_boolean("interpret-multiline-as-markdown", row.is_active())
                 {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                 }
             }
         ));
@@ -149,7 +149,7 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error("GSettings schema is missing tree-view-size");
+                        .show_error_dialog("GSettings schema is missing tree-view-size");
                     return;
                 }
                 let nick = match row.selected() {
@@ -159,7 +159,7 @@ impl MainWindow {
                 };
                 let settings = window.settings();
                 if let Err(err) = settings.set_string("tree-view-size", nick) {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                     return;
                 }
                 window.apply_tree_view_size_setting();
@@ -174,13 +174,13 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error("GSettings schema is missing store-dir");
+                        .show_error_dialog("GSettings schema is missing store-dir");
                     return;
                 }
                 let value = row.text().trim().to_string();
                 let settings = window.settings();
                 if let Err(err) = settings.set_string("store-dir", &value) {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                     return;
                 }
                 // Update the env var so subsequent store ops resolve to the
@@ -191,7 +191,7 @@ impl MainWindow {
                 window
                     .imp()
                     .entry_view
-                    .show_error("Vault directory updated; restart the app to load it");
+                    .show_error_dialog("Vault directory updated; restart the app to load it");
             }
         ));
 
@@ -203,18 +203,18 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error("GSettings schema is missing branch");
+                        .show_error_dialog("GSettings schema is missing branch");
                     return;
                 }
                 let value = row.text().trim().to_string();
                 let settings = window.settings();
                 if let Err(err) = settings.set_string("branch", &value) {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                     return;
                 }
                 window.apply_branch_setting();
                 if let Err(err) = window.reload_changes_view() {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                 }
             }
         ));

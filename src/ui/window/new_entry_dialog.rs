@@ -19,7 +19,7 @@ impl MainWindow {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
-                .show_error("Save or cancel current changes before creating a new entry");
+                .show_error_dialog("Save or cancel current changes before creating a new entry");
             return;
         }
 
@@ -114,17 +114,17 @@ impl MainWindow {
                 match result {
                     Ok(entry_data) => {
                         if let Err(err) = window.reload_vault_tree() {
-                            entry_view.show_error(&err.to_string());
+                            entry_view.show_error_dialog(&err.to_string());
                         }
                         if let Err(err) = window.reload_changes_view() {
-                            entry_view.show_error(&err.to_string());
+                            entry_view.show_error_dialog(&err.to_string());
                         }
                         entry_view.set_entry_data(&entry_data);
                         window.show_entry_content();
                         window.set_edit_unlock_state(true, false, false);
                         dialog.close();
                     }
-                    Err(err) => entry_view.show_error(&err.to_string()),
+                    Err(err) => entry_view.show_error_dialog(&err.to_string()),
                 }
             }
         ));

@@ -184,7 +184,7 @@ impl MainWindow {
             move |_| {
                 if let Err(err) = window.load_more_changes() {
                     window.imp().changes_view.set_loading_more(false);
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                 }
             }
         ));
@@ -197,11 +197,11 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error("Save or cancel current changes before viewing changes");
+                        .show_error_dialog("Save or cancel current changes before viewing changes");
                     return;
                 }
                 if let Err(err) = window.reload_changes_view() {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                     return;
                 }
                 window.show_changes_content();
@@ -253,7 +253,7 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error("Save or cancel current changes before opening another entry");
+                        .show_error_dialog("Save or cancel current changes before opening another entry");
                     return;
                 }
 
@@ -277,7 +277,7 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error("Save or cancel current changes before selecting a group");
+                        .show_error_dialog("Save or cancel current changes before selecting a group");
                     return;
                 }
 
@@ -329,7 +329,7 @@ impl MainWindow {
                         view.set_saveable(is_valid);
                         window.set_edit_unlock_state(true, view.is_editable_mode(), is_dirty);
                     }
-                    Err(err) => view.show_error(&err.to_string()),
+                    Err(err) => view.show_error_dialog(&err.to_string()),
                 }
             }
         ));
@@ -391,16 +391,16 @@ impl MainWindow {
                         };
                         view.set_editable_mode(false);
                         if let Err(err) = window.reload_vault_tree() {
-                            view.show_error(&err.to_string());
+                            view.show_error_dialog(&err.to_string());
                         }
                         if let Err(err) = window.reload_changes_view() {
-                            view.show_error(&err.to_string());
+                            view.show_error_dialog(&err.to_string());
                         }
                         window.set_edit_unlock_state(true, false, false);
                         view.set_cancellable(is_dirty);
                         view.set_saveable(is_valid);
                     }
-                    Err(err) => view.show_error(&err.to_string()),
+                    Err(err) => view.show_error_dialog(&err.to_string()),
                 }
             }
         ));
@@ -436,7 +436,7 @@ impl MainWindow {
                         entry_view.set_cancellable(is_dirty);
                         entry_view.set_saveable(is_valid);
                     }
-                    Err(err) => entry_view.show_error(&err.to_string()),
+                    Err(err) => entry_view.show_error_dialog(&err.to_string()),
                 }
             }
         ));
@@ -534,7 +534,7 @@ impl MainWindow {
                 entry_view.set_cancellable(is_dirty);
                 entry_view.set_saveable(is_valid);
             }
-            Err(err) => entry_view.show_error(&err.to_string()),
+            Err(err) => entry_view.show_error_dialog(&err.to_string()),
         }
     }
 
@@ -542,7 +542,7 @@ impl MainWindow {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
-                .show_error("Save or cancel current changes before deleting an entry");
+                .show_error_dialog("Save or cancel current changes before deleting an entry");
             return;
         }
 
@@ -568,7 +568,7 @@ impl MainWindow {
         let deleted_current = match self.controller().borrow_mut().delete_entry(node) {
             Ok(deleted_current) => deleted_current,
             Err(err) => {
-                self.imp().entry_view.show_error(&err.to_string());
+                self.imp().entry_view.show_error_dialog(&err.to_string());
                 return;
             }
         };
@@ -579,10 +579,10 @@ impl MainWindow {
             self.set_edit_unlock_state(false, false, false);
         }
         if let Err(err) = self.reload_vault_tree() {
-            self.imp().entry_view.show_error(&err.to_string());
+            self.imp().entry_view.show_error_dialog(&err.to_string());
         }
         if let Err(err) = self.reload_changes_view() {
-            self.imp().entry_view.show_error(&err.to_string());
+            self.imp().entry_view.show_error_dialog(&err.to_string());
         }
     }
 
@@ -590,7 +590,7 @@ impl MainWindow {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
-                .show_error("Save or cancel current changes before deleting an entry");
+                .show_error_dialog("Save or cancel current changes before deleting an entry");
             return;
         }
 
@@ -630,15 +630,15 @@ impl MainWindow {
             Ok(_) => {
                 entry_view.display_empty();
                 if let Err(err) = self.reload_vault_tree() {
-                    entry_view.show_error(&err.to_string());
+                    entry_view.show_error_dialog(&err.to_string());
                 }
                 if let Err(err) = self.reload_changes_view() {
-                    entry_view.show_error(&err.to_string());
+                    entry_view.show_error_dialog(&err.to_string());
                 }
                 self.show_empty_content();
                 self.set_edit_unlock_state(false, false, false);
             }
-            Err(err) => entry_view.show_error(&err.to_string()),
+            Err(err) => entry_view.show_error_dialog(&err.to_string()),
         }
     }
 
@@ -646,7 +646,7 @@ impl MainWindow {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
-                .show_error("Save or cancel current changes before deleting a folder");
+                .show_error_dialog("Save or cancel current changes before deleting a folder");
             return;
         }
 
@@ -675,7 +675,7 @@ impl MainWindow {
         let closed_session = match self.controller().borrow_mut().delete_folder(node) {
             Ok(closed) => closed,
             Err(err) => {
-                self.imp().entry_view.show_error(&err.to_string());
+                self.imp().entry_view.show_error_dialog(&err.to_string());
                 return;
             }
         };
@@ -686,10 +686,10 @@ impl MainWindow {
             self.set_edit_unlock_state(false, false, false);
         }
         if let Err(err) = self.reload_vault_tree() {
-            self.imp().entry_view.show_error(&err.to_string());
+            self.imp().entry_view.show_error_dialog(&err.to_string());
         }
         if let Err(err) = self.reload_changes_view() {
-            self.imp().entry_view.show_error(&err.to_string());
+            self.imp().entry_view.show_error_dialog(&err.to_string());
         }
     }
 
@@ -697,7 +697,7 @@ impl MainWindow {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
-                .show_error("Save or cancel current changes before undoing a change");
+                .show_error_dialog("Save or cancel current changes before undoing a change");
             return;
         }
 
@@ -727,7 +727,7 @@ impl MainWindow {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
-                .show_error("Save or cancel current changes before undoing a change");
+                .show_error_dialog("Save or cancel current changes before undoing a change");
             return;
         }
 
@@ -743,13 +743,13 @@ impl MainWindow {
                         window
                             .imp()
                             .entry_view
-                            .show_error("Undo task panicked unexpectedly");
+                            .show_error_dialog("Undo task panicked unexpectedly");
                         return;
                     }
                 };
 
             if let Err(err) = result {
-                window.imp().entry_view.show_error(&err.to_string());
+                window.imp().entry_view.show_error_dialog(&err.to_string());
                 return;
             }
 
@@ -758,10 +758,10 @@ impl MainWindow {
             window.show_empty_content();
             window.set_edit_unlock_state(false, false, false);
             if let Err(err) = window.reload_vault_tree() {
-                window.imp().entry_view.show_error(&err.to_string());
+                window.imp().entry_view.show_error_dialog(&err.to_string());
             }
             if let Err(err) = window.reload_changes_view() {
-                window.imp().entry_view.show_error(&err.to_string());
+                window.imp().entry_view.show_error_dialog(&err.to_string());
             }
             // Re-warm the cache the user just lost: clear_loaded_entry_state
             // dropped every previously decrypted entry, so without this a
@@ -775,7 +775,7 @@ impl MainWindow {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
-                .show_error("Save or cancel current changes before discarding later changes");
+                .show_error_dialog("Save or cancel current changes before discarding later changes");
             return;
         }
 
@@ -814,7 +814,7 @@ impl MainWindow {
                         window
                             .imp()
                             .entry_view
-                            .show_error("Discard-changes task panicked unexpectedly");
+                            .show_error_dialog("Discard-changes task panicked unexpectedly");
                         return;
                     }
                 };
@@ -822,7 +822,7 @@ impl MainWindow {
             let backup_branch = match result {
                 Ok(b) => b,
                 Err(err) => {
-                    window.imp().entry_view.show_error(&err.to_string());
+                    window.imp().entry_view.show_error_dialog(&err.to_string());
                     return;
                 }
             };
@@ -832,10 +832,10 @@ impl MainWindow {
             window.show_empty_content();
             window.set_edit_unlock_state(false, false, false);
             if let Err(err) = window.reload_vault_tree() {
-                window.imp().entry_view.show_error(&err.to_string());
+                window.imp().entry_view.show_error_dialog(&err.to_string());
             }
             if let Err(err) = window.reload_changes_view() {
-                window.imp().entry_view.show_error(&err.to_string());
+                window.imp().entry_view.show_error_dialog(&err.to_string());
             }
             // Same rationale as revert_change: clear_loaded_entry_state
             // dropped every previously decrypted entry, so without this
@@ -1069,16 +1069,16 @@ impl MainWindow {
                         window
                             .imp()
                             .entry_view
-                            .show_error("Sync-to-remote task panicked unexpectedly");
+                            .show_error_dialog("Sync-to-remote task panicked unexpectedly");
                         return;
                     }
                 };
             if let Err(err) = result {
-                window.imp().entry_view.show_error(&err.to_string());
+                window.imp().entry_view.show_error_dialog(&err.to_string());
                 return;
             }
             if let Err(err) = window.reload_changes_view() {
-                window.imp().entry_view.show_error(&err.to_string());
+                window.imp().entry_view.show_error_dialog(&err.to_string());
             }
         });
     }
