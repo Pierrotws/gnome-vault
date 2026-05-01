@@ -55,20 +55,7 @@ impl MultilineFieldRow {
             }
         ));
 
-        imp.delete_button.connect_clicked(glib::clone!(
-            #[weak(rename_to = this)]
-            obj,
-            #[weak]
-            entry_view,
-            move |_| {
-                if let Some(list) = this.parent() {
-                    if let Ok(container) = list.downcast::<gtk::Box>() {
-                        container.remove(&this);
-                        entry_view.mark_changed();
-                    }
-                }
-            }
-        ));
+        super::wire_delete_button(&imp.delete_button, obj.upcast_ref(), entry_view);
 
         if settings_has_key(MARKDOWN_SETTING_KEY) {
             let settings = gio::Settings::new(crate::APP_ID);

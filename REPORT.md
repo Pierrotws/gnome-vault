@@ -12,7 +12,7 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 ## Minor
 
-- Field-row code duplication: identical 8-line `delete_button` boilerplate in 4 places; identical `set_entry_editable_mode`; identical `is_empty/key/set_key/drag_handle`. Extend the `EntryFieldRow` trait, or write a `field_row!` macro.
+- Field-row code duplication: `set_entry_editable_mode`, `is_empty`/`key`/`set_key`/`drag_handle`, and the per-row copy-button wiring still differ enough across the four custom rows that a single shared helper would be intrusive. (The 12-line `delete_button` boilerplate is now centralized in `fields::wire_delete_button`.)
 - Tests: save/delete/revert/rollback orchestration in `AppController` is still uncovered, pgp encrypt/decrypt round-trip is untested, the password generator has no statistical tests, and CRLF / non-UTF8 names are still uncovered. (BOM strip, path-traversal name validation, absolute / parent-dir folder-path rejection, and per-folder `.gpg-id` walk now have unit tests.)
 
 ## Done well

@@ -82,20 +82,7 @@ impl OtpFieldRow {
             }
         ));
 
-        imp.delete_button.connect_clicked(glib::clone!(
-            #[weak(rename_to = this)]
-            self,
-            #[weak]
-            entry_view,
-            move |_| {
-                if let Some(list) = this.parent() {
-                    if let Ok(container) = list.downcast::<gtk::Box>() {
-                        container.remove(&this);
-                        entry_view.mark_changed();
-                    }
-                }
-            }
-        ));
+        super::wire_delete_button(&imp.delete_button, self.upcast_ref(), entry_view);
 
         // Tie the 1Hz OTP refresh tick to map/unmap so it only runs while
         // the row is on screen. This avoids wasted wakeups and ensures the
