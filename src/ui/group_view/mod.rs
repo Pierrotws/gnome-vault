@@ -249,11 +249,18 @@ impl GroupView {
         if item.node().path != node.path {
             return;
         }
-        item.set_subtitle(subtitle.map(|s| s.to_string()));
-        // Tell the model the row at `index` has changed so the factory
-        // rebinds it. `items_changed(pos, removed=1, added=1)` is the
-        // canonical "value updated in place" notification.
-        model.items_changed(index as u32, 1, 1);
+        // Replace the GroupItem in place with a fresh one carrying the
+        // new subtitle. We can't just mutate the existing GroupItem and
+        // call `items_changed(index, 1, 1)`: GtkListView optimizes that
+        // case by detecting the same GObject at the same position and
+        // skips the unbind/bind cycle, so the row's label never picks
+        // up the new subtitle. Splicing in a new GObject forces the
+        // rebind.
+        let entry = GroupEntry {
+            node: item.node(),
+            subtitle: subtitle.map(|s| s.to_string()),
+        };
+        model.splice(index as u32, 1, &[GroupItem::new(entry)]);
     }
 
     pub fn connect_entry_activated<F>(&self, f: F) -> glib::SignalHandlerId

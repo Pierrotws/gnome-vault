@@ -53,16 +53,6 @@ impl GroupItem {
         self.with_entry(|entry| entry.subtitle.clone())
     }
 
-    /// Mutates the wrapped subtitle in place. Callers that want the
-    /// `gtk::ListView` to repaint the row should follow this with a
-    /// `model.items_changed(position, 1, 1)` so the factory rebinds
-    /// it.
-    pub fn set_subtitle(&self, subtitle: Option<String>) {
-        if let Some(entry) = self.imp().entry.borrow_mut().as_mut() {
-            entry.subtitle = subtitle;
-        }
-    }
-
     fn with_entry<R>(&self, f: impl FnOnce(&GroupEntry) -> R) -> R {
         let borrowed = self.imp().entry.borrow();
         f(borrowed
