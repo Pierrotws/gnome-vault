@@ -678,7 +678,9 @@ dependencies = [
 
 [[package]]
 name = "gtk-markdown"
-version = "0.1.0"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a6cad489b1a4fc56e39844cf1c6c6b54d8e52402a28204a4ff27665d06a43b7"
 dependencies = [
  "gtk4",
 ]

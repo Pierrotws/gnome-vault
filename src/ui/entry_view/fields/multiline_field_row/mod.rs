@@ -154,7 +154,7 @@ impl MultilineFieldRow {
         if self.markdown_enabled() {
             let view = MarkdownTextView::new();
             view.set_heading_level_offset(HEADING_LEVEL_OFFSET);
-            view.set_markdown(&value);
+            view.set_markdown(value.as_str());
             value_view_box.append(&view);
         } else {
             value_view_box.append(&plain_text_label(&value));

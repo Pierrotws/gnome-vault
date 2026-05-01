@@ -1,3 +1,0 @@
-[submodule "vendor/gtk-markdown"]
-	path = vendor/gtk-markdown
-	url = git@github.com:Pierrotws/gtk-markdown.git

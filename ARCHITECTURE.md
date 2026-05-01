@@ -46,14 +46,11 @@ gnome-vault/
 |       |-- entry_view/                # Entry display/editing and field rows
 |       |-- changes_view/              # Git history and change actions
 |       `-- generate_password_view/    # Password generator widget
-|-- vendor/
-|   `-- gtk-markdown/                  # Markdown-rendering GTK widget (git submodule)
 |-- packaging/
 |   |-- arch/gnome-vault/PKGBUILD      # Arch source build
 |   |-- arch/gnome-vault-bin/PKGBUILD  # Arch binary (consumes release tarball)
 |   `-- debian/postinst.sh             # .deb post-install GSettings recompile
 |-- .github/workflows/packages.yml     # Build .deb + binary tarball on release
-|-- .gitmodules                        # Submodule pin for vendor/gtk-markdown
 |-- Cargo.toml                         # Rust dependencies
 |-- meson.build                        # Meson project entry point
 `-- README.md                          # User/developer quick start
@@ -113,7 +110,6 @@ Primary files:
 | `src/ui/vault_view/` | Vault tree rendering, selection, search, and context actions. |
 | `src/ui/group_view/` | Right-pane list of entries inside the selected group. |
 | `src/ui/changes_view/` | Change list rendering, lazy history paging, and change context actions. |
-| `vendor/gtk-markdown/` | Standalone GTK widget that renders multiline fields as Markdown. |
 
 ### 3.2. Application Controller and State
 
@@ -220,7 +216,7 @@ Purpose: Avoids reopening and decrypting a `.gpg` file after an entry has alread
 | Git remote | Optional synchronization with GitHub, GitLab, or custom remotes. | Git remote configured as `origin`; push through git2. |
 | pass file format | Compatibility with the standard Unix password manager layout. | Filesystem layout plus `.gpg-id` and encrypted `.gpg` files. |
 | GSettings | GNOME-standard preference storage. | `gio::Settings`. |
-| gtk-markdown widget | Renders multiline fields as styled Markdown blocks. | Vendored as a git submodule at `vendor/gtk-markdown`; consumed via Cargo `path` dependency. |
+| gtk-markdown widget | Renders multiline fields as styled Markdown blocks. | Published crate `gtk-markdown` from crates.io. |
 
 ## 6. Deployment & Infrastructure
 
