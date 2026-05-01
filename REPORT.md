@@ -20,8 +20,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 **Set/steal-data round trip in the `ChangesView` factory.** `src/ui/changes_view/mod.rs:123-191`. `connect_bind` and `connect_unbind` both `steal_data` the `Rc<Cell<…>>`, set the inner value, and `set_data` it back. The `Rc` never actually leaves the row; this is `data()` plus mutation through the existing `Rc`. Two `unsafe` blocks per recycle for no gain. Use `data()` for read-only access and store the `Rc` once in setup.
 
-**`apply_branch_setting` doesn't refresh the changes pane on startup.** `src/ui/window/setup.rs:63-75` is called from `MainWindow::new` before `setup_views`; if the saved branch differs from HEAD, the unpushed-count badge is computed against the wrong branch until the user opens preferences and re-applies. Call `refresh_changes_badge()` (and `reload_changes_view` if visible) at the end of `apply_branch_setting`.
-
 **New-entry dialog accepts unsanitized folder text.** `src/ui/window/new_entry_dialog.rs:91-96`. `PathBuf::from(folder_row.text().trim())` is forwarded straight to the controller; absolute paths and `..` segments rely on `pass::store::validate_folder_path` to reject. That works today, but the dialog could pre-validate and surface a friendlier message before submit. Also the entry name is passed un-trimmed — `create_button` is gated by trimmed-emptiness but the actual create takes the raw `text()`.
 
 ## Minor

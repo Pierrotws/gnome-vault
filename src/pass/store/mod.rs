@@ -204,8 +204,11 @@ pub fn current_branch_name() -> Option<String> {
 }
 
 /// Returns the number of local commits not yet pushed upstream.
-pub fn unpushed_count() -> Result<usize, StoreError> {
-    Ok(git::unpushed_count(&password_store_dir())?)
+///
+/// `branch` follows the same semantics as elsewhere in this crate:
+/// `Some` selects a specific branch override, `None` tracks HEAD.
+pub fn unpushed_count(branch: Option<&str>) -> Result<usize, StoreError> {
+    Ok(git::unpushed_count(&password_store_dir(), branch)?)
 }
 
 /// Deletes an entry file, commits the deletion, and pushes it.

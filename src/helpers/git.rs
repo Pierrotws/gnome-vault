@@ -446,15 +446,38 @@ pub fn current_branch_name(project_dir: &Path) -> Option<String> {
 /// Returns 0 when there is no upstream tracking branch yet (fresh local
 /// vault, or remote not configured) so a freshly initialized repo
 /// doesn't surface a misleading number in the UI.
-pub fn unpushed_count(project_dir: &Path) -> Result<usize, GitError> {
+pub fn unpushed_count(project_dir: &Path, branch: Option<&str>) -> Result<usize, GitError> {
     let repo = open_repository(project_dir)?;
-    let head = repo.head()?.target().ok_or(GitError::NoHeadTarget)?;
-    let upstream = match pushed_head(&repo) {
+    // Honor the configured branch override so the badge tracks the
+    // branch that push_changes will actually push, rather than HEAD.
+    // When no override is set, fall back to HEAD.
+    let branch_name = match branch {
+        Some(name) => name.to_string(),
+        None => current_branch(&repo)?,
+    };
+    let local_ref = format!("refs/heads/{branch_name}");
+    let local = match repo.find_reference(&local_ref) {
+        Ok(r) => r.target().ok_or(GitError::NoHeadTarget)?,
+        Err(_) => return Ok(0),
+    };
+    let upstream = match upstream_oid_for_branch(&repo, &branch_name) {
         Ok(oid) => oid,
         Err(_) => return Ok(0),
     };
-    let (ahead, _behind) = repo.graph_ahead_behind(head, upstream)?;
+    let (ahead, _behind) = repo.graph_ahead_behind(local, upstream)?;
     Ok(ahead)
+}
+
+fn upstream_oid_for_branch(repo: &Repository, branch: &str) -> Result<Oid, GitError> {
+    let remote_name = remote_name_for_branch(repo, branch)?;
+    let remote_ref = remote_ref_for_branch(repo, branch)?;
+    let remote_tracking_ref = remote_ref
+        .strip_prefix("refs/heads/")
+        .map(|branch| format!("refs/remotes/{remote_name}/{branch}"))
+        .unwrap_or(remote_ref);
+    repo.find_reference(&remote_tracking_ref)?
+        .target()
+        .ok_or(GitError::NoHeadTarget)
 }
 
 fn remote_name_for_branch(repo: &Repository, branch: &str) -> Result<String, GitError> {

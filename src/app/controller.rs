@@ -130,9 +130,10 @@ impl AppController {
         pass::store::current_branch_name()
     }
 
-    /// Returns the number of commits ahead of the remote tracking branch.
+    /// Returns the number of commits ahead of the remote tracking branch
+    /// for the configured branch (or HEAD if none is set).
     pub fn unpushed_count(&self) -> Result<usize, AppError> {
-        Ok(pass::store::unpushed_count()?)
+        Ok(pass::store::unpushed_count(self.branch())?)
     }
 
     /// Reloads the password-store tree from disk.
