@@ -6,7 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **`revert_change` and `rollback_change` clear the entry cache but don't restart autoload.** `src/ui/window/mod.rs:680-690, 749-758`. After either operation the user with "Load entries at startup" enabled finishes with a cold cache until next launch. Call `start_autoload_if_enabled` after the post-revert UI reset.
 - **`AppError::Save(StoreError)` swallows `PushFailed` semantics.** `src/app/app_error.rs:1-46`, `src/pass/store/store_error.rs:14-22`. `StoreError::PushFailed` is distinguished specifically so the UI can give "saved locally, push failed" — but everything goes through `From<StoreError> for AppError` and collapses. The `Display` string preserves the distinction; no caller can branch on it without re-introspecting `StoreError`. Lift `PushFailed` to `AppError::PushFailed(String)` directly, or expose `AppError::store_error(&self) -> Option<&StoreError>`.
 - **`cache_warmup` and `group_preview` message types disagree on shape.** `src/app/cache_warmup.rs:8-17` (`Failed(usize, String)`) vs `src/app/group_preview.rs:8-23` (`Failed { index, error }`). Both are the same protocol with same threading model. Unify on the named-fields shape, or extract a single `app::entry_loader` parameterized over per-row context.
 - **`PgpError::Utf8Error` carries a stale string literal.** `src/helpers/pgp.rs:80-84`. Every call site stuffs the same hardcoded text. Simplify to a unit variant.

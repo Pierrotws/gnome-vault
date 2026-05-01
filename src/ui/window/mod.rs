@@ -763,6 +763,11 @@ impl MainWindow {
             if let Err(err) = window.reload_changes_view() {
                 window.imp().entry_view.show_error(&err.to_string());
             }
+            // Re-warm the cache the user just lost: clear_loaded_entry_state
+            // dropped every previously decrypted entry, so without this a
+            // user with "Load entries at startup" enabled would finish the
+            // revert with a cold cache until the next launch.
+            window.start_autoload_if_enabled();
         });
     }
 
@@ -832,6 +837,10 @@ impl MainWindow {
             if let Err(err) = window.reload_changes_view() {
                 window.imp().entry_view.show_error(&err.to_string());
             }
+            // Same rationale as revert_change: clear_loaded_entry_state
+            // dropped every previously decrypted entry, so without this
+            // an autoload user finishes with a cold cache until next launch.
+            window.start_autoload_if_enabled();
 
             let dialog = adw::AlertDialog::builder()
                 .heading("Changes discarded")
