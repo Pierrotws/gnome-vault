@@ -177,7 +177,7 @@ fn percent_decode(value: &str) -> Result<String, OtpError> {
                 out.push(b' ');
                 index += 1;
             }
-            b'%' if index + 2 < bytes.len() => {
+            b'%' if index + 3 <= bytes.len() => {
                 let hex = &value[index + 1..index + 3];
                 if let Ok(byte) = u8::from_str_radix(hex, 16) {
                     out.push(byte);
@@ -231,5 +231,16 @@ mod tests {
             generate_totp_at("otpauth://hotp/example?secret=ABC", 0).unwrap_err(),
             OtpError::UnsupportedKind("hotp".into())
         );
+    }
+
+    #[test]
+    fn percent_decodes_escape_at_end_of_value() {
+        // Regression: a `%XX` escape sitting flush against the end of
+        // the URL was previously rejected by the `index + 2 <
+        // bytes.len()` guard, which excluded the case where index+2
+        // equals the last byte position. The trailing `/` (0x2F) must
+        // round-trip into the secret.
+        let secret = percent_decode("ABCD%2F").unwrap();
+        assert_eq!(secret, "ABCD/");
     }
 }
