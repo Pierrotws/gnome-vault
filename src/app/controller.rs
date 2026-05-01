@@ -254,13 +254,18 @@ impl AppController {
     }
 
     fn load_entry_data(&mut self, node: &PassNode) -> Result<EntryData, AppError> {
+        // Path is deliberately not threaded through these debug lines:
+        // pass-store paths *are* the secret labels and these logs land
+        // in journalctl when a user runs RUST_LOG=debug to file a bug
+        // report. The other worker channels strip paths from their
+        // Failed messages for the same reason.
         match self.state.cached_entry(&node.path) {
             Some(entry) => {
-                log::debug!("entry cache hit: {}", node.path.display());
+                log::debug!("entry cache hit");
                 Ok(entry.clone())
             }
             None => {
-                log::debug!("entry cache miss: {}", node.path.display());
+                log::debug!("entry cache miss");
                 let entry = pass::store::load_entry_from_node(node)?;
                 self.state.cache_entry(node, entry.clone());
                 Ok(entry)

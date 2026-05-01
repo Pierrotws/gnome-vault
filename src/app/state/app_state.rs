@@ -66,7 +66,22 @@ impl AppState {
     /// folder-delete to scope eviction to the deleted subtree instead of
     /// nuking the whole cache and forcing the rest of the vault to
     /// re-decrypt on next open.
+    ///
+    /// An empty prefix matches every path (Path::starts_with("") is
+    /// always true) and would silently nuke the whole cache; that is
+    /// almost certainly a caller bug — the search-results pseudo-group
+    /// is the only PassNode constructed with PathBuf::new() in the UI
+    /// layer. Refuse the call rather than defeating the round-2
+    /// scoped-eviction protection.
     pub fn evict_cached_entries_under(&mut self, prefix: &Path) {
+        if prefix.as_os_str().is_empty() {
+            debug_assert!(
+                false,
+                "evict_cached_entries_under called with empty prefix; refusing to clear whole cache"
+            );
+            log::warn!("evict_cached_entries_under: empty prefix ignored");
+            return;
+        }
         self.entry_cache
             .retain(|path, _| !path.starts_with(prefix));
     }
