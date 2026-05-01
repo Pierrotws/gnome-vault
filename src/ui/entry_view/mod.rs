@@ -12,6 +12,11 @@ use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
 use fields::{ArrayFieldRow, EntryFieldRow, MultilineFieldRow, OtpFieldRow, PlainFieldRow};
 
+/// Maximum number of characters the title `EntryRow` widens to before
+/// it stops growing. Past this point the title visibly truncates with
+/// an ellipsis, but the headerbar layout stays stable.
+const MAX_TITLE_WIDTH_CHARS: i32 = 48;
+
 glib::wrapper! {
     pub struct EntryView(ObjectSubclass<imp::EntryView>)
         @extends adw::Bin, gtk::Widget,
@@ -426,7 +431,13 @@ impl EntryView {
     }
 
     fn resize_title_entry(&self) {
-        let width = self.imp().title_entry.text().chars().count().clamp(1, 48) as i32;
+        let width = self
+            .imp()
+            .title_entry
+            .text()
+            .chars()
+            .count()
+            .clamp(1, MAX_TITLE_WIDTH_CHARS as usize) as i32;
         let title_entry = &self.imp().title_entry;
         title_entry.set_width_chars(width);
         title_entry.set_max_width_chars(width);
