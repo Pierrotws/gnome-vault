@@ -13,6 +13,15 @@ use crate::ui::GroupEntry;
 
 use super::MainWindow;
 
+/// Cadence at which the group-preview tick drains the worker channel.
+/// Tighter than autoload's 100 ms because subtitles drive what the
+/// user sees in the open group view; lag here is directly visible.
+const GROUP_PREVIEW_TICK: Duration = Duration::from_millis(50);
+
+/// Maximum subtitle installs per tick. Caps the worst-case main-loop
+/// time per fire; remaining results drain on the next tick.
+const GROUP_PREVIEW_MESSAGES_PER_TICK: usize = 16;
+
 impl MainWindow {
     pub(super) fn show_group_content(&self, node: &PassNode) {
         let imp = self.imp();
@@ -162,7 +171,7 @@ impl MainWindow {
         let receiver = group_preview::load_group_previews(to_load, Arc::clone(&cancel));
 
         glib::timeout_add_local(
-            Duration::from_millis(50),
+            GROUP_PREVIEW_TICK,
             glib::clone!(
                 #[weak(rename_to = window)]
                 self,
@@ -174,7 +183,7 @@ impl MainWindow {
                         return glib::ControlFlow::Break;
                     }
 
-                    for _ in 0..16 {
+                    for _ in 0..GROUP_PREVIEW_MESSAGES_PER_TICK {
                         match receiver.try_recv() {
                             Ok(GroupPreviewMessage::Loaded { index, node, entry }) => {
                                 let subtitle = entry_preview::subtitle(&entry);

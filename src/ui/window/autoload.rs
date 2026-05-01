@@ -16,6 +16,16 @@ use crate::app::cache_warmup::{self, CacheWarmupMessage};
 
 use super::MainWindow;
 
+/// Cadence at which the autoload tick drains the worker channel. Tuned
+/// loose enough to keep main-loop work negligible during full-vault
+/// warmups; the worker thread does the decryption regardless.
+const AUTOLOAD_TICK: Duration = Duration::from_millis(100);
+
+/// Maximum cached-entry installs per tick. Caps the worst-case time
+/// spent inside one polling fire so a fast worker can't starve other
+/// timers; remaining messages drain on the next tick.
+const AUTOLOAD_MESSAGES_PER_TICK: usize = 32;
+
 impl MainWindow {
     pub(super) fn start_autoload_if_enabled(&self) {
         if self.setting_boolean("autoload", false) {
@@ -47,7 +57,7 @@ impl MainWindow {
         let receiver = cache_warmup::load_entries(nodes, Arc::clone(&cancel));
 
         glib::timeout_add_local(
-            Duration::from_millis(100),
+            AUTOLOAD_TICK,
             glib::clone!(
                 #[weak(rename_to = window)]
                 self,
@@ -64,7 +74,7 @@ impl MainWindow {
                     }
                     let mut finished = false;
 
-                    for _ in 0..32 {
+                    for _ in 0..AUTOLOAD_MESSAGES_PER_TICK {
                         match receiver.try_recv() {
                             Ok(CacheWarmupMessage::Loaded(node, entry)) => {
                                 window
