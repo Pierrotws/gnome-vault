@@ -4,8 +4,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Critical
 
-**`GeneratePasswordView::setup` captures `self` strongly into three closures.** `src/ui/generate_password_view/mod.rs:32-42`. `let this = self.clone()` is repeated for `reload_button`, `length_spin`, and `charset_row` and moved into `connect_clicked` / `connect_value_changed` / `connect_selected_notify`. Each handler is owned by a child widget that the view itself owns through its imp template-children, so `view → button → closure → view` is a textbook GObject ref cycle. The dialog the view lives in is short-lived, so it has not surfaced as a visible leak yet, but every "Generate password" dialog invocation pins one view forever. Switch all three to `glib::clone!(#[weak(rename_to = this)] self, …)` with an `#[upgrade_or_default]` early return — the rest of the codebase already follows that pattern.
-
 **`AppState` derives `Clone`.** `src/app/state/app_state.rs:10`. Cloning the state deep-clones the entire `entry_cache: HashMap<PathBuf, EntryData>`, multiplying every plaintext field heap allocation. Nothing in `app::*` actually clones the state today, but the public derive invites a future caller to do exactly that. Drop the derive; if a snapshot is ever needed, force the call site to spell it out.
 
 **`EntrySession` derives `Debug`.** `src/app/state/entry_session.rs:8`. Auto-`Debug` prints the `name: String` field verbatim, and the entry's name *is* its secret label inside a password store. `EntryData` / `EntryField` already redact themselves but the wrapping session does not, so `log::debug!("{session:?}")` defeats the redaction. Hand-roll `Debug` to redact `name` (or print only the inner-data placeholder).

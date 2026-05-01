@@ -28,18 +28,30 @@ impl GeneratePasswordView {
         imp.charset_row.set_model(Some(&charset_model));
         imp.charset_row.set_selected(DEFAULT_CHARSET_INDEX);
         self.regenerate_preview();
-        let this = self.clone();
-        imp.reload_button.connect_clicked(move |_| {
-            this.regenerate_preview();
-        });
-        let this = self.clone();
-        imp.length_spin.connect_value_changed(move |_| {
-            this.regenerate_preview();
-        });
-        let this = self.clone();
-        imp.charset_row.connect_selected_notify(move |_| {
-            this.regenerate_preview();
-        });
+        // Each row/button is owned by `self` via its TemplateChild,
+        // so capturing `self` strongly here would form a GObject ref
+        // cycle (view -> child -> closure -> view). Use weak refs.
+        imp.reload_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                this.regenerate_preview();
+            }
+        ));
+        imp.length_spin.connect_value_changed(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                this.regenerate_preview();
+            }
+        ));
+        imp.charset_row.connect_selected_notify(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                this.regenerate_preview();
+            }
+        ));
     }
 
     /// Returns the currently displayed password wrapped in
