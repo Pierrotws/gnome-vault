@@ -342,7 +342,13 @@ impl MainWindow {
                     .text()
                     .trim()
                     .is_empty();
-                let parent_path = node.path.parent().map(|p| p.to_path_buf());
+                // Path::parent yields Some("") for top-level entries, so filter
+                // out the empty path — there's no parent group to select.
+                let parent_path = node
+                    .path
+                    .parent()
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .map(|p| p.to_path_buf());
                 window.open_entry_node(node);
                 if search_active {
                     if let Some(parent) = parent_path {
