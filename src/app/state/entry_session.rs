@@ -5,12 +5,39 @@ use crate::{
     pass::model::{EntryData, EntryField, PassNode},
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct EntrySession {
     node: PassNode,
     name: String,
     original: EntryData,
     current: EntryData,
+}
+
+// Manual `Debug` so `name` (= the entry's title, which inside a
+// password store IS the secret label) doesn't land in logs verbatim.
+// `EntryData` and `EntryField` already redact themselves; this keeps
+// the wrapping session honest too.
+#[cfg(not(test))]
+impl std::fmt::Debug for EntrySession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EntrySession")
+            .field("name", &"<redacted>")
+            .field("original", &self.original)
+            .field("current", &self.current)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+impl std::fmt::Debug for EntrySession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EntrySession")
+            .field("node", &self.node)
+            .field("name", &self.name)
+            .field("original", &self.original)
+            .field("current", &self.current)
+            .finish()
+    }
 }
 
 impl EntrySession {

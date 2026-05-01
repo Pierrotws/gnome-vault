@@ -4,8 +4,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 ## Critical
 
-**`EntrySession` derives `Debug`.** `src/app/state/entry_session.rs:8`. Auto-`Debug` prints the `name: String` field verbatim, and the entry's name *is* its secret label inside a password store. `EntryData` / `EntryField` already redact themselves but the wrapping session does not, so `log::debug!("{session:?}")` defeats the redaction. Hand-roll `Debug` to redact `name` (or print only the inner-data placeholder).
-
 **`AppState::selected_node` is unwired dead state.** `src/app/state/app_state.rs:13`, `:36-42`, `:82`. Written by `set_selected_node` / `clear_current_entry` and read only by an internal getter; the actual current-edit-target is `current_session`. A future contributor adding "selection persistence" features against `selected_node()` would silently get stale or empty data. Either delete it or wire it through `open_node` / `set_current_session` and document the relationship.
 
 ## Important
