@@ -74,10 +74,10 @@ impl MainWindow {
         };
         self.controller().borrow_mut().set_branch(value);
         // The unpushed-count badge is computed against this branch
-        // override; refresh now so a startup-time apply or a
-        // preferences change is reflected without waiting for the next
-        // commit/push to drive reload_changes_view.
-        self.refresh_changes_badge();
+        // override, but we do NOT refresh it here — the caller owns the
+        // refresh so the preferences-apply path doesn't double-refresh
+        // (it follows up with reload_changes_view, which itself refreshes
+        // the badge as part of reloading the change list).
     }
 
     pub(super) fn setup_vault_setup_view(&self) {
