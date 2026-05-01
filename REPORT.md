@@ -6,7 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **`is_otp_url` uses `get(..10)` rather than `is_char_boundary`-aware slicing.** `src/helpers/otp.rs:33-38`. `get(..10).is_some_and(|p| p.eq_ignore_ascii_case("otpauth://"))` works but is awkward. Cosmetic.
 - **`EntryView::set_field_row_editable`, `read_field_row`, and `field_row_drag_handle` keep four field-row variants in sync by hand.** `src/ui/entry_view/mod.rs:477-528, 594-612`. A new variant requires touching three else-if ladders. Extend the `EntryFieldRow` trait with `set_editable_mode / is_empty / drag_handle`.
 - **`branch()` getter returns the unfiltered stored value via `as_deref`, but `set_branch` filters on `is_empty` after `trim`.** `src/app/controller.rs:96-103`. A caller storing `Some(" main ")` gets back `Some(" main ")`. Trim on store or trim on read; the half-trim is sharp.
 - **`EntryView::show_error` on EntryView is named like an inline label but is actually an `adw::AlertDialog`.** `src/ui/entry_view/mod.rs:264-273`. Two functions (`EntryView::show_error` and `MainWindow::show_error_dialog`) with different names, both popping the same dialog, is more confusing than helpful. Rename or route through one helper.

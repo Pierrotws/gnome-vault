@@ -31,10 +31,11 @@ pub enum OtpError {
 
 /// Returns whether a field value looks like an OTP auth URI.
 pub fn is_otp_url(value: &str) -> bool {
-    value
-        .trim_start()
-        .get(..10)
-        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("otpauth://"))
+    // The scheme literal "otpauth://" is pure ASCII so byte-slicing
+    // dodges str::get's char-boundary check; the length guard keeps
+    // it in bounds.
+    let bytes = value.trim_start().as_bytes();
+    bytes.len() >= 10 && bytes[..10].eq_ignore_ascii_case(b"otpauth://")
 }
 
 /// Generates the current TOTP code for an `otpauth://totp/...` URI.
