@@ -13,7 +13,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 ## Minor
 
 - Field-row code duplication: identical 8-line `delete_button` boilerplate in 4 places; identical `set_entry_editable_mode`; identical `is_empty/key/set_key/drag_handle`. Extend the `EntryFieldRow` trait, or write a `field_row!` macro.
-- A11y: copy/delete buttons across the five field rows still rely on tooltip-text alone; pass through and add explicit `accessible-name` overrides for screen readers.
 - Tests: save/delete/revert/rollback paths in controller are uncovered; pgp encrypt/decrypt round-trip is untested; password generator has no statistical tests; no test for path traversal, per-folder `.gpg-id`, BOM, CRLF, non-UTF8 names. The save/rename atomicity bug (critical) lives in untested code.
 
 ## Done well

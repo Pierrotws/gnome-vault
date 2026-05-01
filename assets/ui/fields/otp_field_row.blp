@@ -27,6 +27,10 @@ template $OtpFieldRow : ListBoxRow {
                     icon-name: "edit-copy-symbolic";
                     tooltip-text: _("Copy code");
                     valign: center;
+
+                    accessibility {
+                        label: _("Copy code");
+                    }
                 }
             }
 
@@ -76,18 +80,30 @@ template $OtpFieldRow : ListBoxRow {
                 icon-name: "view-reveal-symbolic";
                 tooltip-text: _("Show URL");
                 valign: center;
+
+                accessibility {
+                    label: _("Show URL");
+                }
             }
 
             Button copy_url_button {
                 icon-name: "edit-copy-symbolic";
                 tooltip-text: _("Copy URL");
                 valign: center;
+
+                accessibility {
+                    label: _("Copy URL");
+                }
             }
 
             Button delete_button {
                 icon-name: "user-trash-symbolic";
                 tooltip-text: _("Delete field");
                 valign: center;
+
+                accessibility {
+                    label: _("Delete field");
+                }
             }
         }
     };

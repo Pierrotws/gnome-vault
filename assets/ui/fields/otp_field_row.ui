@@ -36,6 +36,9 @@ heading</property>
                     <property name="icon-name">edit-copy-symbolic</property>
                     <property name="tooltip-text" translatable="yes">Copy code</property>
                     <property name="valign">3</property>
+                    <accessibility>
+                      <property name="label" translatable="yes">Copy code</property>
+                    </accessibility>
                   </object>
                 </child>
               </object>
@@ -96,6 +99,9 @@ heading</property>
                 <property name="icon-name">view-reveal-symbolic</property>
                 <property name="tooltip-text" translatable="yes">Show URL</property>
                 <property name="valign">3</property>
+                <accessibility>
+                  <property name="label" translatable="yes">Show URL</property>
+                </accessibility>
               </object>
             </child>
             <child>
@@ -103,6 +109,9 @@ heading</property>
                 <property name="icon-name">edit-copy-symbolic</property>
                 <property name="tooltip-text" translatable="yes">Copy URL</property>
                 <property name="valign">3</property>
+                <accessibility>
+                  <property name="label" translatable="yes">Copy URL</property>
+                </accessibility>
               </object>
             </child>
             <child>
@@ -110,6 +119,9 @@ heading</property>
                 <property name="icon-name">user-trash-symbolic</property>
                 <property name="tooltip-text" translatable="yes">Delete field</property>
                 <property name="valign">3</property>
+                <accessibility>
+                  <property name="label" translatable="yes">Delete field</property>
+                </accessibility>
               </object>
             </child>
           </object>

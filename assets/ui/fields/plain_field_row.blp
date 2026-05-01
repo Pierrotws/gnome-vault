@@ -43,12 +43,20 @@ template $PlainFieldRow : ListBoxRow {
             icon-name: "edit-copy-symbolic";
             tooltip-text: _("Copy value");
             valign: center;
+
+            accessibility {
+                label: _("Copy value");
+            }
         }
 
         Button delete_button {
             icon-name: "user-trash-symbolic";
             tooltip-text: _("Delete field");
             valign: center;
+
+            accessibility {
+                label: _("Delete field");
+            }
         }
     };
 }
