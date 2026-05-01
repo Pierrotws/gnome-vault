@@ -14,10 +14,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 
 **`group_preview` has no cancellation flag.** `src/app/group_preview.rs`. `cache_warmup::load_entries` honours an `Arc<AtomicBool>` cancel; `group_preview` only relies on a generation counter compared on the main loop, so a worker thread keeps decrypting after the user navigates away. For a 5-entry group it's harmless; for a 100-entry one it wastes GPGME calls and CPU. Mirror the autoload cancel pattern.
 
-**`ChangesView` row gesture takes `Cell` then restores it inside the same handler.** `src/ui/changes_view/mod.rs:104-110`. `Cell::take()` empties the cell, then `set(Some(weak))` puts it back. If a second `connect_pressed` interleaves (rare but possible — fast double-click while the first popover is presenting), the second take returns `None` and the gesture silently drops. Replace the take/restore dance with `Rc<RefCell<Option<…>>>` and a non-destructive read.
-
-**Set/steal-data round trip in the `ChangesView` factory.** `src/ui/changes_view/mod.rs:123-191`. `connect_bind` and `connect_unbind` both `steal_data` the `Rc<Cell<…>>`, set the inner value, and `set_data` it back. The `Rc` never actually leaves the row; this is `data()` plus mutation through the existing `Rc`. Two `unsafe` blocks per recycle for no gain. Use `data()` for read-only access and store the `Rc` once in setup.
-
 **New-entry dialog accepts unsanitized folder text.** `src/ui/window/new_entry_dialog.rs:91-96`. `PathBuf::from(folder_row.text().trim())` is forwarded straight to the controller; absolute paths and `..` segments rely on `pass::store::validate_folder_path` to reject. That works today, but the dialog could pre-validate and surface a friendlier message before submit. Also the entry name is passed un-trimmed — `create_button` is gated by trimmed-emptiness but the actual create takes the raw `text()`.
 
 ## Minor
@@ -67,6 +63,5 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~8000 LOC, GPGME for cr
 3. `state_mut` `cfg(test)` gate.
 4. `format_entry` password-slot constraint.
 5. `group_preview` cancellation flag.
-6. The `ChangesView` factory `Cell::take` race + `set_data`/`steal_data` thrash.
-7. Branch-setting startup refresh.
-8. The Minor list in any order; most are <10-line changes.
+6. Branch-setting startup refresh.
+7. The Minor list in any order; most are <10-line changes.

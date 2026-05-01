@@ -1,7 +1,7 @@
 mod change_item;
 mod imp;
 
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -45,7 +45,7 @@ impl ChangesView {
     /// `SignalListItemFactory` that recycles row widgets. Each row is a
     /// horizontal box (icon + title/meta column) with a right-click
     /// gesture; bind installs the active `ChangeItem` into a per-row
-    /// `Cell<Option<glib::WeakRef<ChangeItem>>>` so the gesture's
+    /// `RefCell<Option<glib::WeakRef<ChangeItem>>>` so the gesture's
     /// closure can read the *current* item — which moves between
     /// recycled widgets — at click time.
     fn install_list_model(&self) {
@@ -91,8 +91,8 @@ impl ChangesView {
             // closure clones the cell and reads from it at click time so
             // a single GestureClick controller serves every recycled use
             // of this row template.
-            let current: Rc<Cell<Option<glib::WeakRef<ChangeItem>>>> =
-                Rc::new(Cell::new(None));
+            let current: Rc<RefCell<Option<glib::WeakRef<ChangeItem>>>> =
+                Rc::new(RefCell::new(None));
             let gesture = gtk::GestureClick::new();
             gesture.set_button(gdk::BUTTON_SECONDARY);
             let view_for_gesture = view_weak.clone();
@@ -101,14 +101,13 @@ impl ChangesView {
                 let Some(view) = view_for_gesture.upgrade() else {
                     return;
                 };
-                let Some(weak) = current_for_gesture.take() else {
+                let Some(item) = current_for_gesture
+                    .borrow()
+                    .as_ref()
+                    .and_then(|weak| weak.upgrade())
+                else {
                     return;
                 };
-                // Put the weak ref back so a second click on the same
-                // row still resolves; `Cell::take` left it empty.
-                let item = weak.upgrade();
-                current_for_gesture.set(Some(weak));
-                let Some(item) = item else { return; };
                 let change = item.change();
 
                 let Some(widget) = gesture.widget() else {
@@ -177,16 +176,14 @@ impl ChangesView {
 
             // Refresh the per-row item pointer so the right-click
             // gesture resolves to *this* commit while the row is bound.
-            let cell = unsafe {
-                row.steal_data::<Rc<Cell<Option<glib::WeakRef<ChangeItem>>>>>(
-                    "changes-row-current",
-                )
-            }
-            .expect("setup installed changes-row-current");
             let weak = glib::object::ObjectExt::downgrade(&change_item);
-            cell.set(Some(weak));
             unsafe {
-                row.set_data("changes-row-current", cell);
+                let cell = row
+                    .data::<Rc<RefCell<Option<glib::WeakRef<ChangeItem>>>>>(
+                        "changes-row-current",
+                    )
+                    .expect("setup installed changes-row-current");
+                *cell.as_ref().borrow_mut() = Some(weak);
             }
         });
 
@@ -200,15 +197,13 @@ impl ChangesView {
                 .expect("ListItem child is a gtk::Box");
             // Drop the weak ref so a stale gesture firing during
             // recycling doesn't resolve to the wrong commit.
-            let cell = unsafe {
-                row.steal_data::<Rc<Cell<Option<glib::WeakRef<ChangeItem>>>>>(
-                    "changes-row-current",
-                )
-            }
-            .expect("setup installed changes-row-current");
-            cell.set(None);
             unsafe {
-                row.set_data("changes-row-current", cell);
+                let cell = row
+                    .data::<Rc<RefCell<Option<glib::WeakRef<ChangeItem>>>>>(
+                        "changes-row-current",
+                    )
+                    .expect("setup installed changes-row-current");
+                *cell.as_ref().borrow_mut() = None;
             }
         });
 
