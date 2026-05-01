@@ -13,6 +13,7 @@ use gtk::gio;
 use gtk::glib;
 
 use crate::app::AppController;
+use crate::ui::generate_password_view::GeneratePasswordView;
 use crate::ui::window::MainWindow;
 
 const APP_ID: &str = "io.pierrotws.GnomeVault";
@@ -34,6 +35,13 @@ fn main() -> glib::ExitCode {
         }
     };
     gio::resources_register(&resource);
+
+    // Register custom widget GTypes that the UI Builder looks up by
+    // name when parsing .ui resources. Doing this once here (alongside
+    // the resource registration that exposes those .ui files) keeps
+    // dialog code self-contained instead of forcing each dialog open
+    // path to remember the static_type() ping.
+    GeneratePasswordView::static_type();
 
     let app = adw::Application::builder().application_id(APP_ID).build();
 

@@ -14,6 +14,11 @@ use crate::ui::generate_password_view::GeneratePasswordView;
 
 use super::MainWindow;
 
+// `GeneratePasswordView`'s GType is registered once at app startup in
+// `main()` so the Builder below can resolve it by name. This dialog
+// uses the type via the `<object class="GeneratePasswordView">` entry
+// in new_entry_dialog.ui.
+
 impl MainWindow {
     pub(super) fn show_new_entry_dialog(&self, folder_path: Option<String>) {
         if self.controller().borrow().has_unsaved_changes() {
@@ -22,10 +27,6 @@ impl MainWindow {
                 .show_error_dialog("Save or cancel current changes before creating a new entry");
             return;
         }
-
-        // Ensure the GeneratePasswordView GType is registered before the
-        // Builder parses the resource — Builder looks types up by name.
-        GeneratePasswordView::static_type();
 
         let builder =
             gtk::Builder::from_resource("/io/pierrotws/GnomeVault/ui/new_entry_dialog.ui");

@@ -6,7 +6,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for cry
 
 ## Minor
 
-- **`new_entry_dialog.rs:28` registers `GeneratePasswordView`'s GType every time the dialog is opened.** Idempotent so harmless, but registering once at app startup (next to the resource registration) makes the dialog code self-contained.
 - **`PassNode::children` is always allocated even for entries.** `src/pass/model/pass_node.rs:18-19`. Empty Vecs don't allocate so the cost is just a pointer-tag, but `enum PassNodeKind { Group(Vec<PassNode>), Entry }` would let the type system enforce the invariant.
 
 ## Positive
