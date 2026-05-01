@@ -25,10 +25,15 @@ impl MainWindow {
 
         // A non-empty configured store-dir is authoritative — it wins over
         // any pre-existing PASSWORD_STORE_DIR so that changing the setting
-        // in preferences immediately retargets subsequent store ops.
+        // immediately retargets store ops at startup. Routed through
+        // set_password_store_dir_once so the setter only runs while the
+        // process is still single-threaded; the preferences dialog
+        // already tells the user a restart is required for changes.
         let store_dir = self.settings().string("store-dir");
         if !store_dir.trim().is_empty() {
-            std::env::set_var("PASSWORD_STORE_DIR", store_dir.as_str());
+            crate::pass::store::set_password_store_dir_once(std::path::Path::new(
+                store_dir.as_str(),
+            ));
         }
     }
 

@@ -4,8 +4,6 @@ A pass-compatible password manager: GTK4/Adwaita + Rust, ~7700 LOC, GPGME for cr
 
 ## Critical (security, data loss, panics)
 
-**`std::env::set_var` race** (`main.rs:71`, `window/mod.rs:756, 964`). Not thread-safe on Linux (and `unsafe` in Rust 2024). Once `apply_store_dir_setting` runs after the autoload thread has spawned, you have a data race. Set once at startup.
-
 ## Important (correctness, UX, architecture)
 
 **Empty cache check on save failure** (`controller.rs:222-249, 240-249`). `entry_session::is_valid()` rejects empty plain/multiline fields, which are common in real pass entries (e.g. empty `comment:`, empty notes block). Decide if empty is parse-time or save-time refusal and document.

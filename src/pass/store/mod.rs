@@ -474,6 +474,29 @@ fn validate_folder_path(path: &Path) -> Result<(), StoreError> {
     Ok(())
 }
 
+/// Sets `PASSWORD_STORE_DIR` exactly once for the lifetime of the process.
+///
+/// Subsequent calls log and no-op. `std::env::set_var` is racy on Linux
+/// once any other thread might be reading the environment (autoload
+/// spawns a worker that calls [`password_store_dir`]); gating the one
+/// call this app makes prevents the data race entirely. Preferences
+/// changes to the store directory still write the new value to
+/// GSettings — they just take effect after a restart, which the
+/// preferences dialog already tells the user.
+pub fn set_password_store_dir_once(dir: &Path) -> bool {
+    static APPLIED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    if APPLIED.set(()).is_ok() {
+        std::env::set_var("PASSWORD_STORE_DIR", dir);
+        true
+    } else {
+        log::debug!(
+            "PASSWORD_STORE_DIR already set this session; ignoring change to {} (restart required)",
+            dir.display()
+        );
+        false
+    }
+}
+
 /// Returns the active password-store directory.
 ///
 /// Honors `PASSWORD_STORE_DIR` and falls back to `$HOME/.password-store`.

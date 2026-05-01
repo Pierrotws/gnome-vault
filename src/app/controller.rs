@@ -102,7 +102,7 @@ impl AppController {
     /// read it on every call) resolve to the freshly created vault.
     pub fn setup_vault(&mut self, setup: &VaultSetup) -> Result<(), AppError> {
         pass::store::setup_vault(setup)?;
-        std::env::set_var("PASSWORD_STORE_DIR", &setup.store_dir);
+        pass::store::set_password_store_dir_once(&setup.store_dir);
         self.state.clear_entry_cache();
         self.state.set_current_session(None);
         self.reload_tree()?;
