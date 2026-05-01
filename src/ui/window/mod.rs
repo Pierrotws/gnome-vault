@@ -216,7 +216,7 @@ impl MainWindow {
                         kind: PassNodeKind::Entry,
                         children: Vec::new(),
                     };
-                    window.delete_entry(node);
+                    window.confirm_delete_entry(node);
                 });
         }
 
@@ -394,27 +394,10 @@ impl MainWindow {
         }
 
         {
-            let controller = self.controller();
-            let entry_view = imp.entry_view.clone();
             let window = self.clone();
 
             imp.entry_view.connect_delete_requested(move |_| {
-                let result = controller.borrow_mut().delete_current_entry();
-
-                match result {
-                    Ok(_) => {
-                        entry_view.display_empty();
-                        if let Err(err) = window.reload_vault_tree() {
-                            entry_view.show_error(&err.to_string());
-                        }
-                        if let Err(err) = window.reload_changes_view() {
-                            entry_view.show_error(&err.to_string());
-                        }
-                        window.show_empty_content();
-                        window.set_edit_unlock_state(false, false, false);
-                    }
-                    Err(err) => entry_view.show_error(&err.to_string()),
-                }
+                window.confirm_delete_current_entry();
             });
         }
 
@@ -537,7 +520,7 @@ impl MainWindow {
         }
     }
 
-    fn delete_entry(&self, node: PassNode) {
+    fn confirm_delete_entry(&self, node: PassNode) {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
                 .entry_view
@@ -545,6 +528,25 @@ impl MainWindow {
             return;
         }
 
+        let dialog = adw::AlertDialog::builder()
+            .heading(format!("Delete \u{201C}{}\u{201D}?", node.name))
+            .body("The entry is removed and a single commit is recorded.")
+            .build();
+        dialog.add_responses(&[("cancel", "Cancel"), ("delete", "Delete")]);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
+
+        let window = self.clone();
+        dialog.connect_response(None, move |_, response| {
+            if response == "delete" {
+                window.delete_entry(node.clone());
+            }
+        });
+        dialog.present(Some(self));
+    }
+
+    fn delete_entry(&self, node: PassNode) {
         let deleted_current = match self.controller().borrow_mut().delete_entry(node) {
             Ok(deleted_current) => deleted_current,
             Err(err) => {
@@ -566,6 +568,62 @@ impl MainWindow {
         }
     }
 
+    fn confirm_delete_current_entry(&self) {
+        if self.controller().borrow().has_unsaved_changes() {
+            self.imp()
+                .entry_view
+                .show_error("Save or cancel current changes before deleting an entry");
+            return;
+        }
+
+        // Snapshot the entry name now: the dialog outlives this borrow,
+        // and the AlertDialog body is only allowed owned data.
+        let name = self
+            .controller()
+            .borrow()
+            .current_session()
+            .map(|s| s.node().name.clone());
+        let Some(name) = name else {
+            return;
+        };
+
+        let dialog = adw::AlertDialog::builder()
+            .heading(format!("Delete \u{201C}{name}\u{201D}?"))
+            .body("The entry is removed and a single commit is recorded.")
+            .build();
+        dialog.add_responses(&[("cancel", "Cancel"), ("delete", "Delete")]);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
+
+        let window = self.clone();
+        dialog.connect_response(None, move |_, response| {
+            if response == "delete" {
+                window.delete_current_entry();
+            }
+        });
+        dialog.present(Some(self));
+    }
+
+    fn delete_current_entry(&self) {
+        let entry_view = self.imp().entry_view.clone();
+        let result = self.controller().borrow_mut().delete_current_entry();
+        match result {
+            Ok(_) => {
+                entry_view.display_empty();
+                if let Err(err) = self.reload_vault_tree() {
+                    entry_view.show_error(&err.to_string());
+                }
+                if let Err(err) = self.reload_changes_view() {
+                    entry_view.show_error(&err.to_string());
+                }
+                self.show_empty_content();
+                self.set_edit_unlock_state(false, false, false);
+            }
+            Err(err) => entry_view.show_error(&err.to_string()),
+        }
+    }
+
     fn confirm_delete_folder(&self, node: PassNode) {
         if self.controller().borrow().has_unsaved_changes() {
             self.imp()
@@ -578,7 +636,7 @@ impl MainWindow {
             .heading(format!("Delete \u{201C}{}\u{201D}?", node.name))
             .body(
                 "Every entry inside this folder is removed and a single \
-                 commit is recorded. This cannot be undone from the app.",
+                 commit is recorded.",
             )
             .build();
         dialog.add_responses(&[("cancel", "Cancel"), ("delete", "Delete")]);
