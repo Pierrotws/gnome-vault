@@ -27,16 +27,6 @@ template $MultilineFieldRow : ListBoxRow {
                 css-classes: ["title-2", "heading", "field-entry"];
             }
 
-            Button copy_button {
-                icon-name: "edit-copy-symbolic";
-                tooltip-text: _("Copy value");
-                valign: center;
-
-                accessibility {
-                    label: _("Copy value");
-                }
-            }
-
             Button delete_button {
                 icon-name: "user-trash-symbolic";
                 tooltip-text: _("Delete field");
@@ -44,6 +34,16 @@ template $MultilineFieldRow : ListBoxRow {
 
                 accessibility {
                     label: _("Delete field");
+                }
+            }
+
+            Button copy_button {
+                icon-name: "edit-copy-symbolic";
+                tooltip-text: _("Copy value");
+                valign: center;
+
+                accessibility {
+                    label: _("Copy value");
                 }
             }
         }

@@ -34,16 +34,6 @@ template $OtpFieldRow : ListBoxRow {
                 css-classes: ["title-2", "heading", "field-entry"];
             }
 
-            Button copy_code_button {
-                icon-name: "edit-copy-symbolic";
-                tooltip-text: _("Copy code");
-                valign: center;
-
-                accessibility {
-                    label: _("Copy code");
-                }
-            }
-
             Button delete_button {
                 icon-name: "user-trash-symbolic";
                 tooltip-text: _("Delete field");
@@ -51,6 +41,16 @@ template $OtpFieldRow : ListBoxRow {
 
                 accessibility {
                     label: _("Delete field");
+                }
+            }
+
+            Button copy_code_button {
+                icon-name: "edit-copy-symbolic";
+                tooltip-text: _("Copy code");
+                valign: center;
+
+                accessibility {
+                    label: _("Copy code");
                 }
             }
         }

@@ -38,22 +38,22 @@ field-entry</property>
               </object>
             </child>
             <child>
-              <object class="GtkButton" id="copy_code_button">
-                <property name="icon-name">edit-copy-symbolic</property>
-                <property name="tooltip-text" translatable="yes">Copy code</property>
-                <property name="valign">3</property>
-                <accessibility>
-                  <property name="label" translatable="yes">Copy code</property>
-                </accessibility>
-              </object>
-            </child>
-            <child>
               <object class="GtkButton" id="delete_button">
                 <property name="icon-name">user-trash-symbolic</property>
                 <property name="tooltip-text" translatable="yes">Delete field</property>
                 <property name="valign">3</property>
                 <accessibility>
                   <property name="label" translatable="yes">Delete field</property>
+                </accessibility>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="copy_code_button">
+                <property name="icon-name">edit-copy-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Copy code</property>
+                <property name="valign">3</property>
+                <accessibility>
+                  <property name="label" translatable="yes">Copy code</property>
                 </accessibility>
               </object>
             </child>
