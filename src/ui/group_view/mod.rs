@@ -158,16 +158,14 @@ impl GroupView {
                 .expect("Second labels child is the subtitle");
 
             title.set_label(&group_item.name());
-            match group_item.subtitle() {
-                Some(text) => {
-                    subtitle.set_label(&text);
-                    subtitle.set_visible(true);
-                }
-                None => {
-                    subtitle.set_label("");
-                    subtitle.set_visible(false);
-                }
-            }
+            // Set the text but never the visibility: subtitles are
+            // decrypted in the background and arrive one row at a time,
+            // so hiding the empty label made every row start one line
+            // short and grow as its preview landed, shuffling the list
+            // under the user's cursor. An empty GtkLabel still measures
+            // one line, so leaving it in place gives every row its final
+            // height the moment the list is built.
+            subtitle.set_label(&group_item.subtitle().unwrap_or_default());
 
             // Refresh the per-row pointer so the right-click gesture
             // resolves to *this* GroupItem while the row is bound.
