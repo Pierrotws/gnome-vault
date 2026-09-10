@@ -119,10 +119,6 @@ impl EntryView {
             #[weak(rename_to = this)]
             self,
             move |_| {
-                // The title_label is only visible when the entry is in
-                // read-only mode, so syncing it on every keystroke just
-                // touches a hidden widget. The label is refreshed when
-                // we leave editable mode (see set_editable_mode).
                 this.resize_title_entry();
                 this.mark_changed();
             }
@@ -146,7 +142,6 @@ impl EntryView {
         let imp = self.imp();
         imp.is_updating_ui.set(true);
         imp.content_stack.set_visible_child_name("empty");
-        imp.title_label.set_text("");
         imp.title_entry.set_text("");
         imp.password_field_row.set_text("");
         imp.primary_otp_field_row.set_url("");
@@ -163,7 +158,6 @@ impl EntryView {
 
         imp.is_updating_ui.set(true);
         imp.content_stack.set_visible_child_name("content");
-        imp.title_label.set_text(&data.title);
         imp.title_entry.set_text(&data.title);
         self.resize_title_entry();
 
@@ -225,25 +219,19 @@ impl EntryView {
 
         let imp = self.imp();
         imp.is_editable.set(editable);
-        if !editable {
-            // Catch up the read-only label with whatever the user typed
-            // into the entry while editable mode was active. We skipped
-            // syncing it per keystroke above; this is the moment it
-            // becomes visible again.
-            imp.title_label.set_text(&imp.title_entry.text());
-        }
-        imp.title_label.set_visible(!editable);
-        imp.title_entry.set_visible(editable);
-        imp.title_entry.set_editable(editable);
-        imp.title_entry.set_can_focus(editable);
-        gtk::prelude::EditableExt::set_alignment(&imp.title_entry.get(), 0.5);
-        imp.title_entry.set_has_frame(false);
+        // The title is one always-visible frameless entry, so the only
+        // thing that changes here is whether it takes input.
+        fields::set_entry_editable(&imp.title_entry, editable);
         imp.password_field_row.set_editable_mode(editable);
         imp.primary_otp_field_row.set_editable_mode(editable);
+        // The "add field" row sits after every field, so hiding it
+        // outright costs nothing above it. The footer is different: it
+        // is anchored under the scrolled field list, and dropping it
+        // let the list grow into the freed space, so the whole pane
+        // shifted the moment edit mode opened. Reserve its height and
+        // only its contents come and go.
         imp.add_field_row.set_visible(editable);
-        imp.add_field_menu_button.set_visible(editable);
-        imp.footer_actions.set_visible(editable);
-        imp.delete_button.set_visible(editable);
+        fields::set_control_reserved(&imp.footer_actions.get(), editable);
 
         let mut child = imp.custom_fields_list.first_child();
         while let Some(widget) = child {

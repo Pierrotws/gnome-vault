@@ -75,6 +75,7 @@ impl MultilineFieldRow {
                     obj,
                     move |_, _| {
                         this.sync_value_view();
+                        this.update_value_widget();
                     }
                 ),
             );
@@ -113,14 +114,12 @@ impl MultilineFieldRow {
 
     pub fn set_editable_mode(&self, editable: bool) {
         let imp = self.imp();
-        imp.drag_handle.set_visible(editable);
+        imp.editable.set(editable);
+        super::set_control_reserved(&imp.drag_handle.get(), editable);
         super::set_entry_editable(&imp.title_entry, editable);
-        imp.value_view_box.set_visible(!editable);
-        imp.value_scrolled_window.set_visible(editable);
         imp.value_text_view.set_editable(editable);
-        imp.value_text_view.set_can_focus(editable);
         imp.value_text_view.set_cursor_visible(editable);
-        imp.delete_button.set_visible(editable);
+        super::set_control_reserved(&imp.delete_button.get(), editable);
         // Refresh the read-only view when leaving edit mode. The
         // buffer.connect_changed handler skips sync_value_view while
         // editable to avoid rebuilding hidden widgets on every
@@ -128,6 +127,31 @@ impl MultilineFieldRow {
         if !editable {
             self.sync_value_view();
         }
+        self.update_value_widget();
+    }
+
+    /// Picks which of the two value pages is on screen.
+    ///
+    /// The rendered-markdown page only earns its place when markdown is
+    /// switched on *and* the row is read-only — that is the one case
+    /// where the displayed text genuinely differs from the source. With
+    /// markdown off, the same `TextView` serves both modes, so the value
+    /// keeps its exact position and appearance across the mode switch
+    /// and only the caret appears.
+    ///
+    /// This flips the stack's page rather than the children's `visible`
+    /// flags on purpose: a hidden child is not measured, so the row
+    /// would resize to whichever page is showing and drag every field
+    /// below it up or down. Both pages stay visible to the stack, which
+    /// is vhomogeneous, so the block's height is constant.
+    fn update_value_widget(&self) {
+        let imp = self.imp();
+        let page = if self.markdown_enabled() && !imp.editable.get() {
+            "rendered"
+        } else {
+            "source"
+        };
+        imp.value_stack.set_visible_child_name(page);
     }
 
     pub fn drag_handle(&self) -> gtk::Widget {
@@ -148,17 +172,19 @@ impl MultilineFieldRow {
 
     fn sync_value_view(&self) {
         let value_view_box = &self.imp().value_view_box;
-        let value = self.value();
         clear_box(value_view_box);
 
-        if self.markdown_enabled() {
-            let view = MarkdownTextView::new();
-            view.set_heading_level_offset(HEADING_LEVEL_OFFSET);
-            view.set_markdown(value.as_str());
-            value_view_box.append(&view);
-        } else {
-            value_view_box.append(&plain_text_label(&value));
+        // Only markdown gets a separate rendered view. Without it the
+        // TextView is what the reader sees in both modes, so there is
+        // nothing to build here.
+        if !self.markdown_enabled() {
+            return;
         }
+
+        let view = MarkdownTextView::new();
+        view.set_heading_level_offset(HEADING_LEVEL_OFFSET);
+        view.set_markdown(self.value().as_str());
+        value_view_box.append(&view);
     }
 
     fn markdown_enabled(&self) -> bool {
@@ -167,14 +193,6 @@ impl MultilineFieldRow {
             .get()
             .is_some_and(|settings| settings.boolean(MARKDOWN_SETTING_KEY))
     }
-}
-
-fn plain_text_label(text: &str) -> gtk::Label {
-    let label = gtk::Label::new(Some(text));
-    label.set_wrap(true);
-    label.set_xalign(0.0);
-    label.set_selectable(true);
-    label
 }
 
 fn clear_box(container: &gtk::Box) {

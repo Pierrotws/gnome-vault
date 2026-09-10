@@ -77,8 +77,27 @@ fn resource_file() -> std::path::PathBuf {
 }
 
 /// Loads the small inline stylesheet used by widgets that aren't fully
-/// covered by Adwaita's default theme — currently the unpushed-commit
-/// badge on the Changes button.
+/// covered by Adwaita's default theme: the unpushed-commit badge on the
+/// Changes button, and the entry-pane field styling that keeps
+/// read-only and edit mode pixel-identical.
+///
+/// `field-entry` is the WYSIWYG half of that. Entry-pane fields are
+/// frameless in both modes so an editable field is indistinguishable
+/// from a read-only one, but Adwaita's `entry.flat` also drops the
+/// entry down to `min-height: 0; padding: 2px`. Restoring the framed
+/// metrics (without the frame itself) means the widget occupies the
+/// same box whether or not it happens to be editable right now, so
+/// toggling edit mode moves nothing. Focus still draws Adwaita's
+/// accent outline — an outline is painted outside the layout, so it
+/// costs no space — plus a faint wash so the field being typed into
+/// reads as active.
+///
+/// `field-value` is the read-only half of a multiline field. gtk-markdown
+/// lays each block out as a `GtkFlowBox` of labels, and Adwaita insets
+/// every `flowboxchild` by `margin: 3px; padding: 8px` — 11px of padding
+/// on all sides that the editable `GtkTextView` does not have, which
+/// offset the rendered text and inflated the block. Zeroing it lines the
+/// two up.
 fn install_app_css() {
     const APP_CSS: &str = "\
         .changes-badge {\
@@ -89,6 +108,20 @@ fn install_app_css() {
             font-size: 0.7em;\
             font-weight: bold;\
             min-width: 8px;\
+        }\
+        entry.field-entry {\
+            min-height: 34px;\
+            padding: 0 9px;\
+            border-radius: 9px;\
+            border-spacing: 6px;\
+            background-color: transparent;\
+        }\
+        entry.field-entry:focus-within {\
+            background-color: alpha(currentColor, 0.08);\
+        }\
+        .field-value flowboxchild {\
+            margin: 0;\
+            padding: 0;\
         }\
     ";
 

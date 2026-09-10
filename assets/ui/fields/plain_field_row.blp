@@ -16,11 +16,16 @@ template $PlainFieldRow : ListBoxRow {
             css-classes: ["dim-label"];
         }
 
+        // Both entries stay frameless in read-only *and* edit mode; the
+        // "field-entry" class gives them a framed entry's metrics so the
+        // row keeps its height and its columns keep their x positions
+        // when the mode changes.
         Entry key_entry {
             hexpand: false;
             width-chars: 18;
             placeholder-text: _("Key");
-            css-classes: ["title-2", "heading"];
+            has-frame: false;
+            css-classes: ["title-2", "heading", "field-entry"];
         }
 
         Separator key_value_separator {
@@ -31,12 +36,8 @@ template $PlainFieldRow : ListBoxRow {
             hexpand: true;
             width-chars: 24;
             placeholder-text: _("Value");
-        }
-
-        LinkButton value_link_button {
-            visible: false;
-            hexpand: true;
-            halign: start;
+            has-frame: false;
+            css-classes: ["field-entry"];
         }
 
         Button copy_button {

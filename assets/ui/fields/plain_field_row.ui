@@ -28,8 +28,10 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
             <property name="hexpand">false</property>
             <property name="width-chars">18</property>
             <property name="placeholder-text" translatable="yes">Key</property>
+            <property name="has-frame">false</property>
             <property name="css-classes">title-2
-heading</property>
+heading
+field-entry</property>
           </object>
         </child>
         <child>
@@ -42,13 +44,8 @@ heading</property>
             <property name="hexpand">true</property>
             <property name="width-chars">24</property>
             <property name="placeholder-text" translatable="yes">Value</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLinkButton" id="value_link_button">
-            <property name="visible">false</property>
-            <property name="hexpand">true</property>
-            <property name="halign">1</property>
+            <property name="has-frame">false</property>
+            <property name="css-classes">field-entry</property>
           </object>
         </child>
         <child>

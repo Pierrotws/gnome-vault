@@ -1,11 +1,11 @@
+use std::cell::Cell;
+
 use adw::subclass::prelude::*;
 use gtk::glib;
 use gtk::prelude::*;
 use once_cell::unsync::OnceCell;
 
-use gtk::{
-    gio, Box, Button, CompositeTemplate, Entry, Image, ScrolledWindow, TemplateChild, TextView,
-};
+use gtk::{gio, Box, Button, CompositeTemplate, Entry, Image, Stack, TemplateChild, TextView};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/fields/multiline_field_row.ui")]
@@ -17,10 +17,10 @@ pub struct MultilineFieldRow {
     pub title_entry: TemplateChild<Entry>,
 
     #[template_child]
-    pub value_view_box: TemplateChild<Box>,
+    pub value_stack: TemplateChild<Stack>,
 
     #[template_child]
-    pub value_scrolled_window: TemplateChild<ScrolledWindow>,
+    pub value_view_box: TemplateChild<Box>,
 
     #[template_child]
     pub value_text_view: TemplateChild<TextView>,
@@ -32,6 +32,8 @@ pub struct MultilineFieldRow {
     pub delete_button: TemplateChild<Button>,
 
     pub settings: OnceCell<gio::Settings>,
+
+    pub editable: Cell<bool>,
 }
 
 #[glib::object_subclass]

@@ -35,7 +35,9 @@ impl PasswordFieldRow {
     pub fn set_editable_mode(&self, editable: bool) {
         let imp = self.imp();
         imp.password_entry.set_editable(editable);
-        imp.generate_password_button.set_visible(editable);
+        // Keep the generate button's slot so the copy button next to it
+        // stays put across the mode switch.
+        super::set_control_reserved(&imp.generate_password_button.get(), editable);
     }
 
     pub fn connect_changed<F>(&self, f: F) -> glib::SignalHandlerId

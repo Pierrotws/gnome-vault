@@ -5,21 +5,12 @@ use gtk::glib;
 use gtk::prelude::*;
 
 use gtk::{
-    Box, Button, CompositeTemplate, Entry, Image, Label, ProgressBar, TemplateChild, ToggleButton,
+    Button, CompositeTemplate, Entry, Image, Label, ProgressBar, TemplateChild, ToggleButton,
 };
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/io/pierrotws/GnomeVault/ui/fields/otp_field_row.ui")]
 pub struct OtpFieldRow {
-    #[template_child]
-    pub view_box: TemplateChild<Box>,
-
-    #[template_child]
-    pub edit_box: TemplateChild<Box>,
-
-    #[template_child]
-    pub title_label: TemplateChild<Label>,
-
     #[template_child]
     pub code_label: TemplateChild<Label>,
 

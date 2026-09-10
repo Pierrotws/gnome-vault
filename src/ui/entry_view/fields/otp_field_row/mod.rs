@@ -36,12 +36,9 @@ impl OtpFieldRow {
         }
 
         imp.key_entry.connect_changed(glib::clone!(
-            #[weak(rename_to = this)]
-            self,
             #[weak]
             entry_view,
-            move |entry| {
-                this.imp().title_label.set_text(&entry.text());
+            move |_| {
                 entry_view.mark_changed();
             }
         ));
@@ -144,9 +141,7 @@ impl OtpFieldRow {
     }
 
     pub fn set_key(&self, key: &str) {
-        let imp = self.imp();
-        imp.key_entry.set_text(key);
-        imp.title_label.set_text(key);
+        self.imp().key_entry.set_text(key);
     }
 
     pub fn url(&self) -> glib::GString {
@@ -159,21 +154,27 @@ impl OtpFieldRow {
         self.update_otp_display();
     }
 
+    /// Every widget in this row exists in both modes, so switching
+    /// modes only flips editability. The two controls that genuinely
+    /// don't belong in read-only mode keep their space (see
+    /// [`super::set_control_reserved`]) rather than disappearing, so the
+    /// key entry doesn't slide sideways as the drag handle comes and
+    /// goes. On the primary-field row those controls never apply at
+    /// all, and there they *are* hidden outright — reserving room for a
+    /// control that can never appear is just a permanent gap.
     pub fn set_editable_mode(&self, editable: bool) {
         let imp = self.imp();
-        let key_editable = editable && imp.key_editable.get();
-        let row_controls_visible = editable && imp.show_row_controls.get();
 
-        imp.view_box.set_visible(!editable);
-        imp.edit_box.set_visible(editable);
-        imp.key_entry.set_editable(key_editable);
-        imp.key_entry.set_can_focus(key_editable);
-        imp.key_entry.set_has_frame(key_editable);
-        imp.url_entry.set_editable(editable);
-        imp.url_entry.set_can_focus(editable);
-        imp.url_entry.set_has_frame(editable);
-        imp.drag_handle.set_visible(row_controls_visible);
-        imp.delete_button.set_visible(row_controls_visible);
+        super::set_entry_editable(&imp.key_entry, editable && imp.key_editable.get());
+        super::set_entry_editable(&imp.url_entry, editable);
+
+        if imp.show_row_controls.get() {
+            super::set_control_reserved(&imp.drag_handle.get(), editable);
+            super::set_control_reserved(&imp.delete_button.get(), editable);
+        } else {
+            imp.drag_handle.set_visible(false);
+            imp.delete_button.set_visible(false);
+        }
 
         if !editable {
             imp.reveal_url_button.set_active(false);

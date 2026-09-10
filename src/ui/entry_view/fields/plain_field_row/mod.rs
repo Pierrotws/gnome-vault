@@ -8,6 +8,10 @@ use super::{CustomFieldRow, EntryFieldRow};
 
 mod imp;
 
+/// libadwaita's own "opens outside the app" icon, the same one
+/// `AdwAboutDialog` uses for external links.
+const LINK_ICON_NAME: &str = "adw-external-link-symbolic";
+
 glib::wrapper! {
     pub struct PlainFieldRow(ObjectSubclass<imp::PlainFieldRow>)
         @extends gtk::Widget, gtk::ListBoxRow,
@@ -44,6 +48,22 @@ impl PlainFieldRow {
         let value_entry = imp.value_entry.clone();
         imp.copy_button.connect_clicked(move |_| {
             clipboard::copy_secret(&value_entry.text());
+        });
+
+        imp.value_entry.connect_icon_release(|entry, position| {
+            if position != gtk::EntryIconPosition::Secondary {
+                return;
+            }
+            let uri = entry.text();
+            let uri = uri.trim();
+            if !PlainFieldRow::is_web_url(uri) {
+                return;
+            }
+            if let Err(error) =
+                gtk::gio::AppInfo::launch_default_for_uri(uri, None::<&gtk::gio::AppLaunchContext>)
+            {
+                log::warn!("Failed to open link: {error}");
+            }
         });
 
         super::wire_delete_button(&imp.delete_button, obj.upcast_ref(), entry_view);
@@ -88,10 +108,10 @@ impl PlainFieldRow {
 
     pub fn set_editable_mode(&self, editable: bool) {
         let imp = self.imp();
-        imp.drag_handle.set_visible(editable);
+        super::set_control_reserved(&imp.drag_handle.get(), editable);
         super::set_entry_editable(&imp.key_entry, editable);
         super::set_entry_editable(&imp.value_entry, editable);
-        imp.delete_button.set_visible(editable);
+        super::set_control_reserved(&imp.delete_button.get(), editable);
         self.update_value_link();
     }
 
@@ -99,21 +119,30 @@ impl PlainFieldRow {
         self.imp().drag_handle.get().upcast()
     }
 
+    /// Shows a clickable "open link" icon inside the value entry when
+    /// the value is a web URL.
+    ///
+    /// This used to swap the entry out for a `LinkButton` in read-only
+    /// mode, which meant a URL field rendered as blue underlined link
+    /// text when reading and as plain entry text when editing — the
+    /// same value in two different shapes. Keeping the entry and hanging
+    /// the affordance off its secondary icon means the value never moves
+    /// or restyles, and the link stays reachable in both modes.
     fn update_value_link(&self) {
         let imp = self.imp();
         let value = imp.value_entry.text();
         let url = value.trim();
-        let show_link = !imp.value_entry.is_editable() && Self::is_web_url(url);
+        let position = gtk::EntryIconPosition::Secondary;
 
-        imp.value_entry.set_visible(!show_link);
-        imp.value_link_button.set_visible(show_link);
-
-        if show_link {
-            imp.value_link_button.set_uri(url);
-            imp.value_link_button.set_label(url);
-            imp.value_link_button.set_tooltip_text(Some(url));
+        if Self::is_web_url(url) {
+            imp.value_entry
+                .set_icon_from_icon_name(position, Some(LINK_ICON_NAME));
+            imp.value_entry.set_icon_activatable(position, true);
+            imp.value_entry.set_icon_sensitive(position, true);
+            imp.value_entry.set_icon_tooltip_text(position, Some(url));
         } else {
-            imp.value_link_button.set_tooltip_text(None);
+            imp.value_entry.set_icon_from_icon_name(position, None);
+            imp.value_entry.set_icon_tooltip_text(position, None);
         }
     }
 

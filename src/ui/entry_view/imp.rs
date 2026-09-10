@@ -14,9 +14,6 @@ pub struct EntryView {
     pub content_stack: TemplateChild<gtk::Stack>,
 
     #[template_child]
-    pub title_label: TemplateChild<gtk::Label>,
-
-    #[template_child]
     pub title_entry: TemplateChild<gtk::Entry>,
 
     #[template_child]

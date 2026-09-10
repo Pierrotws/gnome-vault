@@ -50,15 +50,6 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 <property name="margin-start">18</property>
                 <property name="margin-end">18</property>
                 <child>
-                  <object class="GtkLabel" id="title_label">
-                    <property name="label"></property>
-                    <property name="xalign">0</property>
-                    <property name="halign">3</property>
-                    <property name="css-classes">title-1
-heading</property>
-                  </object>
-                </child>
-                <child>
                   <object class="GtkEntry" id="title_entry">
                     <property name="placeholder-text">Entry name</property>
                     <property name="halign">3</property>
@@ -67,14 +58,15 @@ heading</property>
                     <property name="width-chars">1</property>
                     <property name="max-width-chars">48</property>
                     <property name="has-frame">false</property>
-                    <property name="visible">false</property>
                     <property name="css-classes">title-1
-heading</property>
+heading
+field-entry</property>
                   </object>
                 </child>
                 <child>
                   <object class="GtkStack" id="primary_field_stack">
                     <property name="vexpand">false</property>
+                    <property name="vhomogeneous">false</property>
                     <child>
                       <object class="GtkStackPage">
                         <property name="name">password</property>

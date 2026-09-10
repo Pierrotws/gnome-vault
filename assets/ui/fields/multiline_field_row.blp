@@ -23,7 +23,8 @@ template $MultilineFieldRow : ListBoxRow {
             Entry title_entry {
                 placeholder-text: _("Key");
                 hexpand: true;
-                css-classes: ["title-2", "heading"];
+                has-frame: false;
+                css-classes: ["title-2", "heading", "field-entry"];
             }
 
             Button copy_button {
@@ -47,28 +48,66 @@ template $MultilineFieldRow : ListBoxRow {
             }
         }
 
-        Box value_view_box {
-            orientation: vertical;
-            spacing: 6;
-            margin-top: 8;
-            margin-bottom: 8;
-            margin-start: 8;
-            margin-end: 8;
-        }
+        // A Stack rather than two siblings toggled with set_visible:
+        // it is vhomogeneous, so the value block is always as tall as
+        // the taller of the two pages and the fields *below* this row
+        // cannot move when the mode changes. Rendered markdown and its
+        // source are different text - one joins soft line breaks, the
+        // other shows them - so their natural heights genuinely differ;
+        // reserving the larger of the two is what makes the switch
+        // still.
+        Stack value_stack {
+            vhomogeneous: true;
+            hhomogeneous: true;
 
-        ScrolledWindow value_scrolled_window {
-            min-content-height: 160;
-            max-content-height: 480;
-            propagate-natural-height: true;
-            vexpand: true;
+            StackPage {
+                name: "rendered";
 
-            child: TextView value_text_view {
-                wrap-mode: word_char;
-                top-margin: 8;
-                bottom-margin: 8;
-                left-margin: 8;
-                right-margin: 8;
-            };
+                // Only reached when markdown rendering is enabled; with
+                // markdown off the very same TextView serves both modes.
+                // The margins match value_text_view's internal margins,
+                // and "field-value" strips the inset Adwaita puts on the
+                // flowboxchild wrappers the markdown renderer builds, so
+                // the text starts at the same pixel either way.
+                child: Box value_view_box {
+                    orientation: vertical;
+                    spacing: 6;
+                    valign: start;
+                    margin-top: 8;
+                    margin-bottom: 8;
+                    margin-start: 9;
+                    margin-end: 9;
+                    css-classes: ["field-value"];
+                };
+            }
+
+            StackPage {
+                name: "source";
+
+                // The TextView sits in the row directly. It used to live
+                // in its own ScrolledWindow, which asks for a minimum
+                // height (what it can scroll down to) far below its
+                // natural one — and on an entry's first display the pane
+                // handed out minimums, so the field opened short and
+                // grew by that difference the first time the user hit
+                // Edit. With no inner scroller the row's minimum is its
+                // natural height, so it cannot be squeezed. The entry
+                // pane already scrolls; a long note extends the row and
+                // scrolls there instead of in a second nested scrollbar.
+                //
+                // "inline" drops the view background Adwaita gives a
+                // TextView, so the editable value sits on the row like
+                // the read-only text does instead of announcing itself
+                // as a text box.
+                child: TextView value_text_view {
+                    wrap-mode: word_char;
+                    top-margin: 8;
+                    bottom-margin: 8;
+                    left-margin: 9;
+                    right-margin: 9;
+                    css-classes: ["inline"];
+                };
+            }
         }
     };
 }

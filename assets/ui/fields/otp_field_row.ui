@@ -16,50 +16,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
         <property name="margin-start">8</property>
         <property name="margin-end">8</property>
         <child>
-          <object class="GtkBox" id="view_box">
-            <property name="orientation">1</property>
-            <property name="spacing">8</property>
-            <child>
-              <object class="GtkBox">
-                <property name="orientation">0</property>
-                <property name="spacing">8</property>
-                <child>
-                  <object class="GtkLabel" id="title_label">
-                    <property name="hexpand">true</property>
-                    <property name="xalign">0</property>
-                    <property name="css-classes">title-2
-heading</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkButton" id="copy_code_button">
-                    <property name="icon-name">edit-copy-symbolic</property>
-                    <property name="tooltip-text" translatable="yes">Copy code</property>
-                    <property name="valign">3</property>
-                    <accessibility>
-                      <property name="label" translatable="yes">Copy code</property>
-                    </accessibility>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkLabel" id="code_label">
-                <property name="halign">3</property>
-                <property name="xalign">0.5</property>
-                <property name="css-classes">title-1
-numeric</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkProgressBar" id="validity_progress">
-                <property name="hexpand">true</property>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="GtkBox" id="edit_box">
+          <object class="GtkBox" id="header_box">
             <property name="orientation">0</property>
             <property name="spacing">8</property>
             <child>
@@ -72,26 +29,63 @@ numeric</property>
             </child>
             <child>
               <object class="GtkEntry" id="key_entry">
-                <property name="hexpand">false</property>
-                <property name="width-chars">18</property>
+                <property name="hexpand">true</property>
                 <property name="placeholder-text" translatable="yes">Key</property>
+                <property name="has-frame">false</property>
                 <property name="css-classes">title-2
-heading</property>
+heading
+field-entry</property>
               </object>
             </child>
             <child>
-              <object class="GtkSeparator">
-                <property name="orientation">1</property>
+              <object class="GtkButton" id="copy_code_button">
+                <property name="icon-name">edit-copy-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Copy code</property>
+                <property name="valign">3</property>
+                <accessibility>
+                  <property name="label" translatable="yes">Copy code</property>
+                </accessibility>
               </object>
             </child>
+            <child>
+              <object class="GtkButton" id="delete_button">
+                <property name="icon-name">user-trash-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Delete field</property>
+                <property name="valign">3</property>
+                <accessibility>
+                  <property name="label" translatable="yes">Delete field</property>
+                </accessibility>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel" id="code_label">
+            <property name="halign">3</property>
+            <property name="xalign">0.5</property>
+            <property name="css-classes">title-1
+numeric</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkProgressBar" id="validity_progress">
+            <property name="hexpand">true</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox" id="url_box">
+            <property name="orientation">0</property>
+            <property name="spacing">8</property>
             <child>
               <object class="GtkEntry" id="url_entry">
                 <property name="hexpand">true</property>
                 <property name="width-chars">32</property>
                 <property name="placeholder-text" translatable="yes">otpauth://totp/...</property>
                 <property name="visibility">false</property>
+                <property name="has-frame">false</property>
                 <property name="input-purpose">8</property>
                 <property name="input-hints">private|no-emoji|no-spellcheck</property>
+                <property name="css-classes">field-entry</property>
               </object>
             </child>
             <child>
@@ -111,16 +105,6 @@ heading</property>
                 <property name="valign">3</property>
                 <accessibility>
                   <property name="label" translatable="yes">Copy URL</property>
-                </accessibility>
-              </object>
-            </child>
-            <child>
-              <object class="GtkButton" id="delete_button">
-                <property name="icon-name">user-trash-symbolic</property>
-                <property name="tooltip-text" translatable="yes">Delete field</property>
-                <property name="valign">3</property>
-                <accessibility>
-                  <property name="label" translatable="yes">Delete field</property>
                 </accessibility>
               </object>
             </child>
