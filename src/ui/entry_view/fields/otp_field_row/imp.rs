@@ -74,6 +74,15 @@ impl ObjectImpl for OtpFieldRow {
             gtk::InputHints::PRIVATE | gtk::InputHints::NO_EMOJI | gtk::InputHints::NO_SPELLCHECK,
         );
         self.url_entry.set_input_purpose(gtk::InputPurpose::Password);
+
+        // Mask the URL as blank space rather than a run of bullets. The
+        // row shows the secret's *code* right above this entry, so the
+        // masked URL carries nothing the reader wants — a bar of dots
+        // the width of an otpauth:// URL is just noise, and it
+        // advertises roughly how long the secret is. The text itself is
+        // untouched, so the reveal toggle, the copy button and the save
+        // path all still see it.
+        self.url_entry.set_invisible_char(Some(' '));
     }
 
     fn dispose(&self) {
