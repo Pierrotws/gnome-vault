@@ -98,6 +98,13 @@ fn resource_file() -> std::path::PathBuf {
 /// on all sides that the editable `GtkTextView` does not have, which
 /// offset the rendered text and inflated the block. Zeroing it lines the
 /// two up.
+///
+/// `vault-tree` drops the view background Adwaita gives every `listview`
+/// (`listview, list { background-color: var(--view-bg-color) }`), which
+/// framed the vault tree as a card floating on the window. The entries
+/// list beside it is already transparent by way of
+/// `.navigation-sidebar`; this leaves the tree's row and selection
+/// styling alone and only takes the panel away.
 fn install_app_css() {
     const APP_CSS: &str = "\
         .changes-badge {\
@@ -122,6 +129,9 @@ fn install_app_css() {
         .field-value flowboxchild {\
             margin: 0;\
             padding: 0;\
+        }\
+        listview.vault-tree {\
+            background-color: transparent;\
         }\
     ";
 

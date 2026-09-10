@@ -26,6 +26,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
         <property name="child">
           <object class="GtkListView" id="tree_view">
             <property name="single-click-activate">false</property>
+            <property name="css-classes">vault-tree</property>
           </object>
         </property>
       </object>
