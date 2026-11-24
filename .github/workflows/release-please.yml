@@ -1,0 +1,29 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  # Needed to dispatch packages.yml: a release created with GITHUB_TOKEN
+  # does not fire `release: published`, so packages.yml is started by hand.
+  actions: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Build and attach packages
+        if: steps.release.outputs.release_created
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: gh workflow run packages.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"

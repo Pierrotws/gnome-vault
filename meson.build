@@ -1,7 +1,7 @@
 project(
   'gnome-vault',
   'rust',
-  version: '0.1.1',
+  version: '0.1.1', # x-release-please-version
   meson_version: '>= 1.4'
 )
 
