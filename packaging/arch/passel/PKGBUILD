@@ -1,6 +1,6 @@
 # Maintainer: Pierre Sauvage <m.sauvage.pierre@gmail.com>
 pkgname=passel
-pkgver=0.1.1
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="A pass-compatible password manager for GNOME"
 arch=('x86_64')
@@ -11,7 +11,7 @@ conflicts=('gnome-vault' 'gnome-vault-bin')
 replaces=('gnome-vault')
 makedepends=('cargo' 'meson' 'ninja' 'pkgconf' 'blueprint-compiler' 'git')
 source=("$pkgname-$pkgver::git+$url.git#tag=v$pkgver")
-sha256sums=('797c90a7c924e40695b9b7618b4f339578a963004ff095929afc915c1618bf09')
+sha256sums=('a5ff4cca9439b76d3682c5c940e5e13347c577000c2e1a0d22b398c154d6bb9e')
 
 prepare() {
     cd "$pkgname-$pkgver"
