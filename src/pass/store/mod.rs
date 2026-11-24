@@ -575,6 +575,25 @@ pub fn set_password_store_dir_once(dir: &Path) -> bool {
     }
 }
 
+/// Returns the sandbox store used in place of the user's real vault in
+/// debug builds (`cargo run`), or `None` in release builds.
+///
+/// Defaults to `.dev-password-store/` at the crate root so the path does
+/// not depend on the working directory; `GNOME_VAULT_DEV_STORE_DIR`
+/// points it elsewhere. Pinned over any inherited `PASSWORD_STORE_DIR`
+/// at startup, since `pass` users commonly export that variable at their
+/// real store.
+pub fn dev_store_dir() -> Option<PathBuf> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    Some(
+        std::env::var_os("GNOME_VAULT_DEV_STORE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join(".dev-password-store")),
+    )
+}
+
 /// Returns the active password-store directory.
 ///
 /// Honors `PASSWORD_STORE_DIR` and falls back to `$HOME/.password-store`.

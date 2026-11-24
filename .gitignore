@@ -19,3 +19,6 @@
 # Editor / OS
 .DS_Store
 *.swp
+
+# Sandbox vault used by debug builds (cargo run)
+/.dev-password-store/

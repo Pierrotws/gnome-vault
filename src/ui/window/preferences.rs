@@ -45,7 +45,14 @@ impl MainWindow {
         tree_view_size_row.set_selected(tree_view_size_index(
             &self.setting_string("tree-view-size", "medium"),
         ));
-        store_dir_row.set_text(&self.setting_string("store-dir", ""));
+        // Debug builds are pinned to the dev store, and GSettings is
+        // shared with the installed app, so show the pin read-only.
+        if let Some(dev_dir) = crate::pass::store::dev_store_dir() {
+            store_dir_row.set_text(&dev_dir.to_string_lossy());
+            store_dir_row.set_sensitive(false);
+        } else {
+            store_dir_row.set_text(&self.setting_string("store-dir", ""));
+        }
         // Prefer an explicit user override; otherwise fall back to whatever
         // branch the working tree currently has checked out, so the field is
         // never blank if the repo is in a sensible state.

@@ -15,6 +15,10 @@ use super::{MainWindow, SETUP_PROVIDER_NONE};
 
 impl MainWindow {
     pub(super) fn apply_store_dir_setting(&self) {
+        // Debug builds are pinned to the dev store in main().
+        if crate::pass::store::dev_store_dir().is_some() {
+            return;
+        }
         if !self.settings_has_key("store-dir") {
             if std::env::var_os("PASSWORD_STORE_DIR").is_none() {
                 log::warn!(
@@ -88,7 +92,11 @@ impl MainWindow {
         imp.setup_remote_row.set_sensitive(false);
         self.setup_recipient_model();
 
-        let configured_store_dir = if self.settings_has_key("store-dir") {
+        // Debug builds ignore the shared store-dir setting, which names
+        // the installed app's real vault.
+        let configured_store_dir = if self.settings_has_key("store-dir")
+            && crate::pass::store::dev_store_dir().is_none()
+        {
             self.settings().string("store-dir").to_string()
         } else {
             String::new()
@@ -197,6 +205,11 @@ impl MainWindow {
     /// schema definition still get a working vault for the current
     /// session).
     fn persist_store_dir_setting(&self, store_dir: &Path) -> Result<(), String> {
+        // GSettings is shared with the installed app; a debug build must
+        // not retarget it at the dev store.
+        if crate::pass::store::dev_store_dir().is_some() {
+            return Ok(());
+        }
         if !self.settings_has_key("store-dir") {
             log::warn!("GSettings schema is missing store-dir; vault path was not persisted");
             return Ok(());

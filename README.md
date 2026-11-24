@@ -73,6 +73,12 @@ cd build;
 ./target/debug/gnome-vault
 ```
 
+Debug builds never touch your real `~/.password-store`: they use
+`.dev-password-store/` at the repo root (git-ignored) regardless of
+`PASSWORD_STORE_DIR` or the `store-dir` preference. Set
+`GNOME_VAULT_DEV_STORE_DIR` to use another sandbox. The first launch
+opens the setup wizard to create it.
+
 ### Test
 
 ```bash
