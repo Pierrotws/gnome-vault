@@ -72,6 +72,11 @@ template $EntryView : Adw.Bin {
                 }
 
                 ScrolledWindow custom_fields_scrolled_window {
+                    // Vertical scrolling only. Scrolling sideways hid the
+                    // field rows' minimum width from the window, so a
+                    // narrow pane clipped the rows' trailing buttons
+                    // instead of stopping the pane handle.
+                    hscrollbar-policy: never;
                     min-content-height: 0;
                     propagate-natural-height: false;
                     vexpand: true;

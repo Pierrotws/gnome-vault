@@ -99,50 +99,6 @@ impl MainWindow {
             }
         ));
 
-        {
-            // set_position re-emits notify::position, which re-enters this
-            // handler. Without blocking, the only thing preventing
-            // re-entry is the bounds check below — fragile. Stash the
-            // handler id and block it across the corrective set_position.
-            let handler_id: Rc<RefCell<Option<glib::SignalHandlerId>>> =
-                Rc::new(RefCell::new(None));
-            let handler_id_inner = handler_id.clone();
-            let id = imp.main_paned.connect_position_notify(glib::clone!(
-                #[weak(rename_to = window)]
-                self,
-                move |paned| {
-                    if window.show_group_view_enabled() && paned.position() < GROUP_TREE_WIDTH {
-                        if let Some(id) = handler_id_inner.borrow().as_ref() {
-                            paned.block_signal(id);
-                            paned.set_position(GROUP_TREE_WIDTH);
-                            paned.unblock_signal(id);
-                        } else {
-                            paned.set_position(GROUP_TREE_WIDTH);
-                        }
-                    }
-                }
-            ));
-            *handler_id.borrow_mut() = Some(id);
-        }
-
-        {
-            let handler_id: Rc<RefCell<Option<glib::SignalHandlerId>>> =
-                Rc::new(RefCell::new(None));
-            let handler_id_inner = handler_id.clone();
-            let id = imp.selection_paned.connect_position_notify(move |paned| {
-                if paned.position() < GROUP_TREE_WIDTH {
-                    if let Some(id) = handler_id_inner.borrow().as_ref() {
-                        paned.block_signal(id);
-                        paned.set_position(GROUP_TREE_WIDTH);
-                        paned.unblock_signal(id);
-                    } else {
-                        paned.set_position(GROUP_TREE_WIDTH);
-                    }
-                }
-            });
-            *handler_id.borrow_mut() = Some(id);
-        }
-
         imp.vault_view
             .connect_create_entry_requested(glib::clone!(
                 #[weak(rename_to = window)]
@@ -1044,8 +1000,6 @@ impl MainWindow {
         if reset_position {
             imp.main_paned.set_position(GROUP_SELECTION_WIDTH);
             imp.selection_paned.set_position(GROUP_TREE_WIDTH);
-        } else if imp.main_paned.position() < GROUP_TREE_WIDTH {
-            imp.main_paned.set_position(GROUP_TREE_WIDTH);
         }
         imp.selection_stack.set_visible_child_name("group");
     }

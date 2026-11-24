@@ -103,7 +103,11 @@ template $MainWindow : Adw.ApplicationWindow {
                     orientation: horizontal;
                     wide-handle: true;
                     position: 520;
-                    shrink-start-child: true;
+                    // Neither pane may shrink below its children's
+                    // minimum widths, so no column can be dragged (or
+                    // window-resized) down to nothing. GtkPaned clamps
+                    // the handle itself from those minimums.
+                    shrink-start-child: false;
                     shrink-end-child: false;
 
                     start-child: Box selection_zone {
@@ -112,12 +116,17 @@ template $MainWindow : Adw.ApplicationWindow {
                         Stack selection_stack {
                             vexpand: true;
                             hexpand: true;
+                            // Size to the visible page only: the tree-only
+                            // layout must not inherit the split layout's
+                            // (two-column) minimum width.
+                            hhomogeneous: false;
 
                             StackPage {
                                 name: "tree";
                                 child: Adw.Bin simple_vault_bin {
                                     vexpand: true;
                                     hexpand: true;
+                                    width-request: 180;
                                     child: $VaultView vault_view {};
                                 };
                             }
@@ -131,7 +140,7 @@ template $MainWindow : Adw.ApplicationWindow {
                                     wide-handle: true;
                                     position: 180;
                                     shrink-start-child: false;
-                                    shrink-end-child: true;
+                                    shrink-end-child: false;
 
                                     start-child: Adw.Bin group_vault_bin {
                                         vexpand: true;
@@ -141,6 +150,7 @@ template $MainWindow : Adw.ApplicationWindow {
                                     end-child: $GroupView group_view {
                                         vexpand: true;
                                         hexpand: true;
+                                        width-request: 120;
                                     };
                                 };
                             }
