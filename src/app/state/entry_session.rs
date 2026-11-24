@@ -99,7 +99,7 @@ impl EntrySession {
                     return false;
                 }
             }
-            EntryField::OTP(str) => {
+            EntryField::Otp(str) => {
                 if !otp::is_otp_url(str) {
                     return false;
                 }
@@ -113,7 +113,7 @@ impl EntrySession {
             }
             // Only OTP values must parse; everything else is allowed to be
             // empty so that comment-style placeholder fields round-trip.
-            if let EntryField::OTP(value) = entry {
+            if let EntryField::Otp(value) = entry {
                 if !otp::is_otp_url(value) {
                     return false;
                 }
@@ -223,7 +223,7 @@ mod tests {
         session.replace_current(
             "ok".into(),
             EntryData {
-                password: EntryField::OTP("not a url".into()),
+                password: EntryField::Otp("not a url".into()),
                 fields: Vec::new(),
             },
         );
@@ -236,7 +236,7 @@ mod tests {
         session.replace_current(
             "ok".into(),
             EntryData {
-                password: EntryField::OTP(
+                password: EntryField::Otp(
                     "otpauth://totp/Example:user?secret=JBSWY3DPEHPK3PXP".into(),
                 ),
                 fields: Vec::new(),
@@ -283,7 +283,7 @@ mod tests {
             "ok".into(),
             EntryData {
                 password: EntryField::Password("secret".into()),
-                fields: vec![("totp".into(), EntryField::OTP("not a url".into()))],
+                fields: vec![("totp".into(), EntryField::Otp("not a url".into()))],
             },
         );
         assert!(!session.is_valid());

@@ -127,7 +127,7 @@ impl OtpFieldRow {
 
     pub fn from_entry_field(entry_view: &EntryView, key: &str, field: &EntryField) -> Option<Self> {
         match field {
-            EntryField::OTP(value) => Some(Self::new(entry_view, key, value)),
+            EntryField::Otp(value) => Some(Self::new(entry_view, key, value)),
             _ => None,
         }
     }
@@ -252,11 +252,11 @@ impl EntryFieldRow for OtpFieldRow {
     }
 
     fn entry_field(&self) -> EntryField {
-        EntryField::OTP(self.url().trim().to_string())
+        EntryField::Otp(self.url().trim().to_string())
     }
 
     fn set_entry_field(&self, field: &EntryField) {
-        if let EntryField::OTP(value) = field {
+        if let EntryField::Otp(value) = field {
             self.set_url(value);
         }
     }

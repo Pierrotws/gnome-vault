@@ -414,7 +414,7 @@ impl EntryView {
     fn set_primary_field(&self, field: &EntryField) {
         let imp = self.imp();
         match field {
-            EntryField::OTP(_) => {
+            EntryField::Otp(_) => {
                 imp.primary_otp_field_row.set_entry_field(field);
                 imp.primary_field_stack.set_visible_child_name("otp");
             }
@@ -456,7 +456,7 @@ impl EntryView {
 
         let text = imp.password_field_row.text().to_string();
         if otp::is_otp_url(&text) {
-            EntryField::OTP(text)
+            EntryField::Otp(text)
         } else {
             imp.password_field_row.entry_field()
         }
@@ -475,7 +475,7 @@ impl EntryView {
 
         let was_updating = imp.is_updating_ui.get();
         imp.is_updating_ui.set(true);
-        self.set_primary_field(&EntryField::OTP(text));
+        self.set_primary_field(&EntryField::Otp(text));
         imp.is_updating_ui.set(was_updating);
     }
 

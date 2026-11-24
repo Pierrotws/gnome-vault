@@ -11,7 +11,7 @@ pub enum EntryField {
     /// A single-line `key: value` field.
     Plain(String),
     /// One-time password URI or secret.
-    OTP(String),
+    Otp(String),
     /// A YAML-style block scalar field. The parser also folds legacy
     /// YAML sequences (`key:\n  - elem1\n  - elem2`) into this variant
     /// by joining items with newlines, so on-disk arrays still
@@ -25,7 +25,7 @@ impl std::fmt::Debug for EntryField {
         let name = match self {
             EntryField::Password(_) => "Password",
             EntryField::Plain(_) => "Plain",
-            EntryField::OTP(_) => "OTP",
+            EntryField::Otp(_) => "OTP",
             EntryField::Multiline(_) => "Multiline",
         };
         write!(f, "{name}(<redacted>)")
@@ -38,7 +38,7 @@ impl std::fmt::Debug for EntryField {
         match self {
             EntryField::Password(v) => f.debug_tuple("Password").field(v).finish(),
             EntryField::Plain(v) => f.debug_tuple("Plain").field(v).finish(),
-            EntryField::OTP(v) => f.debug_tuple("OTP").field(v).finish(),
+            EntryField::Otp(v) => f.debug_tuple("OTP").field(v).finish(),
             EntryField::Multiline(v) => f.debug_tuple("Multiline").field(v).finish(),
         }
     }
@@ -52,7 +52,7 @@ impl EntryField {
         match self {
             EntryField::Password(s)
             | EntryField::Plain(s)
-            | EntryField::OTP(s)
+            | EntryField::Otp(s)
             | EntryField::Multiline(s) => Cow::Borrowed(s),
         }
     }

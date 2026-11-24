@@ -124,7 +124,7 @@ impl PlainFieldRow {
     }
 
     pub fn value(&self) -> glib::GString {
-        self.imp().value_entry.text().into()
+        self.imp().value_entry.text()
     }
 
     pub fn set_key(&self, key: &str) {
