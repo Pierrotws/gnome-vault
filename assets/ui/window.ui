@@ -143,7 +143,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                   <object class="AdwBin" id="simple_vault_bin">
                                     <property name="vexpand">true</property>
                                     <property name="hexpand">true</property>
-                                    <property name="width-request">180</property>
+                                    <property name="width-request">120</property>
                                     <property name="child">
                                       <object class="VaultView" id="vault_view"></object>
                                     </property>
@@ -160,7 +160,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="hexpand">true</property>
                                     <property name="orientation">0</property>
                                     <property name="wide-handle">true</property>
-                                    <property name="position">180</property>
+                                    <property name="position">170</property>
                                     <property name="resize-start-child">false</property>
                                     <property name="resize-end-child">true</property>
                                     <property name="shrink-start-child">false</property>
@@ -168,7 +168,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="start-child">
                                       <object class="AdwBin" id="group_vault_bin">
                                         <property name="vexpand">true</property>
-                                        <property name="width-request">180</property>
+                                        <property name="width-request">120</property>
                                       </object>
                                     </property>
                                     <property name="end-child">

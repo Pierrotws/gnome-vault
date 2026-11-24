@@ -13,10 +13,10 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     <property name="margin-bottom">12</property>
     <property name="margin-start">12</property>
     <property name="margin-end">12</property>
-    <property name="width-request">180</property>
     <child>
       <object class="GtkSearchEntry" id="search_entry">
         <property name="placeholder-text">Search entries and groups</property>
+        <property name="width-chars">4</property>
       </object>
     </child>
     <child>

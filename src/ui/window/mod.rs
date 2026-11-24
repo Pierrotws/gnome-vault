@@ -23,7 +23,7 @@ use crate::ui::EntryView;
 const CHANGES_PAGE_SIZE: usize = 50;
 const SETUP_PROVIDER_NONE: u32 = 0;
 const SIMPLE_SELECTION_WIDTH: i32 = 220;
-const GROUP_TREE_WIDTH: i32 = 180;
+const GROUP_TREE_WIDTH: i32 = 170;
 const GROUP_SELECTION_WIDTH: i32 = 520;
 
 glib::wrapper! {

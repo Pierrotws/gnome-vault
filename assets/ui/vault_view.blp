@@ -7,10 +7,13 @@ template $VaultView : Gtk.Box {
     margin-bottom: 12;
     margin-start: 12;
     margin-end: 12;
-    width-request: 180;
+    // No width-request: the window's tree column sets the minimum.
 
     SearchEntry search_entry {
         placeholder-text: "Search entries and groups";
+        // GtkText's default minimum (~150px of text) would otherwise
+        // set the tree column's minimum width on its own.
+        width-chars: 4;
     }
 
     ScrolledWindow {

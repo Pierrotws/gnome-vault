@@ -126,7 +126,7 @@ template $MainWindow : Adw.ApplicationWindow {
                                 child: Adw.Bin simple_vault_bin {
                                     vexpand: true;
                                     hexpand: true;
-                                    width-request: 180;
+                                    width-request: 120;
                                     child: $VaultView vault_view {};
                                 };
                             }
@@ -138,7 +138,7 @@ template $MainWindow : Adw.ApplicationWindow {
                                     hexpand: true;
                                     orientation: horizontal;
                                     wide-handle: true;
-                                    position: 180;
+                                    position: 170;
                                     // The tree keeps its width when the
                                     // selection area is resized; the
                                     // entries list takes the difference.
@@ -149,7 +149,7 @@ template $MainWindow : Adw.ApplicationWindow {
 
                                     start-child: Adw.Bin group_vault_bin {
                                         vexpand: true;
-                                        width-request: 180;
+                                        width-request: 120;
                                     };
 
                                     end-child: $GroupView group_view {
