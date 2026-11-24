@@ -60,4 +60,3 @@ impl GroupItem {
             .expect("GroupItem must be initialized via GroupItem::new"))
     }
 }
-

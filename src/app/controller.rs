@@ -571,10 +571,12 @@ fn contains_ignore_case(haystack: &str, lower_needle: &str) -> bool {
         if haystack.len() < needle.len() {
             return false;
         }
-        return haystack
-            .as_bytes()
-            .windows(needle.len())
-            .any(|window| window.iter().zip(needle).all(|(h, n)| h.eq_ignore_ascii_case(n)));
+        return haystack.as_bytes().windows(needle.len()).any(|window| {
+            window
+                .iter()
+                .zip(needle)
+                .all(|(h, n)| h.eq_ignore_ascii_case(n))
+        });
     }
     haystack.to_lowercase().contains(lower_needle)
 }

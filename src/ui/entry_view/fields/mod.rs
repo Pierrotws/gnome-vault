@@ -95,11 +95,7 @@ pub(super) fn set_control_reserved(widget: &impl IsA<gtk::Widget>, shown: bool) 
 /// `row` and `entry_view` weakly so the closure cannot keep them alive
 /// past their lifetime, mirroring the per-row pattern that the
 /// custom-field rows previously duplicated.
-pub(super) fn wire_delete_button(
-    button: &gtk::Button,
-    row: &gtk::Widget,
-    entry_view: &EntryView,
-) {
+pub(super) fn wire_delete_button(button: &gtk::Button, row: &gtk::Widget, entry_view: &EntryView) {
     button.connect_clicked(glib::clone!(
         #[weak(rename_to = this)]
         row,

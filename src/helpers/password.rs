@@ -109,7 +109,10 @@ pub fn generate_password(
     mode: PasswordMode,
 ) -> Result<Zeroizing<String>, PasswordError> {
     if length == 0 {
-        return Err(PasswordError::TooShort { min: 1, got: length });
+        return Err(PasswordError::TooShort {
+            min: 1,
+            got: length,
+        });
     }
     let charset = get_charset_for_mode(mode);
     let mut password: Vec<u8> = Vec::with_capacity(length);
@@ -120,7 +123,10 @@ pub fn generate_password(
         }
         PasswordMode::Alphanumeric => {
             if length < 3 {
-                return Err(PasswordError::TooShort { min: 3, got: length });
+                return Err(PasswordError::TooShort {
+                    min: 3,
+                    got: length,
+                });
             }
             password.push(NUMERIC[random_index(NUMERIC.len())?]);
             password.push(LOWER[random_index(LOWER.len())?]);
@@ -128,7 +134,10 @@ pub fn generate_password(
         }
         PasswordMode::LimitedSpecial => {
             if length < 4 {
-                return Err(PasswordError::TooShort { min: 4, got: length });
+                return Err(PasswordError::TooShort {
+                    min: 4,
+                    got: length,
+                });
             }
             password.push(NUMERIC[random_index(NUMERIC.len())?]);
             password.push(LOWER[random_index(LOWER.len())?]);
@@ -137,7 +146,10 @@ pub fn generate_password(
         }
         PasswordMode::All => {
             if length < 4 {
-                return Err(PasswordError::TooShort { min: 4, got: length });
+                return Err(PasswordError::TooShort {
+                    min: 4,
+                    got: length,
+                });
             }
             password.push(NUMERIC[random_index(NUMERIC.len())?]);
             password.push(LOWER[random_index(LOWER.len())?]);
@@ -226,24 +238,12 @@ mod tests {
     #[test]
     fn rejects_zero_length_passwords() {
         let err = generate_password(0, PasswordMode::Numeric).unwrap_err();
-        assert!(matches!(
-            err,
-            PasswordError::TooShort {
-                min: 1,
-                got: 0,
-            }
-        ));
+        assert!(matches!(err, PasswordError::TooShort { min: 1, got: 0 }));
     }
 
     #[test]
     fn rejects_too_short_for_alphanumeric() {
         let err = generate_password(2, PasswordMode::Alphanumeric).unwrap_err();
-        assert!(matches!(
-            err,
-            PasswordError::TooShort {
-                min: 3,
-                got: 2,
-            }
-        ));
+        assert!(matches!(err, PasswordError::TooShort { min: 3, got: 2 }));
     }
 }

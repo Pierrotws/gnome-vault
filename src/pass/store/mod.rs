@@ -626,10 +626,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!(
-            "passel-{name}-{}-{unique}",
-            std::process::id()
-        ))
+        std::env::temp_dir().join(format!("passel-{name}-{}-{unique}", std::process::id()))
     }
 
     #[test]

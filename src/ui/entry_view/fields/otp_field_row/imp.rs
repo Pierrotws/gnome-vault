@@ -73,7 +73,8 @@ impl ObjectImpl for OtpFieldRow {
         self.url_entry.set_input_hints(
             gtk::InputHints::PRIVATE | gtk::InputHints::NO_EMOJI | gtk::InputHints::NO_SPELLCHECK,
         );
-        self.url_entry.set_input_purpose(gtk::InputPurpose::Password);
+        self.url_entry
+            .set_input_purpose(gtk::InputPurpose::Password);
 
         // Mask the URL as blank space rather than a run of bullets. The
         // row shows the secret's *code* right above this entry, so the

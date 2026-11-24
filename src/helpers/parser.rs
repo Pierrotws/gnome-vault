@@ -490,10 +490,7 @@ mod tests {
                     "notes".into(),
                     EntryField::Multiline("Test1\ntest2\nMultiline\n".into())
                 ),
-                (
-                    "tags".into(),
-                    EntryField::Multiline("elem1\nelem2".into())
-                ),
+                ("tags".into(), EntryField::Multiline("elem1\nelem2".into())),
             ]
         );
     }
@@ -614,8 +611,8 @@ mod tests {
         // editors that rewrite line endings. str::lines() normalizes
         // \r\n to \n on each split, so the parsed values must not carry
         // a trailing \r in the password or in field values.
-        let entry = parse_entry("hunter2\r\nuser: alice\r\nnotes: |\r\n  one\r\n  two\r\n")
-            .unwrap();
+        let entry =
+            parse_entry("hunter2\r\nuser: alice\r\nnotes: |\r\n  one\r\n  two\r\n").unwrap();
 
         assert_eq!(entry.password, EntryField::Password("hunter2".into()));
         assert_eq!(
