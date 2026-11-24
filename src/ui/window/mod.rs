@@ -24,7 +24,6 @@ const CHANGES_PAGE_SIZE: usize = 50;
 const SETUP_PROVIDER_NONE: u32 = 0;
 const SIMPLE_SELECTION_WIDTH: i32 = 220;
 const GROUP_TREE_WIDTH: i32 = 170;
-const GROUP_SELECTION_WIDTH: i32 = 520;
 
 glib::wrapper! {
     pub struct MainWindow(ObjectSubclass<imp::MainWindow>)
@@ -1006,7 +1005,16 @@ impl MainWindow {
         // all of it to the entries list so the tree keeps its width.
         imp.main_paned.set_resize_start_child(true);
         if reset_position {
-            imp.main_paned.set_position(GROUP_SELECTION_WIDTH);
+            // Columns take a third of the window, the entry pane the
+            // other two. Main-paned resizes are proportional in this
+            // layout (resize-start-child), so the ratio holds as the
+            // window is resized. Before the first allocation width() is
+            // 0, so fall back to the default width.
+            let window_width = match self.width() {
+                0 => self.default_width(),
+                width => width,
+            };
+            imp.main_paned.set_position(window_width / 3);
             imp.selection_paned.set_position(GROUP_TREE_WIDTH);
         }
         imp.selection_stack.set_visible_child_name("group");

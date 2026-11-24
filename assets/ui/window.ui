@@ -8,7 +8,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
   <requires lib="gtk" version="4.0"/>
   <template class="MainWindow" parent="AdwApplicationWindow">
     <property name="title">Vault</property>
-    <property name="default-width">1200</property>
+    <property name="default-width">1080</property>
     <property name="default-height">720</property>
     <property name="content">
       <object class="AdwToolbarView">
@@ -125,7 +125,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                   <object class="GtkPaned" id="main_paned">
                     <property name="orientation">0</property>
                     <property name="wide-handle">true</property>
-                    <property name="position">520</property>
+                    <property name="position">360</property>
                     <property name="shrink-start-child">false</property>
                     <property name="shrink-end-child">false</property>
                     <property name="start-child">

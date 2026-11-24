@@ -3,7 +3,7 @@ using Adw 1;
 
 template $MainWindow : Adw.ApplicationWindow {
     title: "Vault";
-    default-width: 1200;
+    default-width: 1080;
     default-height: 720;
 
     content: Adw.ToolbarView {
@@ -102,7 +102,7 @@ template $MainWindow : Adw.ApplicationWindow {
                 child: Paned main_paned {
                     orientation: horizontal;
                     wide-handle: true;
-                    position: 520;
+                    position: 360;
                     // Neither pane may shrink below its children's
                     // minimum widths, so no column can be dragged (or
                     // window-resized) down to nothing. GtkPaned clamps
