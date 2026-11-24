@@ -55,14 +55,23 @@ template $OtpFieldRow : ListBoxRow {
             }
         }
 
-        Label code_label {
-            halign: center;
-            xalign: 0.5;
-            css-classes: ["title-1", "numeric"];
-        }
+        // The code and its countdown sit inset from the row's edges
+        // rather than spanning the whole entry pane.
+        Box code_box {
+            orientation: vertical;
+            spacing: 8;
+            margin-start: 72;
+            margin-end: 72;
 
-        ProgressBar validity_progress {
-            hexpand: true;
+            Label code_label {
+                halign: center;
+                xalign: 0.5;
+                css-classes: ["title-1", "numeric"];
+            }
+
+            ProgressBar validity_progress {
+                hexpand: true;
+            }
         }
 
         Box url_box {

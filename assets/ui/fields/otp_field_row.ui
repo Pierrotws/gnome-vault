@@ -60,16 +60,24 @@ field-entry</property>
           </object>
         </child>
         <child>
-          <object class="GtkLabel" id="code_label">
-            <property name="halign">3</property>
-            <property name="xalign">0.5</property>
-            <property name="css-classes">title-1
+          <object class="GtkBox" id="code_box">
+            <property name="orientation">1</property>
+            <property name="spacing">8</property>
+            <property name="margin-start">72</property>
+            <property name="margin-end">72</property>
+            <child>
+              <object class="GtkLabel" id="code_label">
+                <property name="halign">3</property>
+                <property name="xalign">0.5</property>
+                <property name="css-classes">title-1
 numeric</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkProgressBar" id="validity_progress">
-            <property name="hexpand">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkProgressBar" id="validity_progress">
+                <property name="hexpand">true</property>
+              </object>
+            </child>
           </object>
         </child>
         <child>
