@@ -56,20 +56,18 @@ fn load_dir(root: &Path, dir: &Path) -> io::Result<Vec<PassNode>> {
                 path: relative_path(root, &path),
                 kind: PassNodeKind::Group(children),
             });
-        } else if file_type.is_file() {
-            if path.extension().and_then(|e| e.to_str()) == Some("gpg") {
-                let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
-                    log::warn!("skipping non-UTF-8 entry filename: {path:?}");
-                    continue;
-                };
-                let stem = stem.to_string();
+        } else if file_type.is_file() && path.extension().and_then(|e| e.to_str()) == Some("gpg") {
+            let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+                log::warn!("skipping non-UTF-8 entry filename: {path:?}");
+                continue;
+            };
+            let stem = stem.to_string();
 
-                nodes.push(PassNode {
-                    name: stem,
-                    path: relative_path(root, &path),
-                    kind: PassNodeKind::Entry,
-                });
-            }
+            nodes.push(PassNode {
+                name: stem,
+                path: relative_path(root, &path),
+                kind: PassNodeKind::Entry,
+            });
         }
     }
     nodes.sort_by(|a, b| match (&a.kind, &b.kind) {
@@ -168,7 +166,7 @@ pub fn available_recipients() -> Result<Vec<GpgRecipient>, StoreError> {
 pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
     let path = password_store_dir().join(&node.path);
     let content = pgp::decrypt(&path)?;
-    parser::parse_entry(&content).ok_or_else(|| StoreError::EmptyFile(path))
+    parser::parse_entry(&content).ok_or(StoreError::EmptyFile(path))
 }
 
 /// Lists commit history for the password store repository.

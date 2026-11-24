@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn subtitle_skips_non_plain_variants_to_find_a_plain_field() {
         let data = entry(vec![
-            ("totp", EntryField::OTP("otpauth://...".into())),
+            ("totp", EntryField::Otp("otpauth://...".into())),
             ("notes", EntryField::Multiline("hidden\nlines".into())),
             ("user", EntryField::Plain("bob".into())),
         ]);
@@ -62,7 +62,7 @@ mod tests {
     #[test]
     fn subtitle_is_none_when_no_plain_field_exists() {
         let data = entry(vec![
-            ("totp", EntryField::OTP("otpauth://...".into())),
+            ("totp", EntryField::Otp("otpauth://...".into())),
             ("notes", EntryField::Multiline("a\nb".into())),
         ]);
         assert_eq!(subtitle(&data), None);

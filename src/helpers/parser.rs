@@ -54,7 +54,7 @@ pub fn format_entry(entry: &EntryData) -> Zeroizing<String> {
     // gates the save path, so this is purely a defense-in-depth
     // assertion against future model abuse.
     debug_assert!(
-        matches!(entry.password, EntryField::Password(_) | EntryField::OTP(_)),
+        matches!(entry.password, EntryField::Password(_) | EntryField::Otp(_)),
         "format_entry: password slot must be Password or OTP, got {:?}",
         std::mem::discriminant(&entry.password)
     );
@@ -80,7 +80,7 @@ pub fn format_entry(entry: &EntryData) -> Zeroizing<String> {
                     out.push('\n');
                 }
             }
-            EntryField::Password(value) | EntryField::Plain(value) | EntryField::OTP(value) => {
+            EntryField::Password(value) | EntryField::Plain(value) | EntryField::Otp(value) => {
                 out.push_str(&format_yaml_scalar(key));
                 out.push_str(": ");
                 out.push_str(&format_yaml_scalar(value));
@@ -168,7 +168,7 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
 
         let value = parse_yaml_scalar(value);
         if otp::is_otp_url(&value) {
-            fields.push((key, EntryField::OTP(value)));
+            fields.push((key, EntryField::Otp(value)));
         } else {
             fields.push((key, EntryField::Plain(value)));
         }
@@ -180,7 +180,7 @@ fn parse_fields(lines: &[&str]) -> Vec<(String, EntryField)> {
 
 fn parse_secret_field(value: &str) -> EntryField {
     if otp::is_otp_url(value) {
-        EntryField::OTP(value.to_string())
+        EntryField::Otp(value.to_string())
     } else {
         EntryField::Password(value.to_string())
     }
@@ -191,7 +191,7 @@ fn should_skip_field(key: &str, value: &EntryField) -> bool {
     match value {
         EntryField::Password(value)
         | EntryField::Plain(value)
-        | EntryField::OTP(value)
+        | EntryField::Otp(value)
         | EntryField::Multiline(value) => key_is_empty && value.trim().is_empty(),
     }
 }
@@ -565,7 +565,7 @@ mod tests {
             entry.fields,
             vec![(
                 "otp".into(),
-                EntryField::OTP("otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ".into())
+                EntryField::Otp("otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ".into())
             )]
         );
     }
@@ -576,7 +576,7 @@ mod tests {
 
         assert_eq!(
             entry.password,
-            EntryField::OTP("otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ".into())
+            EntryField::Otp("otpauth://totp/example?secret=GEZDGNBVGY3TQOJQ".into())
         );
     }
 

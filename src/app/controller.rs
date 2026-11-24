@@ -532,7 +532,7 @@ impl AppController {
                 return true;
             }
             match value {
-                EntryField::Password(_) | EntryField::OTP(_) => false,
+                EntryField::Password(_) | EntryField::Otp(_) => false,
                 EntryField::Plain(_) | EntryField::Multiline(_) => {
                     contains_ignore_case(&value.display_value(), query)
                 }
