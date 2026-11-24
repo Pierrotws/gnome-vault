@@ -176,11 +176,12 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     # arch-bin attaches the tarball that passel-bin's checksum covers.
     needs: arch-bin
+    # The AUR key is an environment secret; the `aur` environment only
+    # accepts v* tags, so no branch or other workflow can read it.
+    environment: aur
     runs-on: ubuntu-24.04
     container:
       image: archlinux:base-devel
-    env:
-      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
     steps:
       - name: Install tools
         run: pacman -Syu --noconfirm git openssh pacman-contrib
@@ -228,9 +229,11 @@ jobs:
 
       - name: Push to the AUR
         shell: bash
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         run: |
           if [[ -z "$AUR_SSH_PRIVATE_KEY" ]]; then
-            echo "::error::AUR_SSH_PRIVATE_KEY secret is not set." >&2
+            echo "::error::AUR_SSH_PRIVATE_KEY is not set in the aur environment." >&2
             exit 1
           fi
           VERSION="${GITHUB_REF_NAME#v}"
