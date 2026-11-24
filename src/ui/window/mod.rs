@@ -984,6 +984,10 @@ impl MainWindow {
             imp.simple_vault_bin.set_child(Some(&imp.vault_view.get()));
         }
         imp.selection_zone.set_width_request(-1);
+        // The selection area is just the tree here: keep its width on
+        // window resizes and let the entry pane (the second column)
+        // take the difference.
+        imp.main_paned.set_resize_start_child(false);
         if reset_position {
             imp.main_paned.set_position(SIMPLE_SELECTION_WIDTH);
         }
@@ -997,6 +1001,10 @@ impl MainWindow {
             imp.group_vault_bin.set_child(Some(&imp.vault_view.get()));
         }
         imp.selection_zone.set_width_request(-1);
+        // Window resizes are shared between the selection area and the
+        // entry pane; within the selection area, selection_paned hands
+        // all of it to the entries list so the tree keeps its width.
+        imp.main_paned.set_resize_start_child(true);
         if reset_position {
             imp.main_paned.set_position(GROUP_SELECTION_WIDTH);
             imp.selection_paned.set_position(GROUP_TREE_WIDTH);

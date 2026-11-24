@@ -139,6 +139,11 @@ template $MainWindow : Adw.ApplicationWindow {
                                     orientation: horizontal;
                                     wide-handle: true;
                                     position: 180;
+                                    // The tree keeps its width when the
+                                    // selection area is resized; the
+                                    // entries list takes the difference.
+                                    resize-start-child: false;
+                                    resize-end-child: true;
                                     shrink-start-child: false;
                                     shrink-end-child: false;
 
