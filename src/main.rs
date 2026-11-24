@@ -16,7 +16,7 @@ use crate::app::AppController;
 use crate::ui::generate_password_view::GeneratePasswordView;
 use crate::ui::window::MainWindow;
 
-const APP_ID: &str = "io.pierrotws.GnomeVault";
+const APP_ID: &str = "io.pierrotws.Passel";
 
 fn main() -> glib::ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();

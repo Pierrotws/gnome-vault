@@ -16,7 +16,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
           <object class="AdwHeaderBar">
             <property name="title-widget">
               <object class="AdwWindowTitle" id="window_title">
-                <property name="title">Gnome Vault</property>
+                <property name="title">Passel</property>
                 <property name="subtitle">Read-only</property>
               </object>
             </property>

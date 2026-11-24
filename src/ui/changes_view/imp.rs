@@ -10,7 +10,7 @@ use gtk::{
 };
 
 #[derive(Debug, Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/ui/changes_view.ui")]
+#[template(resource = "/io/pierrotws/Passel/ui/changes_view.ui")]
 pub struct ChangesView {
     #[template_child]
     pub empty_label: TemplateChild<gtk::Label>,

@@ -10,7 +10,7 @@ use gtk::{
 };
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/ui/group_view.ui")]
+#[template(resource = "/io/pierrotws/Passel/ui/group_view.ui")]
 pub struct GroupView {
     #[template_child]
     pub group_title_label: TemplateChild<gtk::Label>,

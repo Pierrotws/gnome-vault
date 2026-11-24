@@ -551,26 +551,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gnome-vault"
-version = "0.1.1"
-dependencies = [
- "data-encoding",
- "env_logger",
- "getrandom 0.4.2",
- "git2",
- "glib-build-tools",
- "gpgme",
- "gtk-markdown",
- "gtk4",
- "hmac",
- "libadwaita",
- "log",
- "once_cell",
- "sha1",
- "zeroize",
-]
-
-[[package]]
 name = "gobject-sys"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1116,6 +1096,26 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps 7.0.8",
+]
+
+[[package]]
+name = "passel"
+version = "0.1.1"
+dependencies = [
+ "data-encoding",
+ "env_logger",
+ "getrandom 0.4.2",
+ "git2",
+ "glib-build-tools",
+ "gpgme",
+ "gtk-markdown",
+ "gtk4",
+ "hmac",
+ "libadwaita",
+ "log",
+ "once_cell",
+ "sha1",
+ "zeroize",
 ]
 
 [[package]]

@@ -12,7 +12,7 @@ use crate::app::controller::AppController;
 use crate::ui::{ChangesView, EntryView, GroupView, VaultView};
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/ui/window.ui")]
+#[template(resource = "/io/pierrotws/Passel/ui/window.ui")]
 pub struct MainWindow {
     #[template_child]
     pub window_title: TemplateChild<adw::WindowTitle>,

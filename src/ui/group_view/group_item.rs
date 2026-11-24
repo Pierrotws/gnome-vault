@@ -23,7 +23,7 @@ mod imp {
 
     #[glib::object_subclass]
     impl ObjectSubclass for GroupItem {
-        const NAME: &'static str = "GnomeVaultGroupItem";
+        const NAME: &'static str = "PasselGroupItem";
         type Type = super::GroupItem;
     }
 

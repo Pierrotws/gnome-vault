@@ -579,7 +579,7 @@ pub fn set_password_store_dir_once(dir: &Path) -> bool {
 /// debug builds (`cargo run`), or `None` in release builds.
 ///
 /// Defaults to `.dev-password-store/` at the crate root so the path does
-/// not depend on the working directory; `GNOME_VAULT_DEV_STORE_DIR`
+/// not depend on the working directory; `PASSEL_DEV_STORE_DIR`
 /// points it elsewhere. Pinned over any inherited `PASSWORD_STORE_DIR`
 /// at startup, since `pass` users commonly export that variable at their
 /// real store.
@@ -588,7 +588,7 @@ pub fn dev_store_dir() -> Option<PathBuf> {
         return None;
     }
     Some(
-        std::env::var_os("GNOME_VAULT_DEV_STORE_DIR")
+        std::env::var_os("PASSEL_DEV_STORE_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join(".dev-password-store")),
     )
@@ -627,7 +627,7 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!(
-            "gnome-vault-{name}-{}-{unique}",
+            "passel-{name}-{}-{unique}",
             std::process::id()
         ))
     }
@@ -802,7 +802,7 @@ mod tests {
             config
                 .set_str("user.email", "test@example.invalid")
                 .unwrap();
-            config.set_str("user.name", "Gnome Vault Tests").unwrap();
+            config.set_str("user.name", "Passel Tests").unwrap();
         }
         let entry_path = dir.join("entry.gpg");
         fs::write(&entry_path, b"ciphertext").unwrap();

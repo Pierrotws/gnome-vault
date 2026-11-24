@@ -1,5 +1,5 @@
 project(
-  'gnome-vault',
+  'passel',
   'rust',
   version: '0.1.1', # x-release-please-version
   meson_version: '>= 1.4'
@@ -7,7 +7,7 @@ project(
 
 gnome = import('gnome')
 
-base_id = 'io.pierrotws.GnomeVault'
+base_id = 'io.pierrotws.Passel'
 application_id = base_id
 
 bindir = get_option('prefix') / get_option('bindir')

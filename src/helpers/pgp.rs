@@ -359,7 +359,7 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!(
-            "gnome-vault-{name}-{}-{unique}",
+            "passel-{name}-{}-{unique}",
             std::process::id()
         ))
     }

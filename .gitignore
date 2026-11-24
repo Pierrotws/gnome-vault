@@ -13,8 +13,8 @@
 /packaging/arch/*/*.pkg.tar.*
 /packaging/arch/*/*.tar.gz
 /packaging/arch/*/*.tar.zst
-/packaging/arch/*/gnome-vault-[0-9]*/
-/packaging/arch/*/gnome-vault-bin-[0-9]*/
+/packaging/arch/*/passel-[0-9]*/
+/packaging/arch/*/passel-bin-[0-9]*/
 
 # Editor / OS
 .DS_Store

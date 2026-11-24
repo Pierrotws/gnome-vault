@@ -8,7 +8,7 @@ use once_cell::unsync::OnceCell;
 use gtk::{gio, Box, Button, CompositeTemplate, Entry, Image, Stack, TemplateChild, TextView};
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/ui/fields/multiline_field_row.ui")]
+#[template(resource = "/io/pierrotws/Passel/ui/fields/multiline_field_row.ui")]
 pub struct MultilineFieldRow {
     #[template_child]
     pub drag_handle: TemplateChild<Image>,

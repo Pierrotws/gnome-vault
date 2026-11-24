@@ -693,7 +693,7 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!(
-            "gnome-vault-{name}-{}-{unique}",
+            "passel-{name}-{}-{unique}",
             std::process::id()
         ))
     }
@@ -704,7 +704,7 @@ mod tests {
         config
             .set_str("user.email", "test@example.invalid")
             .unwrap();
-        config.set_str("user.name", "Gnome Vault Tests").unwrap();
+        config.set_str("user.name", "Passel Tests").unwrap();
         drop(config);
         repo
     }

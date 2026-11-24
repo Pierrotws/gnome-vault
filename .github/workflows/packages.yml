@@ -61,25 +61,27 @@ jobs:
         run: |
           DESTDIR="$PWD/staging" meson install -C build
           install -Dm644 LICENSE \
-            "staging/usr/share/licenses/gnome-vault/LICENSE"
+            "staging/usr/share/licenses/passel/LICENSE"
 
       - name: Build .deb with fpm
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           fpm \
             -s dir -t deb \
-            -n gnome-vault \
+            -n passel \
             -v "$VERSION" \
             -a amd64 \
             --maintainer "Pierre Sauvage <m.sauvage.pierre@gmail.com>" \
-            --description "GNOME Vault — pass-compatible password manager" \
+            --description "Passel — pass-compatible password manager for GNOME" \
             --license "GPL-3.0-or-later" \
-            --url "https://github.com/Pierrotws/gnome-vault" \
+            --url "https://github.com/Pierrotws/passel" \
             --depends "libgtk-4-1" \
             --depends "libadwaita-1-0" \
             --depends "libgpgme11t64" \
             --depends "libgit2-1.7" \
             --depends "gnupg" \
+            --conflicts gnome-vault \
+            --replaces gnome-vault \
             --after-install packaging/debian/postinst.sh \
             --after-remove packaging/debian/postinst.sh \
             -C staging \
@@ -89,7 +91,7 @@ jobs:
         if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
-          name: gnome-vault-deb
+          name: passel-deb
           path: '*.deb'
 
       - name: Attach to release
@@ -147,32 +149,32 @@ jobs:
         run: |
           DESTDIR="$PWD/staging" meson install -C build
           install -Dm644 LICENSE \
-            "staging/usr/share/licenses/gnome-vault/LICENSE"
+            "staging/usr/share/licenses/passel/LICENSE"
 
-      - name: Pack binary tarball (consumed by gnome-vault-bin AUR)
+      - name: Pack binary tarball (consumed by passel-bin AUR)
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          tar -C staging -czf "gnome-vault-$VERSION-x86_64.tar.gz" usr
+          tar -C staging -czf "passel-$VERSION-x86_64.tar.gz" usr
 
       - name: Upload artifacts (untagged run)
         if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
-          name: gnome-vault-arch-bin
-          path: 'gnome-vault-*-x86_64.tar.gz'
+          name: passel-arch-bin
+          path: 'passel-*-x86_64.tar.gz'
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: 'gnome-vault-*-x86_64.tar.gz'
+          files: 'passel-*-x86_64.tar.gz'
 
   aur:
     # Replaces the old release.sh tail: bump both PKGBUILDs to the released
     # version, commit them to main, and publish them to the AUR.
     name: Publish PKGBUILDs to the AUR
     if: startsWith(github.ref, 'refs/tags/')
-    # arch-bin attaches the tarball that gnome-vault-bin's checksum covers.
+    # arch-bin attaches the tarball that passel-bin's checksum covers.
     needs: arch-bin
     runs-on: ubuntu-24.04
     container:
@@ -200,7 +202,7 @@ jobs:
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          for pkg in gnome-vault gnome-vault-bin; do
+          for pkg in passel passel-bin; do
             pkgbuild="packaging/arch/$pkg/PKGBUILD"
             sed -i -e "s/^pkgver=.*/pkgver=$VERSION/" -e "s/^pkgrel=.*/pkgrel=1/" "$pkgbuild"
             work="/tmp/aur-work/$pkg"
@@ -237,7 +239,7 @@ jobs:
           chmod 600 /tmp/aur-ssh/id
           ssh-keyscan -t ed25519,rsa aur.archlinux.org > /tmp/aur-ssh/known_hosts 2>/dev/null
           export GIT_SSH_COMMAND="ssh -i /tmp/aur-ssh/id -o IdentitiesOnly=yes -o UserKnownHostsFile=/tmp/aur-ssh/known_hosts"
-          for pkg in gnome-vault gnome-vault-bin; do
+          for pkg in passel passel-bin; do
             aur_dir="/tmp/aur-repo/$pkg"
             /usr/bin/git clone "ssh://aur@aur.archlinux.org/$pkg.git" "$aur_dir"
             cp "/tmp/aur-work/$pkg/PKGBUILD" "/tmp/aur-work/$pkg/.SRCINFO" "$aur_dir/"

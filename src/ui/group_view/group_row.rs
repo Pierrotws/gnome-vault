@@ -27,7 +27,7 @@ mod imp {
 
     #[glib::object_subclass]
     impl ObjectSubclass for GroupRow {
-        const NAME: &'static str = "GnomeVaultGroupRow";
+        const NAME: &'static str = "PasselGroupRow";
         type Type = super::GroupRow;
         type ParentType = gtk::Box;
     }

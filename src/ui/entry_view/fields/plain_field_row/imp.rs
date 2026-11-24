@@ -5,7 +5,7 @@ use gtk::prelude::*;
 use gtk::{Button, CompositeTemplate, Entry, Image, TemplateChild};
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/ui/fields/plain_field_row.ui")]
+#[template(resource = "/io/pierrotws/Passel/ui/fields/plain_field_row.ui")]
 pub struct PlainFieldRow {
     #[template_child]
     pub drag_handle: TemplateChild<Image>,

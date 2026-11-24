@@ -1,4 +1,4 @@
-# Gnome Vault
+# Passel
 
 GTK4 + Adwaita app for [pass](https://www.passwordstore.org/).
 Written in Rust ❤️
@@ -70,13 +70,13 @@ meson compile
 Dev-only for now:
 ```bash
 cd build;
-./target/debug/gnome-vault
+./target/debug/passel
 ```
 
 Debug builds never touch your real `~/.password-store`: they use
 `.dev-password-store/` at the repo root (git-ignored) regardless of
 `PASSWORD_STORE_DIR` or the `store-dir` preference. Set
-`GNOME_VAULT_DEV_STORE_DIR` to use another sandbox. The first launch
+`PASSEL_DEV_STORE_DIR` to use another sandbox. The first launch
 opens the setup wizard to create it.
 
 ### Test

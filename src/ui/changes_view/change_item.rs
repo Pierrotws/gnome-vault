@@ -21,7 +21,7 @@ mod imp {
 
     #[glib::object_subclass]
     impl ObjectSubclass for ChangeItem {
-        const NAME: &'static str = "GnomeVaultChangeItem";
+        const NAME: &'static str = "PasselChangeItem";
         type Type = super::ChangeItem;
     }
 

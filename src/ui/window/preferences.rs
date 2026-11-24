@@ -11,7 +11,7 @@ use super::MainWindow;
 impl MainWindow {
     pub(super) fn show_preferences_dialog(&self) {
         let builder =
-            gtk::Builder::from_resource("/io/pierrotws/GnomeVault/ui/preferences_dialog.ui");
+            gtk::Builder::from_resource("/io/pierrotws/Passel/ui/preferences_dialog.ui");
         let dialog = builder
             .object::<adw::PreferencesDialog>("preferences_dialog")
             .expect("preferences_dialog must exist in preferences_dialog.ui");

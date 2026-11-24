@@ -8,7 +8,7 @@ use gtk::{glib, CompositeTemplate};
 use super::fields::{OtpFieldRow, PasswordFieldRow};
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/ui/entry_view.ui")]
+#[template(resource = "/io/pierrotws/Passel/ui/entry_view.ui")]
 pub struct EntryView {
     #[template_child]
     pub content_stack: TemplateChild<gtk::Stack>,

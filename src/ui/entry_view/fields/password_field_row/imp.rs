@@ -5,7 +5,7 @@ use gtk::glib;
 use gtk::{Button, CompositeTemplate, TemplateChild};
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/ui/fields/password_field_row.ui")]
+#[template(resource = "/io/pierrotws/Passel/ui/fields/password_field_row.ui")]
 pub struct PasswordFieldRow {
     #[template_child]
     pub password_entry: TemplateChild<adw::PasswordEntryRow>,

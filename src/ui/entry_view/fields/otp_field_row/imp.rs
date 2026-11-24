@@ -9,7 +9,7 @@ use gtk::{
 };
 
 #[derive(Default, CompositeTemplate)]
-#[template(resource = "/io/pierrotws/GnomeVault/ui/fields/otp_field_row.ui")]
+#[template(resource = "/io/pierrotws/Passel/ui/fields/otp_field_row.ui")]
 pub struct OtpFieldRow {
     #[template_child]
     pub code_label: TemplateChild<Label>,

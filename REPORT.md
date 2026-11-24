@@ -1,4 +1,4 @@
-# Gnome-Vault — Code Review (round 3)
+# Passel — Code Review (round 3)
 
 A pass-compatible password manager: GTK4/Adwaita + Rust, ~11k LOC, GPGME for crypto, git2 for sync. Two prior review rounds have closed the structural issues; this pass is grouped by severity and focuses on what's actually wrong NOW.
 

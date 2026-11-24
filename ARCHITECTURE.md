@@ -5,7 +5,7 @@ This document follows the structure from [architecture.md](https://architecture.
 ## 1. Project Structure
 
 ```text
-gnome-vault/
+passel/
 |-- assets/
 |   |-- resources.gresource.xml        # GTK resource bundle manifest
 |   |-- schemas/                       # GSettings schema and schema build rules
@@ -47,8 +47,8 @@ gnome-vault/
 |       |-- changes_view/              # Git history and change actions
 |       `-- generate_password_view/    # Password generator widget
 |-- packaging/
-|   |-- arch/gnome-vault/PKGBUILD      # Arch source build
-|   |-- arch/gnome-vault-bin/PKGBUILD  # Arch binary (consumes release tarball)
+|   |-- arch/passel/PKGBUILD      # Arch source build
+|   |-- arch/passel-bin/PKGBUILD  # Arch binary (consumes release tarball)
 |   `-- debian/postinst.sh             # .deb post-install GSettings recompile
 |-- .github/workflows/packages.yml     # Build .deb + binary tarball on release
 |-- Cargo.toml                         # Rust dependencies
@@ -195,7 +195,7 @@ Name: application preferences
 
 Type: GLib GSettings schema.
 
-Location: `assets/schemas/io.pierrotws.GnomeVault.gschema.xml`.
+Location: `assets/schemas/io.pierrotws.Passel.gschema.xml`.
 
 Purpose: Stores application preferences such as automatic push behavior, startup cache autoload, and configured store directory.
 
@@ -226,13 +226,13 @@ Build system: Meson orchestrates optional Blueprint compilation, schema compilat
 
 Runtime artifact: Rust binary plus compiled assets/schemas.
 
-Development run path: The current development workflow runs the Cargo-built binary from `build/target/debug/gnome-vault`.
+Development run path: The current development workflow runs the Cargo-built binary from `build/target/debug/passel`.
 
 Installation: `meson install -C build` installs the Cargo-built binary, resources, and schemas.
 
 Logging: `env_logger` is initialized in `src/main.rs`; default filter is `warn`. Debug logs are available with `RUST_LOG=debug`.
 
-CI/CD Pipeline: `.github/workflows/packages.yml` builds a Ubuntu (24.04, x86_64) `.deb` and a binary tarball on each published release, and attaches both as release assets. Arch Linux PKGBUILDs live under `packaging/arch/`: `gnome-vault/PKGBUILD` builds from the tagged source, `gnome-vault-bin/PKGBUILD` consumes the release tarball.
+CI/CD Pipeline: `.github/workflows/packages.yml` builds a Ubuntu (24.04, x86_64) `.deb` and a binary tarball on each published release, and attaches both as release assets. Arch Linux PKGBUILDs live under `packaging/arch/`: `passel/PKGBUILD` builds from the tagged source, `passel-bin/PKGBUILD` consumes the release tarball.
 
 ## 7. Security Considerations
 
@@ -300,11 +300,11 @@ Known architectural follow-ups:
 
 ## 10. Project Identification
 
-Project Name: Gnome Vault
+Project Name: Passel
 
-Repository URL: `https://github.com/Pierrotws/gnome-vault`
+Repository URL: `https://github.com/Pierrotws/passel`
 
-Application ID: `io.pierrotws.GnomeVault`
+Application ID: `io.pierrotws.Passel`
 
 Primary Language: Rust
 

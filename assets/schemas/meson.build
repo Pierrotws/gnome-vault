@@ -1,4 +1,4 @@
-schema_files = files('io.pierrotws.GnomeVault.gschema.xml')
+schema_files = files('io.pierrotws.Passel.gschema.xml')
 
 install_data(
   schema_files,
