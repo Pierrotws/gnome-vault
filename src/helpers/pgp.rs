@@ -86,7 +86,9 @@ impl std::fmt::Display for PgpError {
         match self {
             PgpError::ContextError(_) => f.write_str("Failed to initialize GPGME OpenPGP context"),
             PgpError::InvalidPath(_) => f.write_str("Invalid path"),
-            PgpError::ReadError { source, .. } => write!(f, "Error reading file ({})", source.kind()),
+            PgpError::ReadError { source, .. } => {
+                write!(f, "Error reading file ({})", source.kind())
+            }
             PgpError::LoadingError(_) => f.write_str("Error loading encrypted file"),
             PgpError::DecryptError(_) => f.write_str("Error decrypting data"),
             PgpError::EncryptError(_) => f.write_str("Error encrypting data"),
@@ -156,10 +158,7 @@ pub fn encrypt(plaintext: &str, recipient_ids: &[String]) -> Result<Vec<u8>, Pgp
     // producing ciphertext encrypted to an unusable key is the worst
     // failure mode (the entry only fails on next decrypt, when there
     // is no path back).
-    if let Some(rejected) = keys
-        .iter()
-        .find(|key| !key.can_encrypt() || key.is_bad())
-    {
+    if let Some(rejected) = keys.iter().find(|key| !key.can_encrypt() || key.is_bad()) {
         let id = rejected
             .fingerprint()
             .ok()
@@ -358,10 +357,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!(
-            "passel-{name}-{}-{unique}",
-            std::process::id()
-        ))
+        std::env::temp_dir().join(format!("passel-{name}-{}-{unique}", std::process::id()))
     }
 
     #[test]

@@ -98,14 +98,13 @@ impl MainWindow {
             }
         ));
 
-        imp.vault_view
-            .connect_create_entry_requested(glib::clone!(
-                #[weak(rename_to = window)]
-                self,
-                move |_, folder_path| {
-                    window.show_new_entry_dialog(Some(folder_path));
-                }
-            ));
+        imp.vault_view.connect_create_entry_requested(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_, folder_path| {
+                window.show_new_entry_dialog(Some(folder_path));
+            }
+        ));
 
         imp.changes_view
             .connect_revert_change_requested(glib::clone!(
@@ -163,19 +162,18 @@ impl MainWindow {
             }
         ));
 
-        imp.vault_view
-            .connect_delete_entry_requested(glib::clone!(
-                #[weak(rename_to = window)]
-                self,
-                move |_, entry_path, entry_name| {
-                    let node = PassNode {
-                        name: entry_name,
-                        path: PathBuf::from(entry_path),
-                        kind: PassNodeKind::Entry,
-                    };
-                    window.confirm_delete_entry(node);
-                }
-            ));
+        imp.vault_view.connect_delete_entry_requested(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_, entry_path, entry_name| {
+                let node = PassNode {
+                    name: entry_name,
+                    path: PathBuf::from(entry_path),
+                    kind: PassNodeKind::Entry,
+                };
+                window.confirm_delete_entry(node);
+            }
+        ));
 
         // Same delete flow as the vault tree, just sourced from a
         // right-click in the group view's entries list.
@@ -192,19 +190,18 @@ impl MainWindow {
             }
         ));
 
-        imp.vault_view
-            .connect_delete_folder_requested(glib::clone!(
-                #[weak(rename_to = window)]
-                self,
-                move |_, folder_path, folder_name| {
-                    let node = PassNode {
-                        name: folder_name,
-                        path: PathBuf::from(folder_path),
-                        kind: PassNodeKind::Group(Vec::new()),
-                    };
-                    window.confirm_delete_folder(node);
-                }
-            ));
+        imp.vault_view.connect_delete_folder_requested(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_, folder_path, folder_name| {
+                let node = PassNode {
+                    name: folder_name,
+                    path: PathBuf::from(folder_path),
+                    kind: PassNodeKind::Group(Vec::new()),
+                };
+                window.confirm_delete_folder(node);
+            }
+        ));
 
         imp.vault_view.connect_entry_selected(glib::clone!(
             #[weak(rename_to = window)]
@@ -218,10 +215,9 @@ impl MainWindow {
                 // edits; otherwise the dirty session is silently overwritten
                 // when open_entry_node replaces the current EntrySession.
                 if window.controller().borrow().has_unsaved_changes() {
-                    window
-                        .imp()
-                        .entry_view
-                        .show_error_dialog("Save or cancel current changes before opening another entry");
+                    window.imp().entry_view.show_error_dialog(
+                        "Save or cancel current changes before opening another entry",
+                    );
                     return;
                 }
 
@@ -242,10 +238,9 @@ impl MainWindow {
                 };
 
                 if window.controller().borrow().has_unsaved_changes() {
-                    window
-                        .imp()
-                        .entry_view
-                        .show_error_dialog("Save or cancel current changes before selecting a group");
+                    window.imp().entry_view.show_error_dialog(
+                        "Save or cancel current changes before selecting a group",
+                    );
                     return;
                 }
 
@@ -329,9 +324,7 @@ impl MainWindow {
                         // mismatch is debuggable without spamming on the happy
                         // path.
                         if !window.imp().vault_view.select_node_by_path(&parent) {
-                            log::debug!(
-                                "select_node_by_path: parent not in filtered tree"
-                            );
+                            log::debug!("select_node_by_path: parent not in filtered tree");
                         }
                     }
                 }
@@ -442,13 +435,14 @@ impl MainWindow {
             }
         ));
 
-        imp.setup_recipient_row.connect_selected_notify(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |_| {
-                window.update_create_vault_button();
-            }
-        ));
+        imp.setup_recipient_row
+            .connect_selected_notify(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |_| {
+                    window.update_create_vault_button();
+                }
+            ));
 
         imp.setup_remote_row.connect_changed(glib::clone!(
             #[weak(rename_to = window)]
@@ -741,9 +735,9 @@ impl MainWindow {
 
     fn confirm_rollback_change(&self, commit_id: &str) {
         if self.controller().borrow().has_unsaved_changes() {
-            self.imp()
-                .entry_view
-                .show_error_dialog("Save or cancel current changes before discarding later changes");
+            self.imp().entry_view.show_error_dialog(
+                "Save or cancel current changes before discarding later changes",
+            );
             return;
         }
 
@@ -775,17 +769,16 @@ impl MainWindow {
         let window = self.clone();
 
         glib::spawn_future_local(async move {
-            let result =
-                match gio::spawn_blocking(move || changes::rollback(&commit_id)).await {
-                    Ok(r) => r,
-                    Err(_) => {
-                        window
-                            .imp()
-                            .entry_view
-                            .show_error_dialog("Discard-changes task panicked unexpectedly");
-                        return;
-                    }
-                };
+            let result = match gio::spawn_blocking(move || changes::rollback(&commit_id)).await {
+                Ok(r) => r,
+                Err(_) => {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error_dialog("Discard-changes task panicked unexpectedly");
+                    return;
+                }
+            };
 
             let backup_branch = match result {
                 Ok(b) => b,
@@ -1045,17 +1038,16 @@ impl MainWindow {
         let window = self.clone();
         let branch = self.controller().borrow().branch().map(str::to_string);
         glib::spawn_future_local(async move {
-            let result =
-                match gio::spawn_blocking(move || changes::push(branch.as_deref())).await {
-                    Ok(r) => r,
-                    Err(_) => {
-                        window
-                            .imp()
-                            .entry_view
-                            .show_error_dialog("Sync-to-remote task panicked unexpectedly");
-                        return;
-                    }
-                };
+            let result = match gio::spawn_blocking(move || changes::push(branch.as_deref())).await {
+                Ok(r) => r,
+                Err(_) => {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error_dialog("Sync-to-remote task panicked unexpectedly");
+                    return;
+                }
+            };
             if let Err(err) = result {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
                 return;

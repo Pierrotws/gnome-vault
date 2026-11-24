@@ -368,8 +368,7 @@ impl ChangesView {
             return false;
         }
 
-        adjustment.value() + adjustment.page_size()
-            >= adjustment.upper() - LOAD_MORE_TRIGGER_MARGIN
+        adjustment.value() + adjustment.page_size() >= adjustment.upper() - LOAD_MORE_TRIGGER_MARGIN
     }
 }
 

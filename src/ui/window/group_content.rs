@@ -199,9 +199,7 @@ impl MainWindow {
                                 // The node path is deliberately not threaded
                                 // through: it is itself the secret label and
                                 // this log can land in journalctl.
-                                log::warn!(
-                                    "Failed to load entry preview at row {index}: {error}"
-                                );
+                                log::warn!("Failed to load entry preview at row {index}: {error}");
                             }
                             Ok(GroupPreviewMessage::Finished) => {
                                 // Generation already matched at the top of this

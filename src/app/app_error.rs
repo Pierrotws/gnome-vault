@@ -52,9 +52,7 @@ impl std::fmt::Display for AppError {
         match self {
             AppError::Io(err) => write!(f, "I/O error ({})", err.kind()),
             AppError::Save(err) => write!(f, "{err}"),
-            AppError::PushFailed(_) => {
-                f.write_str("Saved locally but failed to push to remote")
-            }
+            AppError::PushFailed(_) => f.write_str("Saved locally but failed to push to remote"),
             AppError::NoEntrySelected => f.write_str("No entry selected"),
             AppError::InvalidEntry => f.write_str("Entry is not valid"),
         }

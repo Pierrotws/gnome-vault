@@ -82,8 +82,7 @@ impl AppState {
             log::warn!("evict_cached_entries_under: empty prefix ignored");
             return;
         }
-        self.entry_cache
-            .retain(|path, _| !path.starts_with(prefix));
+        self.entry_cache.retain(|path, _| !path.starts_with(prefix));
     }
 
     pub fn clear_entry_cache(&mut self) {
@@ -96,7 +95,6 @@ impl AppState {
             .map(|s| s.is_dirty())
             .unwrap_or(false)
     }
-
 }
 
 #[cfg(test)]

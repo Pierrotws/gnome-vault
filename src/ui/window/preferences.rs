@@ -10,8 +10,7 @@ use super::MainWindow;
 
 impl MainWindow {
     pub(super) fn show_preferences_dialog(&self) {
-        let builder =
-            gtk::Builder::from_resource("/io/pierrotws/Passel/ui/preferences_dialog.ui");
+        let builder = gtk::Builder::from_resource("/io/pierrotws/Passel/ui/preferences_dialog.ui");
         let dialog = builder
             .object::<adw::PreferencesDialog>("preferences_dialog")
             .expect("preferences_dialog must exist in preferences_dialog.ui");
@@ -133,10 +132,9 @@ impl MainWindow {
             self,
             move |row| {
                 if !window.settings_has_key("interpret-multiline-as-markdown") {
-                    window
-                        .imp()
-                        .entry_view
-                        .show_error_dialog("GSettings schema is missing interpret-multiline-as-markdown");
+                    window.imp().entry_view.show_error_dialog(
+                        "GSettings schema is missing interpret-multiline-as-markdown",
+                    );
                     return;
                 }
                 let settings = window.settings();

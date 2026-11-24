@@ -97,9 +97,7 @@ impl std::fmt::Display for StoreError {
             StoreError::InvalidRecipient => f.write_str("GPG recipient is required"),
             StoreError::InvalidFolderPath(_) => f.write_str("Invalid folder path"),
             StoreError::DestinationExists(_) => f.write_str("Destination already exists"),
-            StoreError::PushFailed(_) => {
-                f.write_str("Saved locally but failed to push to remote")
-            }
+            StoreError::PushFailed(_) => f.write_str("Saved locally but failed to push to remote"),
             StoreError::RestartRequired => {
                 f.write_str("Vault created. Restart the app to load it from the new location.")
             }

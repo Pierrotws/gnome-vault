@@ -28,8 +28,7 @@ impl MainWindow {
             return;
         }
 
-        let builder =
-            gtk::Builder::from_resource("/io/pierrotws/Passel/ui/new_entry_dialog.ui");
+        let builder = gtk::Builder::from_resource("/io/pierrotws/Passel/ui/new_entry_dialog.ui");
         let dialog = builder
             .object::<adw::Window>("new_entry_dialog")
             .expect("new_entry_dialog must exist in new_entry_dialog.ui");

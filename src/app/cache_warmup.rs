@@ -16,7 +16,10 @@ pub enum CacheWarmupMessage {
     /// Named fields to match `GroupPreviewMessage::Failed`'s shape; both
     /// payloads carry the same (row index, redacted error) and the
     /// shared shape lets future code parameterize over them.
-    Failed { index: usize, error: String },
+    Failed {
+        index: usize,
+        error: String,
+    },
     Finished,
 }
 
