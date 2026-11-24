@@ -3,6 +3,9 @@ name: Release Please
 on:
   push:
     branches: [main]
+  # Re-run by hand if a push to main didn't start it (e.g. the release
+  # PR merge was missed): it releases any merged, unreleased PR.
+  workflow_dispatch:
 
 permissions:
   contents: write

@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    # Arch matches the development setup and the arch-bin release build,
+    # including the blueprint-compiler version the .ui fallbacks come from.
+    name: Lint and test (Arch)
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm \
+            rust meson ninja pkgconf blueprint-compiler \
+            gtk4 libadwaita gpgme libgit2 libssh2 \
+            git gnupg
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trust workspace (container is root, host UID differs)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: rustfmt
+        run: cargo fmt --check
+
+      - name: clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --locked
+
+      - name: GSettings schema
+        run: glib-compile-schemas --strict --dry-run assets/schemas
+
+      - name: Blueprint fallbacks are up to date
+        shell: bash
+        run: |
+          # Packaging builds with -Dblueprint=disabled and ships the
+          # committed .ui files, so they must match their .blp sources.
+          status=0
+          while IFS= read -r blp; do
+            ui="${blp%.blp}.ui"
+            out="$(mktemp)"
+            blueprint-compiler compile --output "$out" "$blp"
+            if ! diff -u "$ui" "$out"; then
+              echo "::error file=$ui::$ui is out of date; recompile it from $blp"
+              status=1
+            fi
+          done < <(git ls-files 'assets/ui/*.blp')
+          exit $status
+
+  ubuntu:
+    # The .deb is built on Ubuntu 24.04 against its older GTK/libadwaita;
+    # build the same way so an API bump can't break the release.
+    name: Build (Ubuntu 24.04)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build pkg-config \
+            libgtk-4-dev libadwaita-1-dev \
+            libgpgme-dev libgit2-dev libssh2-1-dev libssl-dev \
+            python3-pip
+          # Ubuntu 24.04 ships meson 1.3.2; project requires >= 1.4.
+          sudo python3 -m pip install --break-system-packages --upgrade meson
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> build/target"
+
+      - name: Configure and build
+        run: |
+          meson setup build --buildtype=debug -Dblueprint=disabled
+          meson compile -C build
+
+  commits:
+    # release-please builds versions and the changelog from these.
+    name: Conventional commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR title and commit subjects
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          re='^(feat|fix|perf|refactor|style|test|docs|build|ci|chore|revert)(\([a-z0-9_./-]+\))?!?: .+'
+          status=0
+          # Squash merges use the PR title as the commit subject.
+          if [[ ! "$PR_TITLE" =~ $re ]]; then
+            echo "::error::PR title is not a conventional commit: $PR_TITLE"
+            status=1
+          fi
+          # Rebase merges keep every commit as-is.
+          while IFS= read -r line; do
+            sha="${line%% *}"; subject="${line#* }"
+            if [[ ! "$subject" =~ $re ]]; then
+              echo "::error::Commit ${sha} is not a conventional commit: $subject"
+              status=1
+            fi
+          done < <(git log --format='%h %s' --no-merges "$BASE_SHA..$HEAD_SHA")
+          if (( status )); then
+            echo "Expected 'type(scope): subject', e.g. 'fix(window): keep the tree width'."
+          fi
+          exit $status
