@@ -26,12 +26,13 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
         <child>
           <object class="GtkEntry" id="key_entry">
             <property name="hexpand">false</property>
-            <property name="width-chars">18</property>
+            <property name="width-chars">1</property>
+            <property name="max-width-chars">24</property>
+            <property name="xalign">0</property>
             <property name="placeholder-text" translatable="yes">Key</property>
             <property name="has-frame">false</property>
-            <property name="css-classes">title-2
-heading
-field-entry</property>
+            <property name="css-classes">field-entry
+field-key</property>
           </object>
         </child>
         <child>
@@ -42,7 +43,7 @@ field-entry</property>
         <child>
           <object class="GtkEntry" id="value_entry">
             <property name="hexpand">true</property>
-            <property name="width-chars">24</property>
+            <property name="width-chars">8</property>
             <property name="placeholder-text" translatable="yes">Value</property>
             <property name="has-frame">false</property>
             <property name="css-classes">field-entry</property>

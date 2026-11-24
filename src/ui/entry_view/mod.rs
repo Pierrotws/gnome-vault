@@ -425,6 +425,16 @@ impl EntryView {
         }
     }
 
+    /// Horizontal size group shared by the key entries of every plain
+    /// key/value row, so the key column is as wide as its longest key
+    /// and all rows put their separator at the same x.
+    pub fn key_size_group(&self) -> gtk::SizeGroup {
+        self.imp()
+            .key_size_group
+            .get_or_init(|| gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal))
+            .clone()
+    }
+
     fn resize_title_entry(&self) {
         let width = self
             .imp()

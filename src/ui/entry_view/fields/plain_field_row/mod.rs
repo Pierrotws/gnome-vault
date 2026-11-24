@@ -66,6 +66,36 @@ impl PlainFieldRow {
             }
         });
 
+        // Size the key to its text, then share the widest one across
+        // rows. Group membership follows mapping rather than
+        // construction, so a row that is removed from the list - or
+        // replaced when another entry loads - stops counting towards the
+        // column immediately, whoever still holds a reference to it.
+        // Re-measuring on map also catches the row's final (bold) font,
+        // which only applies once it sits in the window.
+        //
+        // propagate-text-width brings the natural width down from
+        // max-width-chars to the text; sync_key_width lifts the minimum
+        // up to it.
+        if let Some(text) = imp.key_entry.delegate().and_downcast::<gtk::Text>() {
+            text.set_propagate_text_width(true);
+        }
+        imp.key_entry.connect_changed(glib::clone!(
+            #[weak(rename_to = this)]
+            obj,
+            move |_| this.sync_key_width()
+        ));
+        let key_size_group = entry_view.key_size_group();
+        obj.connect_map(glib::clone!(
+            #[strong]
+            key_size_group,
+            move |this| {
+                this.sync_key_width();
+                key_size_group.add_widget(&this.imp().key_entry.get());
+            }
+        ));
+        obj.connect_unmap(move |this| key_size_group.remove_widget(&this.imp().key_entry.get()));
+
         super::wire_delete_button(&imp.delete_button, obj.upcast_ref(), entry_view);
         obj
     }
@@ -117,6 +147,37 @@ impl PlainFieldRow {
 
     pub fn drag_handle(&self) -> gtk::Widget {
         self.imp().drag_handle.get().upcast()
+    }
+
+    /// Makes the key entry exactly as wide as its text, both minimum
+    /// and natural, so the key is never cut while the value still has
+    /// room to give. GtkEntry only sizes itself from `width-chars`, so
+    /// the text is measured with the inner GtkText's own (bold) font
+    /// and requested on that GtkText directly. Capped at
+    /// `max-width-chars`; an empty key is measured by its placeholder.
+    fn sync_key_width(&self) {
+        let key_entry = &self.imp().key_entry;
+        let Some(text) = key_entry.delegate().and_downcast::<gtk::Text>() else {
+            return;
+        };
+        let key = key_entry.text();
+        let shown = if key.is_empty() {
+            key_entry.placeholder_text().unwrap_or_default()
+        } else {
+            key
+        };
+        let (width, _) = text.create_pango_layout(Some(&shown)).pixel_size();
+
+        let metrics = text.pango_context().metrics(None, None);
+        let char_width = metrics
+            .approximate_char_width()
+            .max(metrics.approximate_digit_width())
+            / gtk::pango::SCALE;
+        let cap = char_width * key_entry.max_width_chars().max(1);
+
+        // +1 leaves room for the caret after the last character when
+        // the key is being edited.
+        text.set_size_request(width.min(cap) + 1, -1);
     }
 
     /// Shows a clickable "open link" icon inside the value entry when

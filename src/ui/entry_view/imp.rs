@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, OnceCell};
 
 use adw::subclass::prelude::*;
 use glib::subclass::*;
@@ -58,6 +58,7 @@ pub struct EntryView {
     //non graphical
     pub is_updating_ui: Cell<bool>,
     pub is_editable: Cell<bool>,
+    pub key_size_group: OnceCell<gtk::SizeGroup>,
 }
 
 #[glib::object_subclass]

@@ -20,21 +20,32 @@ template $PlainFieldRow : ListBoxRow {
         // "field-entry" class gives them a framed entry's metrics so the
         // row keeps its height and its columns keep their x positions
         // when the mode changes.
+        //
+        // The key column sizes to its text rather than to a fixed
+        // character count (see PlainFieldRow::sync_key_width), and the
+        // entry view puts every key entry in one horizontal SizeGroup so
+        // the column is as wide as its longest key and the separators
+        // stay aligned. The key is left-aligned, and styled like the
+        // value, only bold.
         Entry key_entry {
             hexpand: false;
-            width-chars: 18;
+            width-chars: 1;
+            max-width-chars: 24;
+            xalign: 0;
             placeholder-text: _("Key");
             has-frame: false;
-            css-classes: ["title-2", "heading", "field-entry"];
+            css-classes: ["field-entry", "field-key"];
         }
 
         Separator key_value_separator {
             orientation: vertical;
         }
 
+        // A small minimum: when the pane narrows, the value gives up
+        // room before the key column does.
         Entry value_entry {
             hexpand: true;
-            width-chars: 24;
+            width-chars: 8;
             placeholder-text: _("Value");
             has-frame: false;
             css-classes: ["field-entry"];

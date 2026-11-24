@@ -99,6 +99,9 @@ fn resource_file() -> std::path::PathBuf {
 /// costs no space — plus a faint wash so the field being typed into
 /// reads as active.
 ///
+/// `field-key` is the key cell of a plain key/value row: the value's
+/// font size, only bold.
+///
 /// `field-value` is the read-only half of a multiline field. gtk-markdown
 /// lays each block out as a `GtkFlowBox` of labels, and Adwaita insets
 /// every `flowboxchild` by `margin: 3px; padding: 8px` — 11px of padding
@@ -132,6 +135,9 @@ fn install_app_css() {
         }\
         entry.field-entry:focus-within {\
             background-color: alpha(currentColor, 0.08);\
+        }\
+        entry.field-key {\
+            font-weight: bold;\
         }\
         .field-value flowboxchild {\
             margin: 0;\
