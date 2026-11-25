@@ -6,17 +6,19 @@
 //! loop via [`AppController::clear_loaded_entry_state`] and
 //! [`AppController::reload_tree`].
 
+use std::path::Path;
+
 use crate::app::app_error::AppError;
 use crate::pass::store;
 
-pub fn revert(commit_id: &str, autopush: bool) -> Result<(), AppError> {
-    Ok(store::revert_change(commit_id, autopush)?)
+pub fn revert(store_dir: &Path, commit_id: &str, autopush: bool) -> Result<(), AppError> {
+    Ok(store::revert_change(store_dir, commit_id, autopush)?)
 }
 
-pub fn rollback(commit_id: &str) -> Result<String, AppError> {
-    Ok(store::rollback_to_change(commit_id)?)
+pub fn rollback(store_dir: &Path, commit_id: &str) -> Result<String, AppError> {
+    Ok(store::rollback_to_change(store_dir, commit_id)?)
 }
 
-pub fn push(branch: Option<&str>) -> Result<(), AppError> {
-    Ok(store::push_changes(branch)?)
+pub fn push(store_dir: &Path, branch: Option<&str>) -> Result<(), AppError> {
+    Ok(store::push_changes(store_dir, branch)?)
 }

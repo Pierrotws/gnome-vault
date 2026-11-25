@@ -72,19 +72,40 @@ pub struct MainWindow {
     pub preferences_button: TemplateChild<gtk::Button>,
 
     #[template_child]
-    pub setup_path_row: TemplateChild<adw::EntryRow>,
-
-    #[template_child]
-    pub setup_recipient_row: TemplateChild<adw::ComboRow>,
-
-    #[template_child]
-    pub setup_provider_row: TemplateChild<adw::ComboRow>,
-
-    #[template_child]
-    pub setup_remote_row: TemplateChild<adw::EntryRow>,
-
-    #[template_child]
     pub create_vault_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub open_existing_vault_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub decline_history_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub missing_vault_page: TemplateChild<adw::StatusPage>,
+
+    #[template_child]
+    pub remove_missing_vault_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub vault_menu_button: TemplateChild<gtk::MenuButton>,
+
+    #[template_child]
+    pub vault_popover: TemplateChild<gtk::Popover>,
+
+    #[template_child]
+    pub vault_list: TemplateChild<gtk::ListBox>,
+
+    #[template_child]
+    pub new_vault_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub add_vault_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub enable_history_page: TemplateChild<adw::StatusPage>,
+
+    #[template_child]
+    pub enable_history_button: TemplateChild<gtk::Button>,
 
     //App Controller
     pub controller: OnceCell<Rc<RefCell<AppController>>>,
@@ -96,12 +117,15 @@ pub struct MainWindow {
     /// preferences can stop an in-flight cache warmup.
     pub autoload_cancel: RefCell<Option<Arc<AtomicBool>>>,
     pub group_preview_generation: Cell<u64>,
+    /// The vaults the user opened, and which one is active.
+    pub vaults: RefCell<crate::app::vaults::VaultList>,
+    /// The setup wizard's dialog while it is open.
+    pub setup_dialog: glib::WeakRef<adw::Dialog>,
     /// Shared with the in-flight group-preview worker. Navigating away
     /// from a group (or starting a new preview load) sets the previous
     /// flag so the worker stops decrypting the rest of the queue
     /// instead of running to completion in the background.
     pub group_preview_cancel: RefCell<Option<Arc<AtomicBool>>>,
-    pub setup_recipients: RefCell<Vec<crate::pass::store::GpgRecipient>>,
 }
 
 #[glib::object_subclass]

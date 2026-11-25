@@ -195,9 +195,9 @@ jobs:
         run: |
           # makepkg refuses to run as root.
           useradd -m builder
-          /usr/bin/git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          /usr/bin/git config --global user.name "github-actions[bot]"
-          /usr/bin/git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Bump PKGBUILDs and regenerate checksums
         shell: bash
@@ -213,18 +213,18 @@ jobs:
             (cd "$work" && sudo -u builder updpkgsums && sudo -u builder makepkg --printsrcinfo > .SRCINFO)
             cp "$work/PKGBUILD" "$pkgbuild"
           done
-          /usr/bin/git diff --stat
+          git diff --stat
 
       - name: Commit PKGBUILDs to main
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          /usr/bin/git add packaging/arch/
+          git add packaging/arch/
           if git diff --cached --quiet; then
             echo "PKGBUILDs already at $VERSION."
           else
-            /usr/bin/git commit -m "build(packaging): bump PKGBUILDs to $VERSION"
-            /usr/bin/git push origin HEAD:main
+            git commit -m "build(packaging): bump PKGBUILDs to $VERSION"
+            git push origin HEAD:main
           fi
 
       - name: Push to the AUR
@@ -244,13 +244,13 @@ jobs:
           export GIT_SSH_COMMAND="ssh -i /tmp/aur-ssh/id -o IdentitiesOnly=yes -o UserKnownHostsFile=/tmp/aur-ssh/known_hosts"
           for pkg in passel passel-bin; do
             aur_dir="/tmp/aur-repo/$pkg"
-            /usr/bin/git clone "ssh://aur@aur.archlinux.org/$pkg.git" "$aur_dir"
+            git clone "ssh://aur@aur.archlinux.org/$pkg.git" "$aur_dir"
             cp "/tmp/aur-work/$pkg/PKGBUILD" "/tmp/aur-work/$pkg/.SRCINFO" "$aur_dir/"
-            /usr/bin/git -C "$aur_dir" add PKGBUILD .SRCINFO
+            git -C "$aur_dir" add PKGBUILD .SRCINFO
             if git -C "$aur_dir" diff --cached --quiet; then
               echo "$pkg already at $VERSION on the AUR."
             else
-              /usr/bin/git -C "$aur_dir" commit -m "Update to v$VERSION"
-              /usr/bin/git -C "$aur_dir" push origin master
+              git -C "$aur_dir" commit -m "Update to v$VERSION"
+              git -C "$aur_dir" push origin master
             fi
           done

@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-gtk = { package = "gtk4", version = "0.11" }
+gtk = { package = "gtk4", version = "0.11", features = ["v4_10"] }
 adw = { package = "libadwaita", version = "0.9", features = ["v1_5"] }
 gtk-markdown = "0.2"
 gpgme = "0.11"

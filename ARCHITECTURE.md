@@ -18,7 +18,9 @@ passel/
 |   |   |-- app_error.rs               # App-level error translation
 |   |   |-- cache_warmup.rs            # Background entry-cache decryption worker
 |   |   |-- changes.rs                 # Worker-safe wrappers for revert/rollback/push
+|   |   |-- vaults.rs                  # The list of vaults and their settings (pure data)
 |   |   |-- group_preview.rs           # Worker-side decrypt for group-row subtitles
+|   |   |-- setup.rs                   # Worker-safe wrappers for the setup wizard
 |   |   `-- state/                     # Tree, selected entry, edit session, entry cache
 |   |-- helpers/                       # Focused infrastructure/domain helpers
 |   |   |-- clipboard.rs               # Centralized "copy secret" entry point
@@ -40,11 +42,13 @@ passel/
 |       |   |-- group_content.rs       # Right-pane group/search-results rendering
 |       |   |-- new_entry_dialog.rs    # New-entry creation dialog
 |       |   |-- preferences.rs         # Preferences dialog wiring
-|       |   `-- setup.rs               # Vault-setup view and env propagation
+|       |   |-- setup.rs               # Setup wizard dialog, turn-on-history page
+|       |   `-- vaults.rs              # Vault list, switcher, vault settings, add folder
 |       |-- vault_view/                # Vault tree, search, programmatic selection
 |       |-- group_view/                # Right-pane list of entries in a group
 |       |-- entry_view/                # Entry display/editing and field rows
 |       |-- changes_view/              # Git history and change actions
+|       |-- setup_wizard/              # First-run wizard: pages, plan, step progress
 |       `-- generate_password_view/    # Password generator widget
 |-- packaging/
 |   |-- arch/passel/PKGBUILD      # Arch source build
@@ -77,10 +81,10 @@ passel/
   +--> [helpers::git]    <-> git2 repository and remote
   |
   v
-[PASSWORD_STORE_DIR or ~/.password-store]
+[the open vault's folder (one of several listed vaults)]
 ```
 
-The UI never writes password-store files directly. Widgets emit signals, `MainWindow` translates them into controller calls, and the controller delegates persistence to `pass::store`.
+The UI never writes password-store files directly. Widgets emit signals, `MainWindow` translates them into controller calls, and the controller delegates persistence to `pass::store`. Every store operation takes the vault folder explicitly: the controller holds the open vault's folder and hands it to background workers, so switching vaults needs no restart.
 
 ## 3. Core Components
 
@@ -100,8 +104,10 @@ Primary files:
 | --- | --- |
 | `src/main.rs` | Initializes logging, GResources, local schema lookup, and the Adwaita application. |
 | `src/ui/window/mod.rs` | Main UI orchestration, signal wiring, edit-mode state. |
-| `src/ui/window/setup.rs` | Vault-setup wizard and `PASSWORD_STORE_DIR` propagation. |
-| `src/ui/window/preferences.rs` | Preferences dialog (autopush, autoload, group view, store dir, branch). |
+| `src/ui/window/setup.rs` | The setup wizard's dialog with the "No Vault Yet" page behind it, and the "Turn On History" page for a pass store without git. |
+| `src/ui/window/vaults.rs` | The vault list in GSettings (with the one-time migration from `store-dir`), opening and switching vaults, the header-bar switcher, each vault's settings dialog (name, history, remote, branch, auto-push, remove), and adding an existing folder. |
+| `src/ui/setup_wizard/` | First-run wizard (`Adw.NavigationView`): collects a `SetupPlan`, then runs its steps on a worker with per-step progress, retry and skip. `key.rs` holds the encryption key page (use, create or import a GPG key, save a backup); `sync.rs` holds the sync pages (online copy, folder/drive copy, this computer only); `hosts.rs` lists the hosting services with free private repositories and how to create an empty one on each. |
+| `src/ui/window/preferences.rs` | Preferences dialog (autoload, group view, Markdown, tree size). |
 | `src/ui/window/autoload.rs` | Background entry-cache warmup tick handler. |
 | `src/ui/window/group_content.rs` | Right-pane rendering for group browsing and flat search results. |
 | `src/ui/window/new_entry_dialog.rs` | New-entry creation dialog. |
@@ -125,8 +131,10 @@ Primary files:
 | --- | --- |
 | `src/app/controller.rs` | Use-case methods for loading trees, opening entries, saving, creating, deleting, renaming, search filter, and cache warmup. |
 | `src/app/changes.rs` | Worker-safe free functions for revert / rollback / push (called from `gio::spawn_blocking`). |
+| `src/app/vaults.rs` | `VaultList` / `VaultConfig`: the listed vaults, the active one, unique names and folders for new vaults. |
 | `src/app/cache_warmup.rs` | Spawns the autoload decrypt worker and streams results back to the main loop. |
 | `src/app/group_preview.rs` | Spawns the per-group decrypt worker that fills missing subtitle previews. |
+| `src/app/setup.rs` | Worker-safe wrappers the setup wizard calls: plan check, setup steps, key listing, creation, import and backup, folder status, remote check, copy-folder status, public SSH keys. |
 | `src/app/state/app_state.rs` | Current tree, selected node, current edit session, decrypted entry cache. |
 | `src/app/state/entry_session.rs` | Dirty tracking, validation, title changes, save/revert session state. |
 | `src/app/app_error.rs` | Error type surfaced to the UI. |
@@ -146,7 +154,7 @@ Primary files:
 | `src/pass/model/entry_data.rs` | Complete entry model: mandatory first field plus custom fields. |
 | `src/pass/model/entry_field.rs` | Typed entry values: password, plain, OTP, array, multiline. |
 | `src/pass/model/pass_node.rs` | Vault tree nodes for groups and `.gpg` entries. |
-| `src/pass/store/mod.rs` | Store facade: load, setup, save, create, rename, delete, history, push, revert, rollback. |
+| `src/pass/store/mod.rs` | Store facade: load, store status check, setup plan and steps, enable history, save, create, rename, delete, history, push, revert, rollback. |
 | `src/pass/store/store_error.rs` | Store-level error type. |
 
 ### 3.4. Infrastructure Helpers
@@ -175,9 +183,9 @@ Primary files:
 
 Name: password store
 
-Type: Local Git repository containing GPG-encrypted files.
+Type: Local folder of GPG-encrypted files, usually a Git repository.
 
-Location: `PASSWORD_STORE_DIR` when set, otherwise `~/.password-store`.
+Location: any number of folders listed in the `vaults` setting. The first one defaults to `PASSWORD_STORE_DIR` when set, otherwise `~/.password-store` (debug builds: the dev store). A vault without history (no `.git`) is saved without commits; pushes happen only when a remote is configured.
 
 Purpose: Stores user secrets as pass-compatible `.gpg` files. Directories are represented as groups; `.gpg` files are represented as entries.
 
@@ -187,7 +195,7 @@ Important files:
 | --- | --- |
 | `*.gpg` | Encrypted entry payload. |
 | `.gpg-id` | Recipient key IDs used when encrypting entries. |
-| `.git/` | Change history and synchronization state. |
+| `.git/` | Change history and synchronization state (optional). |
 
 ### 4.2. GSettings
 
@@ -197,7 +205,7 @@ Type: GLib GSettings schema.
 
 Location: `assets/schemas/io.pierrotws.Passel.gschema.xml`.
 
-Purpose: Stores application preferences such as automatic push behavior, startup cache autoload, and configured store directory.
+Purpose: Stores the vault list (`vaults`: name, folder, history answer, branch, auto-push per vault) and the active vault, plus application preferences such as startup cache autoload. `store-dir`, `branch` and `autopush` are deprecated: read once to build the first vault, and `store-dir` keeps following the active vault for older versions. Debug builds keep their settings in a keyfile next to the dev store, so `cargo run` never changes the installed app's settings.
 
 ### 4.3. In-Memory Entry Cache
 

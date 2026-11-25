@@ -1,0 +1,611 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $SetupWizard : Adw.Bin {
+    child: Adw.NavigationView navigation {
+        Adw.NavigationPage {
+            tag: "welcome";
+            title: "Welcome";
+
+            child: Adw.ToolbarView {
+                [top]
+                Adw.HeaderBar {
+                    show-back-button: false;
+                }
+
+                content: Adw.StatusPage {
+                    icon-name: "dialog-password-symbolic";
+                    title: "Welcome to Passel";
+                    description: "Passel keeps your passwords in an encrypted folder that works with pass. Let’s set one up.";
+
+                    child: Button create_button {
+                        label: "Create a New Vault";
+                        halign: center;
+                        css-classes: ["suggested-action", "pill"];
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "vault";
+            title: "Vault";
+
+            child: Adw.ToolbarView {
+                [top]
+                Adw.HeaderBar {
+                    show-back-button: false;
+                }
+
+                content: ScrolledWindow {
+                    hscrollbar-policy: never;
+
+                    child: Adw.Clamp {
+                        maximum-size: 560;
+                        valign: center;
+                        margin-top: 24;
+                        margin-bottom: 24;
+                        margin-start: 24;
+                        margin-end: 24;
+
+                        child: Box {
+                            orientation: vertical;
+                            spacing: 18;
+
+                            Label {
+                                label: "Your Vault";
+                                css-classes: ["title-1"];
+                            }
+
+                            Label {
+                                label: "Choose the folder that will hold your encrypted entries.";
+                                wrap: true;
+                                xalign: 0;
+                                css-classes: ["dim-label"];
+                            }
+
+                            Adw.PreferencesGroup vault_group {
+                                Adw.EntryRow path_row {
+                                    title: "Folder";
+                                }
+
+                            }
+
+                            Box {
+                                halign: end;
+                                spacing: 12;
+
+                                Button vault_back_button {
+                                    label: "Back";
+                                }
+
+                                Button vault_next_button {
+                                    label: "Next";
+                                    css-classes: ["suggested-action"];
+                                }
+                            }
+                        };
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "key";
+            title: "Encryption Key";
+
+            child: Adw.ToolbarView {
+                [top]
+                Adw.HeaderBar {
+                    show-back-button: false;
+                }
+
+                content: ScrolledWindow {
+                    hscrollbar-policy: never;
+
+                    child: Adw.Clamp {
+                        maximum-size: 560;
+                        valign: center;
+                        margin-top: 24;
+                        margin-bottom: 24;
+                        margin-start: 24;
+                        margin-end: 24;
+
+                        child: Box {
+                            orientation: vertical;
+                            spacing: 18;
+
+                            Label {
+                                label: "Your Encryption Key";
+                                wrap: true;
+                                css-classes: ["title-1"];
+                            }
+
+                            Label {
+                                label: "Passel encrypts every entry with a GPG key. Only this key, unlocked with its passphrase, can open them.";
+                                wrap: true;
+                                xalign: 0;
+                                css-classes: ["dim-label"];
+                            }
+
+                            Adw.PreferencesGroup {
+                                Adw.ActionRow use_key_row {
+                                    title: "Use a key from this computer";
+                                    activatable-widget: use_key_check;
+
+                                    [prefix]
+                                    CheckButton use_key_check {
+                                        valign: center;
+                                        active: true;
+                                    }
+                                }
+
+                                Adw.ActionRow {
+                                    title: "Create a new key";
+                                    subtitle: "The usual choice if you have never used GPG.";
+                                    activatable-widget: create_key_check;
+
+                                    [prefix]
+                                    CheckButton create_key_check {
+                                        valign: center;
+                                        group: use_key_check;
+                                    }
+                                }
+
+                                Adw.ActionRow {
+                                    title: "Import a key from a backup file";
+                                    subtitle: "A secret key saved from another computer, e.g. a .asc file.";
+                                    activatable-widget: import_key_check;
+
+                                    [prefix]
+                                    CheckButton import_key_check {
+                                        valign: center;
+                                        group: use_key_check;
+                                    }
+                                }
+                            }
+
+                            Adw.PreferencesGroup existing_key_group {
+                                Adw.ComboRow recipient_row {
+                                    title: "Key";
+                                }
+                            }
+
+                            Adw.PreferencesGroup create_key_group {
+                                description: "GPG will then ask you to choose a passphrase. Pick one you will remember: without it, nobody can open your entries, not even you.";
+
+                                Adw.EntryRow key_name_row {
+                                    title: "Your name";
+                                }
+
+                                Adw.EntryRow key_email_row {
+                                    title: "Email (optional)";
+                                }
+                            }
+
+                            Adw.PreferencesGroup import_key_group {
+                                Adw.ActionRow key_file_row {
+                                    title: "Backup file";
+                                    subtitle: "No file chosen";
+
+                                    [suffix]
+                                    Button choose_key_file_button {
+                                        label: "Choose…";
+                                        valign: center;
+                                    }
+                                }
+                            }
+
+                            Box key_status_box {
+                                spacing: 8;
+                                visible: false;
+
+                                Spinner key_spinner {
+                                    valign: start;
+                                }
+
+                                Image key_status_icon {
+                                    valign: start;
+                                }
+
+                                Label key_status_label {
+                                    wrap: true;
+                                    xalign: 0;
+                                    hexpand: true;
+                                }
+                            }
+
+                            Adw.PreferencesGroup backup_group {
+                                Adw.ActionRow backup_row {
+                                    title: "Save a backup of this key";
+                                    subtitle: "If this computer is lost or breaks, the backup is the only way to open your entries. Keep it on a USB drive or in another safe place.";
+
+                                    [suffix]
+                                    Button backup_button {
+                                        label: "Save Backup…";
+                                        valign: center;
+                                    }
+                                }
+                            }
+
+                            Box {
+                                halign: end;
+                                spacing: 12;
+
+                                Button key_back_button {
+                                    label: "Back";
+                                }
+
+                                Button key_next_button {
+                                    label: "Next";
+                                    css-classes: ["suggested-action"];
+                                }
+                            }
+                        };
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "sync";
+            title: "Sync";
+
+            child: Adw.ToolbarView {
+                [top]
+                Adw.HeaderBar {
+                    show-back-button: false;
+                }
+
+                content: ScrolledWindow {
+                    hscrollbar-policy: never;
+
+                    child: Adw.Clamp {
+                        maximum-size: 560;
+                        valign: center;
+                        margin-top: 24;
+                        margin-bottom: 24;
+                        margin-start: 24;
+                        margin-end: 24;
+
+                        child: Box {
+                            orientation: vertical;
+                            spacing: 18;
+
+                            Label {
+                                label: "Use It on Other Devices?";
+                                wrap: true;
+                                css-classes: ["title-1"];
+                            }
+
+                            Label {
+                                label: "Passel can keep an encrypted copy of your vault somewhere else, so you can use it from another computer or your phone.";
+                                wrap: true;
+                                xalign: 0;
+                                css-classes: ["dim-label"];
+                            }
+
+                            Adw.PreferencesGroup {
+                                Adw.ActionRow online_row {
+                                    title: "Keep an online copy";
+                                    subtitle: "In a private repository on a free service like GitHub. Works from anywhere.";
+                                    activatable-widget: online_check;
+
+                                    [prefix]
+                                    CheckButton online_check {
+                                        valign: center;
+                                        active: true;
+                                    }
+                                }
+
+                                Adw.ActionRow folder_row {
+                                    title: "Copy to a folder or drive";
+                                    subtitle: "A USB drive, or a folder synced by Nextcloud or Syncthing. No account needed.";
+                                    activatable-widget: folder_check;
+
+                                    [prefix]
+                                    CheckButton folder_check {
+                                        valign: center;
+                                        group: online_check;
+                                    }
+                                }
+
+                                Adw.ActionRow local_row {
+                                    title: "Only on this computer";
+                                    subtitle: "Entries never leave this computer.";
+                                    activatable-widget: local_check;
+
+                                    [prefix]
+                                    CheckButton local_check {
+                                        valign: center;
+                                        group: online_check;
+                                    }
+                                }
+                            }
+
+                            Box {
+                                halign: end;
+                                spacing: 12;
+
+                                Button sync_back_button {
+                                    label: "Back";
+                                }
+
+                                Button sync_next_button {
+                                    label: "Next";
+                                    css-classes: ["suggested-action"];
+                                }
+                            }
+                        };
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "online";
+            title: "Online Copy";
+
+            child: Adw.ToolbarView {
+                [top]
+                Adw.HeaderBar {
+                    show-back-button: false;
+                }
+
+                content: ScrolledWindow {
+                    hscrollbar-policy: never;
+
+                    child: Adw.Clamp {
+                        maximum-size: 560;
+                        valign: center;
+                        margin-top: 24;
+                        margin-bottom: 24;
+                        margin-start: 24;
+                        margin-end: 24;
+
+                        child: Box {
+                            orientation: vertical;
+                            spacing: 18;
+
+                            Label {
+                                label: "Online Copy";
+                                wrap: true;
+                                css-classes: ["title-1"];
+                            }
+
+                            Label {
+                                label: "Any of these services offers free private repositories. If you have no account yet, pick one and create it on the service’s website.";
+                                wrap: true;
+                                xalign: 0;
+                                css-classes: ["dim-label"];
+                            }
+
+                            Box {
+                                spacing: 12;
+                                css-classes: ["card"];
+
+                                Image {
+                                    icon-name: "dialog-warning-symbolic";
+                                    valign: start;
+                                    margin-top: 12;
+                                    margin-start: 12;
+                                }
+
+                                Label {
+                                    label: "Entries are encrypted, but their names (like “Bank/mybank”) are not. Always keep the repository private.";
+                                    wrap: true;
+                                    xalign: 0;
+                                    hexpand: true;
+                                    margin-top: 12;
+                                    margin-bottom: 12;
+                                    margin-end: 12;
+                                }
+                            }
+
+                            Adw.PreferencesGroup {
+                                Adw.ComboRow host_row {
+                                    title: "Service";
+                                }
+                            }
+
+                            Adw.PreferencesGroup host_steps_group {
+                                title: "Create an Empty Private Repository";
+                            }
+
+                            Adw.PreferencesGroup address_group {
+                                title: "Repository Address";
+
+                                Adw.EntryRow address_row {
+                                    title: "SSH address";
+
+                                    [suffix]
+                                    Button check_button {
+                                        label: "Check";
+                                        valign: center;
+                                    }
+                                }
+                            }
+
+                            Box check_box {
+                                spacing: 8;
+                                visible: false;
+
+                                Spinner check_spinner {
+                                    valign: start;
+                                }
+
+                                Image check_icon {
+                                    valign: start;
+                                }
+
+                                Label check_label {
+                                    wrap: true;
+                                    xalign: 0;
+                                    hexpand: true;
+                                }
+                            }
+
+                            Box {
+                                halign: end;
+                                spacing: 12;
+
+                                Button online_back_button {
+                                    label: "Back";
+                                }
+
+                                Button online_next_button {
+                                    label: "Next";
+                                    css-classes: ["suggested-action"];
+                                }
+                            }
+                        };
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "folder";
+            title: "Folder Copy";
+
+            child: Adw.ToolbarView {
+                [top]
+                Adw.HeaderBar {
+                    show-back-button: false;
+                }
+
+                content: ScrolledWindow {
+                    hscrollbar-policy: never;
+
+                    child: Adw.Clamp {
+                        maximum-size: 560;
+                        valign: center;
+                        margin-top: 24;
+                        margin-bottom: 24;
+                        margin-start: 24;
+                        margin-end: 24;
+
+                        child: Box {
+                            orientation: vertical;
+                            spacing: 18;
+
+                            Label {
+                                label: "Copy to a Folder or Drive";
+                                wrap: true;
+                                css-classes: ["title-1"];
+                            }
+
+                            Label {
+                                label: "Passel creates an encrypted copy named “passwords.git” in the folder you choose, and keeps it up to date as you save changes.";
+                                wrap: true;
+                                xalign: 0;
+                                css-classes: ["dim-label"];
+                            }
+
+                            Adw.PreferencesGroup copy_group {
+                                Adw.ActionRow copy_row {
+                                    title: "Folder";
+                                    subtitle: "No folder chosen";
+
+                                    [suffix]
+                                    Button choose_copy_button {
+                                        label: "Choose…";
+                                        valign: center;
+                                    }
+                                }
+                            }
+
+                            Box {
+                                halign: end;
+                                spacing: 12;
+
+                                Button folder_back_button {
+                                    label: "Back";
+                                }
+
+                                Button folder_next_button {
+                                    label: "Next";
+                                    css-classes: ["suggested-action"];
+                                }
+                            }
+                        };
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage review_page {
+            tag: "review";
+            title: "Review";
+
+            child: Adw.ToolbarView {
+                [top]
+                Adw.HeaderBar {
+                    show-back-button: false;
+                }
+
+                content: ScrolledWindow {
+                    hscrollbar-policy: never;
+
+                    child: Adw.Clamp {
+                        maximum-size: 560;
+                        valign: center;
+                        margin-top: 24;
+                        margin-bottom: 24;
+                        margin-start: 24;
+                        margin-end: 24;
+
+                        child: Box {
+                            orientation: vertical;
+                            spacing: 18;
+
+                            Label {
+                                label: "Review";
+                                css-classes: ["title-1"];
+                            }
+
+                            Label {
+                                label: "Passel will:";
+                                wrap: true;
+                                xalign: 0;
+                                css-classes: ["dim-label"];
+                            }
+
+                            ListBox steps_list {
+                                selection-mode: none;
+                                css-classes: ["boxed-list"];
+                            }
+
+                            Label error_label {
+                                visible: false;
+                                wrap: true;
+                                xalign: 0;
+                                selectable: true;
+                                css-classes: ["error"];
+                            }
+
+                            Box {
+                                halign: end;
+                                spacing: 12;
+
+                                Button review_back_button {
+                                    label: "Back";
+                                }
+
+                                Button skip_button {
+                                    label: "Skip Sync";
+                                    visible: false;
+                                }
+
+                                Button apply_button {
+                                    label: "Create Vault";
+                                    css-classes: ["suggested-action"];
+                                }
+                            }
+                        };
+                    };
+                };
+            };
+        }
+    };
+}

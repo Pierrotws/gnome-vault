@@ -16,15 +16,89 @@ use crate::{
     pass::model::{EntryData, PassNode, PassNodeKind},
 };
 
-pub use crate::helpers::pgp::GpgRecipient;
+pub use crate::helpers::git::RemoteCheck;
+pub use crate::helpers::pgp::{
+    create_key, export_secret_key, import_secret_keys, key_user_id, GpgRecipient, PgpError,
+};
 pub use store_error::StoreError;
 
-#[derive(Debug, Clone)]
-pub struct VaultSetup {
+/// Everything the setup wizard collected, before anything touches disk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SetupPlan {
     pub store_dir: PathBuf,
     pub recipient: String,
-    pub remote_url: Option<String>,
+    /// Where the vault is copied to, or `None` to keep it on this
+    /// computer only.
+    pub sync: Option<SyncTarget>,
     pub autopush: bool,
+}
+
+/// Where a new vault keeps its copy.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SyncTarget {
+    /// An existing (empty) repository on a server, by address.
+    Remote(String),
+    /// A bare repository Passel creates at this path, e.g. on a USB drive
+    /// or in a Nextcloud/Syncthing folder.
+    Folder(PathBuf),
+}
+
+/// One unit of work in a [`SetupPlan`], run in order by [`run_setup_step`].
+///
+/// Each step can be retried after a failure: the ones before it are
+/// idempotent, and [`SetupStep::SaveRecipient`] undoes its own write
+/// when its commit fails.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SetupStep {
+    CreateFolder,
+    StartHistory,
+    SaveRecipient,
+    /// Create the bare repository of a [`SyncTarget::Folder`].
+    CreateCopy,
+    ConnectRemote,
+    Upload,
+}
+
+impl SetupStep {
+    /// Steps that only concern the copy: when they fail, the vault itself
+    /// already works and the rest can be skipped.
+    pub fn is_sync(self) -> bool {
+        matches!(
+            self,
+            SetupStep::CreateCopy | SetupStep::ConnectRemote | SetupStep::Upload
+        )
+    }
+}
+
+impl SetupPlan {
+    /// The steps that carry out this plan, in order.
+    pub fn steps(&self) -> Vec<SetupStep> {
+        let mut steps = vec![
+            SetupStep::CreateFolder,
+            SetupStep::StartHistory,
+            SetupStep::SaveRecipient,
+        ];
+        if self.remote_url().is_some() {
+            if matches!(self.sync, Some(SyncTarget::Folder(_))) {
+                steps.push(SetupStep::CreateCopy);
+            }
+            steps.push(SetupStep::ConnectRemote);
+            if self.autopush {
+                steps.push(SetupStep::Upload);
+            }
+        }
+        steps
+    }
+
+    /// The address the vault is pushed to: the trimmed remote URL or the
+    /// copy folder's path. `None` when sync is off (or the path is not
+    /// UTF-8, which git config cannot store).
+    pub fn remote_url(&self) -> Option<&str> {
+        match self.sync.as_ref()? {
+            SyncTarget::Remote(url) => Some(url.trim()).filter(|url| !url.is_empty()),
+            SyncTarget::Folder(path) => path.to_str(),
+        }
+    }
 }
 
 /// Recursively loads password-store groups and `.gpg` entries.
@@ -83,24 +157,25 @@ fn relative_path(root: &Path, path: &Path) -> PathBuf {
     path.strip_prefix(root).unwrap_or(path).to_path_buf()
 }
 
-pub fn load_password_store() -> io::Result<Vec<PassNode>> {
-    let store_dir = password_store_dir();
+/// Loads the tree of a vault folder, with or without history.
+pub fn load_password_store(store_dir: &Path) -> io::Result<Vec<PassNode>> {
     log::debug!("Loading password store from: {}", store_dir.display());
-    if !git::is_repository(&store_dir) {
+    if !store_dir.is_dir() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            format!("{} is not a git repository", store_dir.display()),
+            format!("{} is not a folder", store_dir.display()),
         ));
     }
-    let nodes = load_dir(&store_dir, &store_dir)?;
+    let nodes = load_dir(store_dir, store_dir)?;
     log::debug!("Top-level nodes: {}", nodes.len());
     //Returns
     Ok(nodes)
 }
 
-/// Initializes a new password-store git repository.
-pub fn setup_vault(setup: &VaultSetup) -> Result<(), StoreError> {
-    let recipient = setup.recipient.trim();
+/// Checks a plan before any step runs, so a bad recipient or an existing
+/// vault is reported before the folder is created.
+pub fn check_setup_plan(plan: &SetupPlan) -> Result<(), StoreError> {
+    let recipient = plan.recipient.trim();
     if recipient.is_empty() {
         return Err(StoreError::InvalidRecipient);
     }
@@ -129,31 +204,164 @@ pub fn setup_vault(setup: &VaultSetup) -> Result<(), StoreError> {
         return Err(StoreError::InvalidRecipient);
     }
 
-    fs::create_dir_all(&setup.store_dir)?;
-    if !git::is_repository(&setup.store_dir) {
-        git::init(&setup.store_dir)?;
+    check_no_recipient_file(&plan.store_dir)?;
+    if let Some(SyncTarget::Folder(copy_dir)) = &plan.sync {
+        check_copy_dir(&plan.store_dir, copy_dir)?;
     }
+    Ok(())
+}
 
-    let gpg_id_path = setup.store_dir.join(".gpg-id");
-    // Refuse to silently overwrite an existing .gpg-id: doing so would
-    // change the recipient key for the entire vault and immediately
-    // break decryption of every entry encrypted to the previous one.
+/// Connects read-only to a remote address and reports whether a new
+/// vault can be uploaded there.
+pub fn check_remote(remote_url: &str) -> RemoteCheck {
+    git::check_remote(remote_url.trim())
+}
+
+/// A copy folder must be new (or an empty copy left by an earlier
+/// attempt), and must not sit inside the vault, where it would be
+/// committed into itself.
+pub fn check_copy_dir(store_dir: &Path, copy_dir: &Path) -> Result<(), StoreError> {
+    if copy_dir.starts_with(store_dir) {
+        return Err(StoreError::InvalidFolderPath(copy_dir.to_path_buf()));
+    }
+    if copy_dir.exists() && !git::is_empty_bare_repository(copy_dir) {
+        return Err(StoreError::DestinationExists(copy_dir.to_path_buf()));
+    }
+    Ok(())
+}
+
+/// Refuses to silently overwrite an existing .gpg-id: doing so would
+/// change the recipient key for the entire vault and immediately break
+/// decryption of every entry encrypted to the previous one.
+fn check_no_recipient_file(store_dir: &Path) -> Result<(), StoreError> {
+    let gpg_id_path = store_dir.join(".gpg-id");
     if gpg_id_path.exists() {
         return Err(StoreError::DestinationExists(gpg_id_path));
     }
-    fs::write(&gpg_id_path, format!("{recipient}\n"))?;
-    git::add(&setup.store_dir, &gpg_id_path)?;
-    git::commit(&setup.store_dir, "Initialize vault")?;
+    Ok(())
+}
 
-    if let Some(remote_url) = setup.remote_url.as_deref().map(str::trim) {
-        if !remote_url.is_empty() {
-            git::set_origin(&setup.store_dir, remote_url)?;
-            if setup.autopush {
-                git::push(&setup.store_dir, None)?;
+/// Runs one step of a vault setup. Call [`check_setup_plan`] first.
+pub fn run_setup_step(plan: &SetupPlan, step: SetupStep) -> Result<(), StoreError> {
+    let store_dir = plan.store_dir.as_path();
+    match step {
+        SetupStep::CreateFolder => fs::create_dir_all(store_dir)?,
+        SetupStep::StartHistory => {
+            if !git::is_repository(store_dir) {
+                git::init(store_dir)?;
+            }
+        }
+        SetupStep::SaveRecipient => save_recipient(store_dir, plan.recipient.trim())?,
+        SetupStep::CreateCopy => {
+            if let Some(SyncTarget::Folder(copy_dir)) = &plan.sync {
+                check_copy_dir(store_dir, copy_dir)?;
+                if !copy_dir.exists() {
+                    git::init_bare(copy_dir)?;
+                }
+            }
+        }
+        SetupStep::ConnectRemote => {
+            if let Some(remote_url) = plan.remote_url() {
+                git::set_origin(store_dir, remote_url)?;
+            }
+        }
+        SetupStep::Upload => git::push(store_dir, None)?,
+    }
+    Ok(())
+}
+
+/// Writes and commits `.gpg-id`. When the commit fails (typically a
+/// missing git identity) the file is removed again, so a retry starts
+/// from the same state instead of tripping over its own `.gpg-id`.
+fn save_recipient(store_dir: &Path, recipient: &str) -> Result<(), StoreError> {
+    check_no_recipient_file(store_dir)?;
+    let gpg_id_path = store_dir.join(".gpg-id");
+    fs::write(&gpg_id_path, format!("{recipient}\n"))?;
+    let committed =
+        git::add(store_dir, &gpg_id_path).and_then(|()| git::commit(store_dir, "Initialize vault"));
+    if let Err(err) = committed {
+        if let Err(cleanup_err) = fs::remove_file(&gpg_id_path) {
+            log::warn!("Failed to remove the uncommitted .gpg-id: {cleanup_err}");
+        }
+        return Err(err.into());
+    }
+    Ok(())
+}
+
+/// What the startup check found at a password-store directory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StoreStatus {
+    /// The folder does not exist yet.
+    Missing,
+    /// The folder exists and holds nothing.
+    Empty,
+    /// The folder is a git repository: the app can open it.
+    Ready,
+    /// A pass store (`.gpg-id` at its root) whose changes git does not
+    /// track yet, e.g. one made with `pass init` but never `pass git init`.
+    PassWithoutGit,
+    /// The folder holds files but is not a password store, or the path
+    /// is not a readable folder at all.
+    Unrelated,
+}
+
+/// Classifies `dir` so startup can pick between opening the vault,
+/// creating one, or turning on history for an existing pass store.
+pub fn check_store(dir: &Path) -> StoreStatus {
+    if git::is_repository(dir) {
+        return StoreStatus::Ready;
+    }
+    match fs::read_dir(dir) {
+        Err(err) if err.kind() == io::ErrorKind::NotFound => StoreStatus::Missing,
+        Err(_) => StoreStatus::Unrelated,
+        Ok(mut children) => {
+            if children.next().is_none() {
+                StoreStatus::Empty
+            } else if dir.join(".gpg-id").is_file() {
+                StoreStatus::PassWithoutGit
+            } else {
+                StoreStatus::Unrelated
             }
         }
     }
+}
 
+/// Puts an existing pass store under git: initializes the repository and
+/// commits every file already there, like `pass git init`.
+///
+/// When staging or committing fails (typically a missing git identity),
+/// the freshly created `.git` is removed again so the store is left
+/// exactly as it was and the next launch offers the same choice.
+pub fn enable_history(dir: &Path) -> Result<(), StoreError> {
+    enable_history_with(dir, |_| Ok(()))
+}
+
+/// [`enable_history`] with a hook run right after `git init`, before
+/// anything is committed, so tests can set a repository-local identity.
+fn enable_history_with(
+    dir: &Path,
+    configure: impl FnOnce(&Path) -> Result<(), git::GitError>,
+) -> Result<(), StoreError> {
+    if check_store(dir) != StoreStatus::PassWithoutGit {
+        return Err(StoreError::InvalidFolderPath(dir.to_path_buf()));
+    }
+    // check_store found no repository, but a broken `.git` could still be
+    // there; never initialize over it, nor remove it on rollback.
+    let git_dir = dir.join(".git");
+    if git_dir.exists() {
+        return Err(StoreError::DestinationExists(git_dir));
+    }
+
+    git::init(dir)?;
+    let committed = configure(dir)
+        .and_then(|()| git::add_all(dir))
+        .and_then(|()| git::commit(dir, "Add current contents of password store."));
+    if let Err(err) = committed {
+        if let Err(cleanup_err) = fs::remove_dir_all(&git_dir) {
+            log::warn!("Failed to remove the half-initialized repository: {cleanup_err}");
+        }
+        return Err(err.into());
+    }
     Ok(())
 }
 
@@ -163,8 +371,8 @@ pub fn available_recipients() -> Result<Vec<GpgRecipient>, StoreError> {
 }
 
 /// Loads and decrypts a password-store entry from a tree node.
-pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
-    let path = password_store_dir().join(&node.path);
+pub fn load_entry_from_node(store_dir: &Path, node: &PassNode) -> Result<EntryData, StoreError> {
+    let path = store_dir.join(&node.path);
     let content = pgp::decrypt(&path)?;
     parser::parse_entry(&content).ok_or(StoreError::EmptyFile(path))
 }
@@ -173,8 +381,8 @@ pub fn load_entry_from_node(node: &PassNode) -> Result<EntryData, StoreError> {
 ///
 /// When `branch` is `Some`, history is read from that local branch; otherwise
 /// the working tree's current branch is used.
-pub fn load_changes(branch: Option<&str>) -> Result<Vec<GitChange>, StoreError> {
-    Ok(git::branch_changes(&password_store_dir(), branch)?)
+pub fn load_changes(store_dir: &Path, branch: Option<&str>) -> Result<Vec<GitChange>, StoreError> {
+    Ok(git::branch_changes(store_dir, branch)?)
 }
 
 /// Lists one page from the password store commit history.
@@ -182,25 +390,18 @@ pub fn load_changes(branch: Option<&str>) -> Result<Vec<GitChange>, StoreError> 
 /// When `branch` is `Some`, that local branch is walked; otherwise the
 /// working tree's current branch is used.
 pub fn load_changes_page(
+    store_dir: &Path,
     offset: usize,
     limit: usize,
     branch: Option<&str>,
 ) -> Result<Vec<GitChange>, StoreError> {
-    Ok(git::branch_changes_page(
-        &password_store_dir(),
-        branch,
-        offset,
-        limit,
-    )?)
+    Ok(git::branch_changes_page(store_dir, branch, offset, limit)?)
 }
 
 /// Reverts a commit in the password store repository and pushes the result.
-pub fn revert_change(commit_id: &str, autopush: bool) -> Result<(), StoreError> {
-    let store_dir = password_store_dir();
-    git::revert_commit(&store_dir, commit_id)?;
-    if autopush {
-        git::push(&store_dir, None)?;
-    }
+pub fn revert_change(store_dir: &Path, commit_id: &str, autopush: bool) -> Result<(), StoreError> {
+    git::revert_commit(store_dir, commit_id)?;
+    push_if_synced(store_dir, autopush)?;
     Ok(())
 }
 
@@ -208,61 +409,59 @@ pub fn revert_change(commit_id: &str, autopush: bool) -> Result<(), StoreError> 
 ///
 /// When `branch` is `Some`, that local branch is pushed; otherwise the
 /// working tree's current branch is used.
-pub fn push_changes(branch: Option<&str>) -> Result<(), StoreError> {
-    Ok(git::push(&password_store_dir(), branch)?)
+pub fn push_changes(store_dir: &Path, branch: Option<&str>) -> Result<(), StoreError> {
+    Ok(git::push(store_dir, branch)?)
 }
 
 /// Backs up the current branch, resets it to a commit, and pushes the reset.
-pub fn rollback_to_change(commit_id: &str) -> Result<String, StoreError> {
-    Ok(git::rollback_to_commit(&password_store_dir(), commit_id)?)
+pub fn rollback_to_change(store_dir: &Path, commit_id: &str) -> Result<String, StoreError> {
+    Ok(git::rollback_to_commit(store_dir, commit_id)?)
 }
 
 /// Returns the working tree's current branch name, if the repository is
 /// readable and on a named branch.
-pub fn current_branch_name() -> Option<String> {
-    git::current_branch_name(&password_store_dir())
+pub fn current_branch_name(store_dir: &Path) -> Option<String> {
+    git::current_branch_name(store_dir)
 }
 
 /// Returns the number of local commits not yet pushed upstream.
 ///
 /// `branch` follows the same semantics as elsewhere in this crate:
 /// `Some` selects a specific branch override, `None` tracks HEAD.
-pub fn unpushed_count(branch: Option<&str>) -> Result<usize, StoreError> {
-    Ok(git::unpushed_count(&password_store_dir(), branch)?)
+pub fn unpushed_count(store_dir: &Path, branch: Option<&str>) -> Result<usize, StoreError> {
+    Ok(git::unpushed_count(store_dir, branch)?)
 }
 
 /// Deletes an entry file, commits the deletion, and pushes it.
-pub fn delete_entry(node: &PassNode, autopush: bool) -> Result<(), StoreError> {
-    let store_dir = password_store_dir();
+pub fn delete_entry(store_dir: &Path, node: &PassNode, autopush: bool) -> Result<(), StoreError> {
     let entry_path = store_dir.join(&node.path);
 
     fs::remove_file(&entry_path)?;
-    git::remove(&store_dir, &entry_path)?;
-    git::commit(&store_dir, &format!("Delete entry {}", node.name))?;
-    if autopush {
-        git::push(&store_dir, None)?;
+    if has_history(store_dir) {
+        git::remove(store_dir, &entry_path)?;
+        git::commit(store_dir, &format!("Delete entry {}", node.name))?;
+        push_if_synced(store_dir, autopush)?;
     }
 
     Ok(())
 }
 
 /// Removes a group directory (and every entry beneath it) from the store.
-pub fn delete_folder(node: &PassNode, autopush: bool) -> Result<(), StoreError> {
+pub fn delete_folder(store_dir: &Path, node: &PassNode, autopush: bool) -> Result<(), StoreError> {
     validate_folder_path(&node.path)?;
 
-    let store_dir = password_store_dir();
     let folder_path = store_dir.join(&node.path);
-    ensure_inside_store(&store_dir, &folder_path)?;
+    ensure_inside_store(store_dir, &folder_path)?;
 
     if !folder_path.is_dir() {
         return Err(StoreError::InvalidFolderPath(node.path.clone()));
     }
 
     fs::remove_dir_all(&folder_path)?;
-    git::remove_dir(&store_dir, &folder_path)?;
-    git::commit(&store_dir, &format!("Delete folder {}", node.name))?;
-    if autopush {
-        git::push(&store_dir, None)?;
+    if has_history(store_dir) {
+        git::remove_dir(store_dir, &folder_path)?;
+        git::commit(store_dir, &format!("Delete folder {}", node.name))?;
+        push_if_synced(store_dir, autopush)?;
     }
 
     Ok(())
@@ -270,6 +469,7 @@ pub fn delete_folder(node: &PassNode, autopush: bool) -> Result<(), StoreError> 
 
 /// Creates a new entry under a password-store folder.
 pub fn create_entry_data(
+    store_dir: &Path,
     folder_path: &Path,
     name: &str,
     entry: &EntryData,
@@ -283,18 +483,24 @@ pub fn create_entry_data(
         kind: PassNodeKind::Entry,
     };
 
-    let store_dir = password_store_dir();
     let output_path = store_dir.join(&node.path);
     if output_path.exists() {
         return Err(StoreError::DestinationExists(output_path));
     }
 
-    write_entry_data(&node, entry, &format!("Add entry {}", node.name), autopush)?;
+    write_entry_data(
+        store_dir,
+        &node,
+        entry,
+        &format!("Add entry {}", node.name),
+        autopush,
+    )?;
     Ok(node)
 }
 
 /// Renames an entry file, commits the move, and pushes it.
 pub fn rename_entry(
+    store_dir: &Path,
     node: &PassNode,
     new_name: &str,
     autopush: bool,
@@ -305,7 +511,6 @@ pub fn rename_entry(
         return Ok(node.clone());
     }
 
-    let store_dir = password_store_dir();
     let old_path = store_dir.join(&node.path);
     let new_relative_path = node.path.with_file_name(format!("{new_name}.gpg"));
     let new_path = store_dir.join(&new_relative_path);
@@ -315,13 +520,13 @@ pub fn rename_entry(
     }
 
     fs::rename(&old_path, &new_path)?;
-    git::rename(&store_dir, &old_path, &new_path)?;
-    git::commit(
-        &store_dir,
-        &format!("Rename entry {} to {new_name}", node.name),
-    )?;
-    if autopush {
-        git::push(&store_dir, None)?;
+    if has_history(store_dir) {
+        git::rename(store_dir, &old_path, &new_path)?;
+        git::commit(
+            store_dir,
+            &format!("Rename entry {} to {new_name}", node.name),
+        )?;
+        push_if_synced(store_dir, autopush)?;
     }
 
     Ok(PassNode {
@@ -333,22 +538,23 @@ pub fn rename_entry(
 
 /// Encrypts, writes, commits, and pushes entry data for a tree node.
 pub fn save_entry_data(
+    store_dir: &Path,
     node: &PassNode,
     entry: &EntryData,
     autopush: bool,
 ) -> Result<(), StoreError> {
     let message = format!("Add/update entry {}", node.name);
-    write_entry_data(node, entry, &message, autopush)
+    write_entry_data(store_dir, node, entry, &message, autopush)
 }
 
 fn write_entry_data(
+    store_dir: &Path,
     node: &PassNode,
     entry: &EntryData,
     message: &str,
     autopush: bool,
 ) -> Result<(), StoreError> {
     let plaintext = parser::format_entry(entry);
-    let store_dir = password_store_dir();
     let output_path = store_dir.join(&node.path);
     let parent = output_path
         .parent()
@@ -357,8 +563,8 @@ fn write_entry_data(
     // tree is idempotent; we abort before writing the entry file if the
     // resolved parent escapes the store root (e.g. via a symlink).
     fs::create_dir_all(parent)?;
-    ensure_inside_store(&store_dir, parent)?;
-    let recipient_ids = pgp::recipient_ids_for(&store_dir, parent)?;
+    ensure_inside_store(store_dir, parent)?;
+    let recipient_ids = pgp::recipient_ids_for(store_dir, parent)?;
     let encrypted = pgp::encrypt(&plaintext, &recipient_ids)?;
 
     // Capture the previous on-disk ciphertext so we can attempt a best-effort
@@ -382,22 +588,54 @@ fn write_entry_data(
     // back so the user does not see the entry vanish on a transient error.
     // If even the restore fails we surface the original error and log; the
     // user can recover via git history.
-    if let Err(err) = git::add(&store_dir, &output_path) {
-        restore_previous(&store_dir, &output_path, previous.as_deref());
+    if !has_history(store_dir) {
+        // A vault without history: the written file is the whole save.
+        return Ok(());
+    }
+    if let Err(err) = git::add(store_dir, &output_path) {
+        restore_previous(store_dir, &output_path, previous.as_deref());
         return Err(StoreError::Git(err));
     }
-    if let Err(err) = git::commit(&store_dir, message) {
-        restore_previous(&store_dir, &output_path, previous.as_deref());
+    if let Err(err) = git::commit(store_dir, message) {
+        restore_previous(store_dir, &output_path, previous.as_deref());
         return Err(StoreError::Git(err));
     }
-    if autopush {
-        // Local commit succeeded — only the push failed. Surface this as
-        // PushFailed so the UI can tell the user "saved locally, retry push"
-        // rather than implying the entire save failed. Do NOT roll back the
-        // committed file: the local state is the new value the user wanted.
-        if let Err(err) = git::push(&store_dir, None) {
-            return Err(StoreError::PushFailed(err.to_string()));
-        }
+    // Local commit succeeded — only the push failed. Surface this as
+    // PushFailed so the UI can tell the user "saved locally, retry push"
+    // rather than implying the entire save failed. Do NOT roll back the
+    // committed file: the local state is the new value the user wanted.
+    if let Err(err) = push_if_synced(store_dir, autopush) {
+        return Err(StoreError::PushFailed(err.to_string()));
+    }
+    Ok(())
+}
+
+/// True when the vault records its changes (is a git repository).
+pub fn has_history(store_dir: &Path) -> bool {
+    git::is_repository(store_dir)
+}
+
+/// The address of the vault's remote ("origin"), if it has one.
+pub fn remote_url(store_dir: &Path) -> Option<String> {
+    git::origin_url(store_dir)
+}
+
+/// Sets the vault's remote address, or removes the remote with `None`
+/// (or a blank address).
+pub fn set_remote(store_dir: &Path, remote_url: Option<&str>) -> Result<(), StoreError> {
+    match remote_url.map(str::trim).filter(|url| !url.is_empty()) {
+        Some(url) => git::set_origin(store_dir, url)?,
+        None => git::remove_origin(store_dir)?,
+    }
+    Ok(())
+}
+
+/// Pushes after a change when auto-push is on and there is somewhere to
+/// push to: a vault kept on this computer only has no remote, and must
+/// not report a failed push after every save.
+fn push_if_synced(store_dir: &Path, autopush: bool) -> Result<(), git::GitError> {
+    if autopush && git::has_remote(store_dir) {
+        git::push(store_dir, None)?;
     }
     Ok(())
 }
@@ -531,46 +769,6 @@ fn validate_folder_path(path: &Path) -> Result<(), StoreError> {
         return Err(StoreError::InvalidFolderPath(path.to_path_buf()));
     }
     Ok(())
-}
-
-/// Sets `PASSWORD_STORE_DIR` exactly once for the lifetime of the process.
-///
-/// Subsequent calls log and no-op. On glibc, `std::env::set_var` racing
-/// against `std::env::var` on another thread is undefined behavior, and
-/// worker threads spawned by autoload later read the variable through
-/// [`password_store_dir`] (which calls `std::env::var`). Soundness here
-/// rests on **two** distinct guarantees, both of which must hold:
-///
-/// 1. **`OnceLock` is the synchronization primitive.** `APPLIED.set(())`
-///    establishes a happens-before edge so the body — the single
-///    `env::set_var` call — runs at most once across all threads. The
-///    safety guarantee comes from `OnceLock`'s synchronization, not from
-///    any `OnceCell`-style lazy-init semantics; we only use it as a
-///    one-shot mutex flag.
-/// 2. **The call sequence places that single call on the main thread
-///    before any worker spawns.** This function is invoked during app
-///    startup, before autoload (or any other code path) creates a
-///    thread that will read the env. Without this ordering, the
-///    `OnceLock`-gated single write would still race a concurrent
-///    `env::var` in a worker; with it, every later read sees the value
-///    already published, no concurrent writers exist, and there is no
-///    data race to worry about. This is sound in practice on Rust 2021.
-///
-/// Preferences changes to the store directory still write the new value
-/// to GSettings — they just take effect after a restart, which the
-/// preferences dialog already tells the user.
-pub fn set_password_store_dir_once(dir: &Path) -> bool {
-    static APPLIED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-    if APPLIED.set(()).is_ok() {
-        std::env::set_var("PASSWORD_STORE_DIR", dir);
-        true
-    } else {
-        log::debug!(
-            "PASSWORD_STORE_DIR already set this session; ignoring change to {} (restart required)",
-            dir.display()
-        );
-        false
-    }
 }
 
 /// Returns the sandbox store used in place of the user's real vault in
@@ -858,5 +1056,346 @@ mod tests {
         // ensure_inside_store check below catches symlink escapes.
         assert!(validate_folder_path(Path::new("Personal/Work")).is_ok());
         assert!(validate_folder_path(Path::new("")).is_ok());
+    }
+    fn pass_store_without_git(name: &str) -> PathBuf {
+        let dir = temp_dir(name);
+        fs::create_dir_all(dir.join("Personal")).unwrap();
+        fs::write(dir.join(".gpg-id"), "ABCDEF0123456789\n").unwrap();
+        fs::write(dir.join("Personal/mail.gpg"), "encrypted").unwrap();
+        dir
+    }
+
+    fn set_local_identity(dir: &Path, name: &str) -> Result<(), git::GitError> {
+        let mut config = git2::Repository::open(dir)?.config()?;
+        config.set_str("user.name", name)?;
+        config.set_str("user.email", "test@example.invalid")?;
+        Ok(())
+    }
+
+    fn mail_entry() -> PassNode {
+        PassNode {
+            name: "mail".to_string(),
+            path: PathBuf::from("Personal/mail.gpg"),
+            kind: PassNodeKind::Entry,
+        }
+    }
+
+    #[test]
+    fn vault_without_history_renames_and_deletes_without_git() {
+        let dir = pass_store_without_git("no-history-edit");
+        assert!(!has_history(&dir));
+        assert_eq!(load_password_store(&dir).unwrap().len(), 1);
+
+        let renamed = rename_entry(&dir, &mail_entry(), "email", true).unwrap();
+        assert!(dir.join("Personal/email.gpg").is_file());
+        delete_entry(&dir, &renamed, true).unwrap();
+        assert!(!dir.join("Personal/email.gpg").exists());
+        assert!(!dir.join(".git").exists());
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn auto_push_without_a_remote_keeps_local_changes() {
+        // A vault kept on this computer only: history, no remote. Saving
+        // with auto-push on must not fail on the missing remote.
+        let dir = pass_store_without_git("no-remote-edit");
+        enable_history_with(&dir, |dir| set_local_identity(dir, "Passel Tests")).unwrap();
+        assert!(!git::has_remote(&dir));
+
+        delete_entry(&dir, &mail_entry(), true).unwrap();
+        let repo = git2::Repository::open(&dir).unwrap();
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(head.message(), Some("Delete entry mail"));
+
+        set_remote(&dir, Some("/nowhere/remote.git")).unwrap();
+        assert_eq!(remote_url(&dir).as_deref(), Some("/nowhere/remote.git"));
+        set_remote(&dir, Some("  ")).unwrap();
+        assert_eq!(remote_url(&dir), None);
+        set_remote(&dir, None).unwrap();
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn classifies_store_directories() {
+        let root = temp_dir("check-store");
+
+        assert_eq!(check_store(&root.join("missing")), StoreStatus::Missing);
+
+        let empty = root.join("empty");
+        fs::create_dir_all(&empty).unwrap();
+        assert_eq!(check_store(&empty), StoreStatus::Empty);
+
+        let unrelated = root.join("unrelated");
+        fs::create_dir_all(&unrelated).unwrap();
+        fs::write(unrelated.join("notes.txt"), "hello").unwrap();
+        assert_eq!(check_store(&unrelated), StoreStatus::Unrelated);
+
+        let file = root.join("file");
+        fs::write(&file, "not a folder").unwrap();
+        assert_eq!(check_store(&file), StoreStatus::Unrelated);
+
+        let pass_only = root.join("pass-only");
+        fs::create_dir_all(&pass_only).unwrap();
+        fs::write(pass_only.join(".gpg-id"), "ABCDEF0123456789\n").unwrap();
+        assert_eq!(check_store(&pass_only), StoreStatus::PassWithoutGit);
+
+        let repo = root.join("repo");
+        git2::Repository::init(&repo).unwrap();
+        assert_eq!(check_store(&repo), StoreStatus::Ready);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn enable_history_commits_existing_entries() {
+        let dir = pass_store_without_git("enable-history");
+
+        enable_history_with(&dir, |dir| set_local_identity(dir, "Passel Tests")).unwrap();
+
+        assert_eq!(check_store(&dir), StoreStatus::Ready);
+        let repo = git2::Repository::open(&dir).unwrap();
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(
+            head.message(),
+            Some("Add current contents of password store.")
+        );
+        let tree = head.tree().unwrap();
+        assert!(tree.get_path(Path::new(".gpg-id")).is_ok());
+        assert!(tree.get_path(Path::new("Personal/mail.gpg")).is_ok());
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn enable_history_rolls_back_when_commit_fails() {
+        let dir = pass_store_without_git("enable-history-rollback");
+
+        // An empty user.name cannot build a commit signature.
+        let result = enable_history_with(&dir, |dir| set_local_identity(dir, ""));
+
+        assert!(matches!(
+            result,
+            Err(StoreError::Git(git::GitError::NoSignature))
+        ));
+        assert!(!dir.join(".git").exists());
+        assert_eq!(check_store(&dir), StoreStatus::PassWithoutGit);
+        assert!(dir.join("Personal/mail.gpg").is_file());
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn enable_history_refuses_other_folders() {
+        let root = temp_dir("enable-history-refuse");
+        let empty = root.join("empty");
+        fs::create_dir_all(&empty).unwrap();
+        assert!(matches!(
+            enable_history(&empty),
+            Err(StoreError::InvalidFolderPath(_))
+        ));
+        assert!(!empty.join(".git").exists());
+
+        // A broken .git (not openable as a repository) is left untouched.
+        let broken = pass_store_without_git("enable-history-broken");
+        fs::create_dir_all(broken.join(".git")).unwrap();
+        fs::write(broken.join(".git/marker"), "keep me").unwrap();
+        assert!(matches!(
+            enable_history(&broken),
+            Err(StoreError::DestinationExists(_))
+        ));
+        assert!(broken.join(".git/marker").is_file());
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(broken).unwrap();
+    }
+    fn plan(store_dir: &Path, remote_url: Option<&str>, autopush: bool) -> SetupPlan {
+        SetupPlan {
+            store_dir: store_dir.to_path_buf(),
+            recipient: "ABCDEF0123456789".to_string(),
+            sync: remote_url.map(|url| SyncTarget::Remote(url.to_string())),
+            autopush,
+        }
+    }
+
+    fn folder_plan(store_dir: &Path, copy_dir: &Path) -> SetupPlan {
+        SetupPlan {
+            sync: Some(SyncTarget::Folder(copy_dir.to_path_buf())),
+            ..plan(store_dir, None, true)
+        }
+    }
+
+    #[test]
+    fn setup_plan_lists_sync_steps_only_when_needed() {
+        let dir = Path::new("/vault");
+        let local = [
+            SetupStep::CreateFolder,
+            SetupStep::StartHistory,
+            SetupStep::SaveRecipient,
+        ];
+        assert_eq!(plan(dir, None, true).steps(), local);
+        assert_eq!(plan(dir, Some("  "), true).steps(), local);
+
+        let mut connect = local.to_vec();
+        connect.push(SetupStep::ConnectRemote);
+        assert_eq!(plan(dir, Some("git@host:vault"), false).steps(), connect);
+
+        connect.push(SetupStep::Upload);
+        assert_eq!(plan(dir, Some(" git@host:vault "), true).steps(), connect);
+        assert_eq!(
+            plan(dir, Some(" git@host:vault "), true).remote_url(),
+            Some("git@host:vault")
+        );
+    }
+
+    #[test]
+    fn folder_plan_creates_the_copy_before_connecting() {
+        let plan = folder_plan(Path::new("/vault"), Path::new("/media/usb/passwords.git"));
+        assert_eq!(
+            plan.steps(),
+            [
+                SetupStep::CreateFolder,
+                SetupStep::StartHistory,
+                SetupStep::SaveRecipient,
+                SetupStep::CreateCopy,
+                SetupStep::ConnectRemote,
+                SetupStep::Upload,
+            ]
+        );
+        assert_eq!(plan.remote_url(), Some("/media/usb/passwords.git"));
+        assert!(SetupStep::CreateCopy.is_sync());
+        assert!(!SetupStep::SaveRecipient.is_sync());
+    }
+
+    #[test]
+    fn setup_steps_copy_a_vault_to_a_folder() {
+        let root = temp_dir("setup-folder");
+        let store_dir = root.join("store");
+        let copy_dir = root.join("usb/passwords.git");
+        let plan = folder_plan(&store_dir, &copy_dir);
+
+        for step in plan.steps() {
+            run_setup_step(&plan, step).unwrap();
+            if step == SetupStep::StartHistory {
+                set_local_identity(&store_dir, "Passel Tests").unwrap();
+            }
+        }
+
+        let head = git2::Repository::open(&store_dir)
+            .unwrap()
+            .head()
+            .unwrap()
+            .target();
+        let copy = git2::Repository::open_bare(&copy_dir).unwrap();
+        assert_eq!(copy.head().unwrap().target(), head);
+
+        // Retrying the copy step after it succeeded must not wipe it, but
+        // a copy that already holds a vault is refused up front.
+        assert!(matches!(
+            check_copy_dir(&store_dir, &copy_dir),
+            Err(StoreError::DestinationExists(_))
+        ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn copy_dir_must_be_new_or_an_empty_copy_outside_the_vault() {
+        let root = temp_dir("setup-copy-dir");
+        let store_dir = root.join("store");
+        assert!(check_copy_dir(&store_dir, &root.join("new.git")).is_ok());
+
+        let empty_copy = root.join("empty.git");
+        git2::Repository::init_bare(&empty_copy).unwrap();
+        assert!(check_copy_dir(&store_dir, &empty_copy).is_ok());
+
+        let unrelated = root.join("photos");
+        fs::create_dir_all(&unrelated).unwrap();
+        assert!(matches!(
+            check_copy_dir(&store_dir, &unrelated),
+            Err(StoreError::DestinationExists(_))
+        ));
+        assert!(matches!(
+            check_copy_dir(&store_dir, &store_dir.join("copy.git")),
+            Err(StoreError::InvalidFolderPath(_))
+        ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn setup_steps_create_commit_and_push_a_vault() {
+        let root = temp_dir("setup-steps");
+        let store_dir = root.join("store");
+        let remote_dir = root.join("remote.git");
+        git2::Repository::init_bare(&remote_dir).unwrap();
+        let plan = plan(&store_dir, remote_dir.to_str(), true);
+
+        for step in plan.steps() {
+            run_setup_step(&plan, step).unwrap();
+            if step == SetupStep::StartHistory {
+                set_local_identity(&store_dir, "Passel Tests").unwrap();
+            }
+        }
+
+        assert_eq!(
+            fs::read_to_string(store_dir.join(".gpg-id")).unwrap(),
+            "ABCDEF0123456789\n"
+        );
+        let repo = git2::Repository::open(&store_dir).unwrap();
+        let head = repo.head().unwrap();
+        assert_eq!(
+            head.peel_to_commit().unwrap().message(),
+            Some("Initialize vault")
+        );
+        let remote = git2::Repository::open_bare(&remote_dir).unwrap();
+        assert_eq!(
+            remote
+                .find_reference(head.name().unwrap())
+                .unwrap()
+                .target(),
+            head.target()
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn save_recipient_can_be_retried_after_a_failed_commit() {
+        let store_dir = temp_dir("setup-retry");
+        let plan = plan(&store_dir, None, false);
+        run_setup_step(&plan, SetupStep::CreateFolder).unwrap();
+        run_setup_step(&plan, SetupStep::StartHistory).unwrap();
+
+        // An empty user.name cannot build a commit signature.
+        set_local_identity(&store_dir, "").unwrap();
+        assert!(matches!(
+            run_setup_step(&plan, SetupStep::SaveRecipient),
+            Err(StoreError::Git(git::GitError::NoSignature))
+        ));
+        assert!(!store_dir.join(".gpg-id").exists());
+
+        set_local_identity(&store_dir, "Passel Tests").unwrap();
+        run_setup_step(&plan, SetupStep::SaveRecipient).unwrap();
+        assert!(store_dir.join(".gpg-id").is_file());
+
+        fs::remove_dir_all(store_dir).unwrap();
+    }
+
+    #[test]
+    fn save_recipient_refuses_an_existing_gpg_id() {
+        let store_dir = pass_store_without_git("setup-existing-gpg-id");
+        let plan = plan(&store_dir, None, false);
+        assert!(matches!(
+            run_setup_step(&plan, SetupStep::SaveRecipient),
+            Err(StoreError::DestinationExists(_))
+        ));
+        assert_eq!(
+            fs::read_to_string(store_dir.join(".gpg-id")).unwrap(),
+            "ABCDEF0123456789\n"
+        );
+
+        fs::remove_dir_all(store_dir).unwrap();
     }
 }

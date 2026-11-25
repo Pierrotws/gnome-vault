@@ -18,14 +18,6 @@ pub enum StoreError {
     /// "your change was saved locally but did not reach the remote" rather
     /// than implying the save itself failed.
     PushFailed(String),
-    /// The vault was created on disk at the requested path, but the
-    /// running process's `PASSWORD_STORE_DIR` is pinned (via the
-    /// startup `apply_store_dir_setting` path that burns
-    /// `set_password_store_dir_once`'s `OnceLock`) to a different
-    /// location. The new vault is therefore not reachable in this
-    /// session. The wizard handles this by persisting the new path
-    /// to GSettings and asking the user to restart.
-    RestartRequired,
 }
 
 // Hand-rolled `Debug` matches `Display`'s redaction posture so a
@@ -48,7 +40,6 @@ impl std::fmt::Debug for StoreError {
             StoreError::InvalidFolderPath(_) => "InvalidFolderPath",
             StoreError::DestinationExists(_) => "DestinationExists",
             StoreError::PushFailed(_) => "PushFailed",
-            StoreError::RestartRequired => "RestartRequired",
         };
         write!(f, "StoreError::{name}(<redacted>)")
     }
@@ -72,7 +63,6 @@ impl std::fmt::Debug for StoreError {
                 f.debug_tuple("DestinationExists").field(p).finish()
             }
             StoreError::PushFailed(s) => f.debug_tuple("PushFailed").field(s).finish(),
-            StoreError::RestartRequired => f.debug_struct("RestartRequired").finish(),
         }
     }
 }
@@ -98,9 +88,6 @@ impl std::fmt::Display for StoreError {
             StoreError::InvalidFolderPath(_) => f.write_str("Invalid folder path"),
             StoreError::DestinationExists(_) => f.write_str("Destination already exists"),
             StoreError::PushFailed(_) => f.write_str("Saved locally but failed to push to remote"),
-            StoreError::RestartRequired => {
-                f.write_str("Vault created. Restart the app to load it from the new location.")
-            }
         }
     }
 }
@@ -117,8 +104,7 @@ impl std::error::Error for StoreError {
             | StoreError::InvalidRecipient
             | StoreError::InvalidFolderPath(_)
             | StoreError::DestinationExists(_)
-            | StoreError::PushFailed(_)
-            | StoreError::RestartRequired => None,
+            | StoreError::PushFailed(_) => None,
         }
     }
 }

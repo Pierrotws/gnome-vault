@@ -4,6 +4,7 @@ mod imp;
 mod new_entry_dialog;
 mod preferences;
 mod setup;
+mod vaults;
 
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -21,7 +22,6 @@ use crate::ui::vault_view::{
 use crate::ui::EntryView;
 
 const CHANGES_PAGE_SIZE: usize = 50;
-const SETUP_PROVIDER_NONE: u32 = 0;
 const SIMPLE_SELECTION_WIDTH: i32 = 220;
 const GROUP_TREE_WIDTH: i32 = 170;
 
@@ -35,13 +35,11 @@ glib::wrapper! {
 impl MainWindow {
     pub fn new(app: &adw::Application, controller: Rc<RefCell<AppController>>) -> Self {
         let obj: Self = glib::Object::builder().property("application", app).build();
-        let settings = gio::Settings::new(crate::APP_ID);
+        let settings = app_settings();
 
         let _ = obj.imp().controller.set(controller);
         let _ = obj.imp().settings.set(settings);
-        obj.apply_store_dir_setting();
-        obj.apply_autopush_setting();
-        obj.apply_branch_setting();
+        obj.load_vault_list();
 
         obj.setup_views();
         obj.setup_callbacks();
@@ -57,16 +55,14 @@ impl MainWindow {
     }
 
     fn setup_views(&self) {
-        let imp = self.imp();
-
-        self.setup_vault_setup_view();
         self.apply_tree_view_size_setting();
+        self.open_active_vault();
+    }
 
-        if let Err(err) = self.reload_vault_tree() {
-            log::debug!("vault unavailable, showing setup view: {err}");
-            self.show_setup_view();
-            return;
-        }
+    /// Switches to the app view on a vault whose tree the controller has
+    /// just loaded: at startup, or once setup has created or adopted one.
+    fn show_opened_vault(&self) {
+        let imp = self.imp();
         imp.entry_view.display_empty();
         if self.show_group_view_enabled() {
             self.show_root_group_content();
@@ -75,6 +71,7 @@ impl MainWindow {
         }
         self.set_edit_unlock_state(false, false, false);
         self.show_app_view();
+        self.update_history_controls();
         self.refresh_changes_badge();
         self.start_autoload_if_enabled();
     }
@@ -427,46 +424,47 @@ impl MainWindow {
             }
         ));
 
-        imp.setup_path_row.connect_changed(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |_| {
-                window.update_create_vault_button();
-            }
-        ));
-
-        imp.setup_recipient_row
-            .connect_selected_notify(glib::clone!(
-                #[weak(rename_to = window)]
-                self,
-                move |_| {
-                    window.update_create_vault_button();
-                }
-            ));
-
-        imp.setup_remote_row.connect_changed(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |_| {
-                window.update_create_vault_button();
-            }
-        ));
-
-        imp.setup_provider_row.connect_selected_notify(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |row| {
-                let sync_enabled = row.selected() != SETUP_PROVIDER_NONE;
-                window.imp().setup_remote_row.set_sensitive(sync_enabled);
-                window.update_create_vault_button();
-            }
-        ));
-
         imp.create_vault_button.connect_clicked(glib::clone!(
             #[weak(rename_to = window)]
             self,
+            move |_| window.present_setup_wizard()
+        ));
+
+        imp.enable_history_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| window.enable_history_for_active_vault()
+        ));
+        imp.decline_history_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| window.decline_history()
+        ));
+        imp.remove_missing_vault_button
+            .connect_clicked(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |_| window.remove_active_vault_from_list()
+            ));
+        imp.open_existing_vault_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| window.add_existing_vault()
+        ));
+        imp.new_vault_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
             move |_| {
-                window.create_vault_from_setup();
+                window.imp().vault_popover.popdown();
+                window.present_setup_wizard();
+            }
+        ));
+        imp.add_vault_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
+                window.imp().vault_popover.popdown();
+                window.add_existing_vault();
             }
         ));
     }
@@ -694,21 +692,27 @@ impl MainWindow {
         }
 
         let autopush = self.controller().borrow().autopush();
+        let Some(store_dir) = self.open_store_dir() else {
+            return;
+        };
         let commit_id = commit_id.to_string();
         let window = self.clone();
 
         glib::spawn_future_local(async move {
-            let result =
-                match gio::spawn_blocking(move || changes::revert(&commit_id, autopush)).await {
-                    Ok(r) => r,
-                    Err(_) => {
-                        window
-                            .imp()
-                            .entry_view
-                            .show_error_dialog("Undo task panicked unexpectedly");
-                        return;
-                    }
-                };
+            let result = match gio::spawn_blocking(move || {
+                changes::revert(&store_dir, &commit_id, autopush)
+            })
+            .await
+            {
+                Ok(r) => r,
+                Err(_) => {
+                    window
+                        .imp()
+                        .entry_view
+                        .show_error_dialog("Undo task panicked unexpectedly");
+                    return;
+                }
+            };
 
             if let Err(err) = result {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
@@ -765,11 +769,18 @@ impl MainWindow {
     }
 
     fn rollback_change(&self, commit_id: &str) {
+        let Some(store_dir) = self.open_store_dir() else {
+            return;
+        };
         let commit_id = commit_id.to_string();
         let window = self.clone();
 
         glib::spawn_future_local(async move {
-            let result = match gio::spawn_blocking(move || changes::rollback(&commit_id)).await {
+            let result = match gio::spawn_blocking(move || {
+                changes::rollback(&store_dir, &commit_id)
+            })
+            .await
+            {
                 Ok(r) => r,
                 Err(_) => {
                     window
@@ -847,6 +858,12 @@ impl MainWindow {
     }
 
     fn reload_changes_view(&self) -> Result<(), crate::app::app_error::AppError> {
+        if !self.controller().borrow().has_history() {
+            self.imp().loaded_changes_count.set(0);
+            self.imp().changes_view.set_changes(&[], false);
+            self.update_history_controls();
+            return Ok(());
+        }
         // Probe one extra commit so we can tell "exactly PAGE_SIZE
         // changes total" apart from "more changes available". The
         // previous heuristic (`changes.len() == CHANGES_PAGE_SIZE`)
@@ -899,6 +916,15 @@ impl MainWindow {
         self.imp().loaded_changes_count.set(offset + changes.len());
         self.imp().changes_view.append_changes(&changes, has_more);
         Ok(())
+    }
+
+    /// Folder of the open vault, for a worker to act on.
+    fn open_store_dir(&self) -> Option<PathBuf> {
+        self.controller()
+            .borrow()
+            .store_dir()
+            .ok()
+            .map(std::path::Path::to_path_buf)
     }
 
     fn settings(&self) -> gio::Settings {
@@ -1037,17 +1063,23 @@ impl MainWindow {
         // follows is fast (filesystem only) and happens back on the main loop.
         let window = self.clone();
         let branch = self.controller().borrow().branch().map(str::to_string);
+        let Some(store_dir) = self.open_store_dir() else {
+            return;
+        };
         glib::spawn_future_local(async move {
-            let result = match gio::spawn_blocking(move || changes::push(branch.as_deref())).await {
-                Ok(r) => r,
-                Err(_) => {
-                    window
-                        .imp()
-                        .entry_view
-                        .show_error_dialog("Sync-to-remote task panicked unexpectedly");
-                    return;
-                }
-            };
+            let result =
+                match gio::spawn_blocking(move || changes::push(&store_dir, branch.as_deref()))
+                    .await
+                {
+                    Ok(r) => r,
+                    Err(_) => {
+                        window
+                            .imp()
+                            .entry_view
+                            .show_error_dialog("Sync-to-remote task panicked unexpectedly");
+                        return;
+                    }
+                };
             if let Err(err) = result {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
                 return;
@@ -1074,4 +1106,36 @@ impl MainWindow {
         imp.window_title
             .set_subtitle(if editing { "Editing" } else { "Read-only" });
     }
+}
+
+/// The app's settings. Debug builds keep theirs in a file next to the dev
+/// store instead of the shared GSettings database: the vault list and
+/// other settings of the installed app must not change when running
+/// `cargo run`.
+fn app_settings() -> gio::Settings {
+    let Some(dev_dir) = crate::pass::store::dev_store_dir() else {
+        return gio::Settings::new(crate::APP_ID);
+    };
+    let schema =
+        gio::SettingsSchemaSource::default().and_then(|source| source.lookup(crate::APP_ID, true));
+    let Some(schema) = schema else {
+        return gio::Settings::new(crate::APP_ID);
+    };
+    let file_name = format!(
+        "{}.passel-settings.ini",
+        dev_dir
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "dev".to_string())
+    );
+    let file = dev_dir.with_file_name(file_name);
+    log::info!("Debug build: settings in {}", file.display());
+    // Keys directly under the root path are only writable when they
+    // have a keyfile group to live in.
+    let backend = gio::keyfile_settings_backend_new(
+        &file.to_string_lossy(),
+        "/io/pierrotws/Passel/",
+        Some("passel"),
+    );
+    gio::Settings::new_full(&schema, Some(&backend), None)
 }

@@ -12,13 +12,23 @@ use crate::{
     pass::{
         self,
         model::{EntryData, EntryField, PassNode},
-        store::{GpgRecipient, VaultSetup},
+        store::StoreStatus,
     },
 };
 use std::path::{Path, PathBuf};
 
+/// A vault folder's state, as shown in the vault list and settings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VaultInfo {
+    pub status: StoreStatus,
+    pub has_history: bool,
+    pub remote_url: Option<String>,
+}
+
 pub struct AppController {
     state: AppState,
+    /// Folder of the open vault, `None` before one is opened.
+    store_dir: Option<PathBuf>,
     autopush: bool,
     /// User-configured branch name. `None` means "use the working tree's
     /// current branch" (whatever HEAD points at). When `Some`, push and
@@ -31,6 +41,7 @@ impl AppController {
     pub fn new() -> Self {
         Self {
             state: AppState::new(),
+            store_dir: None,
             autopush: true,
             branch: None,
         }
@@ -111,67 +122,91 @@ impl AppController {
         });
     }
 
-    /// Initializes a new password-store vault and reloads application state.
+    /// Folder of the open vault.
+    pub fn store_dir(&self) -> Result<&Path, AppError> {
+        self.store_dir.as_deref().ok_or(AppError::NoVault)
+    }
+
+    /// Opens the vault at `store_dir` (with or without history) and makes
+    /// it the target of every later operation.
     ///
-    /// Updates `PASSWORD_STORE_DIR` so subsequent store operations (which
-    /// read it on every call) resolve to the freshly created vault. The
-    /// tree reload runs BEFORE we drop the previous cache and session: if
-    /// it fails, the user is left looking at the previous (still-on-disk)
-    /// vault with their cache intact, instead of a blank window with no
-    /// path back.
-    ///
-    /// The cache flush is gated on the new tree being non-empty for the
-    /// same reason: a freshly init'd vault containing only `.gpg-id`
-    /// loads as `Ok(empty_vec)`, in which case there are no new paths
-    /// that could collide with previously cached plaintexts, so dropping
-    /// the cache provides no security benefit and only loses the user's
-    /// already-decrypted state. As soon as a real entry lands the next
-    /// successful reload clears the (now-stale) cache.
-    ///
-    /// Collision case: if the startup `apply_store_dir_setting` already
-    /// burned `set_password_store_dir_once`'s `OnceLock` with a
-    /// *different* path (e.g. GSettings pointed at /a, no vault there,
-    /// user typed /b in the wizard), the on-disk vault is created at
-    /// `setup.store_dir` but the env var still points at the previously
-    /// pinned path. We can't safely re-pin (env::set_var racing
-    /// concurrent env::var on glibc is UB), so we surface
-    /// `StoreError::RestartRequired` and let the wizard persist the new
-    /// path to GSettings + prompt the user to restart.
-    pub fn setup_vault(&mut self, setup: &VaultSetup) -> Result<(), AppError> {
-        pass::store::setup_vault(setup)?;
-        if !pass::store::set_password_store_dir_once(&setup.store_dir)
-            && pass::store::password_store_dir() != setup.store_dir
-        {
-            return Err(AppError::Save(pass::store::StoreError::RestartRequired));
-        }
-        let tree = pass::store::load_password_store()?;
-        if !tree.is_empty() {
-            self.state.clear_entry_cache();
-        }
+    /// The tree is loaded first: if that fails, the previous vault stays
+    /// open with its state intact. On success the decrypted cache and the
+    /// edit session of the previous vault are dropped, since its entry
+    /// paths mean nothing in the new one.
+    pub fn open_vault(&mut self, store_dir: &Path) -> Result<(), AppError> {
+        let tree = pass::store::load_password_store(store_dir)?;
+        self.state.clear_entry_cache();
         self.state.set_current_session(None);
         self.state.set_tree(tree);
+        self.store_dir = Some(store_dir.to_path_buf());
         Ok(())
     }
 
-    /// Lists usable GPG recipients for a newly created vault.
-    pub fn available_recipients(&self) -> Result<Vec<GpgRecipient>, AppError> {
-        Ok(pass::store::available_recipients()?)
+    /// Closes the open vault (e.g. once it is removed from the list).
+    pub fn close_vault(&mut self) {
+        self.state.clear_entry_cache();
+        self.state.set_current_session(None);
+        self.state.set_tree(Vec::new());
+        self.store_dir = None;
     }
 
-    /// Returns the active password-store directory (env var or default).
+    /// Classifies a vault folder.
+    pub fn store_status(store_dir: &Path) -> StoreStatus {
+        pass::store::check_store(store_dir)
+    }
+
+    /// True when the open vault records its changes.
+    pub fn has_history(&self) -> bool {
+        self.store_dir
+            .as_deref()
+            .is_some_and(pass::store::has_history)
+    }
+
+    /// Puts the open vault (a pass store without git) under git.
+    pub fn enable_history(&mut self) -> Result<(), AppError> {
+        let store_dir = self.store_dir()?.to_path_buf();
+        pass::store::enable_history(&store_dir)?;
+        self.reload_tree()
+    }
+
+    /// What a vault folder holds, for the vault list and its settings.
+    pub fn vault_info(store_dir: &Path) -> VaultInfo {
+        VaultInfo {
+            status: pass::store::check_store(store_dir),
+            has_history: pass::store::has_history(store_dir),
+            remote_url: pass::store::remote_url(store_dir),
+        }
+    }
+
+    /// Sets (or with `None`, removes) a vault's remote address.
+    pub fn set_vault_remote(store_dir: &Path, remote_url: Option<&str>) -> Result<(), AppError> {
+        Ok(pass::store::set_remote(store_dir, remote_url)?)
+    }
+
+    /// Puts a pass store without git under git, open or not.
+    pub fn enable_history_at(store_dir: &Path) -> Result<(), AppError> {
+        Ok(pass::store::enable_history(store_dir)?)
+    }
+
+    /// pass's default vault location (`PASSWORD_STORE_DIR` or
+    /// `~/.password-store`).
     pub fn default_store_dir() -> PathBuf {
         pass::store::password_store_dir()
     }
 
     /// Returns the working tree's current branch name, if readable.
-    pub fn current_branch_name() -> Option<String> {
-        pass::store::current_branch_name()
+    pub fn current_branch_name(&self) -> Option<String> {
+        pass::store::current_branch_name(self.store_dir().ok()?)
     }
 
     /// Returns the number of commits ahead of the remote tracking branch
     /// for the configured branch (or HEAD if none is set).
     pub fn unpushed_count(&self) -> Result<usize, AppError> {
-        Ok(pass::store::unpushed_count(self.branch())?)
+        Ok(pass::store::unpushed_count(
+            self.store_dir()?,
+            self.branch(),
+        )?)
     }
 
     /// Reloads the password-store tree from disk.
@@ -179,7 +214,7 @@ impl AppController {
     /// This refreshes the visible node tree only. Cached decrypted entries are
     /// kept so reopening an already viewed entry does not decrypt the file again.
     pub fn reload_tree(&mut self) -> Result<(), AppError> {
-        let tree = pass::store::load_password_store()?;
+        let tree = pass::store::load_password_store(self.store_dir()?)?;
         self.state.set_tree(tree);
         Ok(())
     }
@@ -213,8 +248,8 @@ impl AppController {
     }
 
     /// Loads an entry for background cache warming.
-    pub fn load_entry_for_cache(node: &PassNode) -> Result<EntryData, AppError> {
-        Ok(pass::store::load_entry_from_node(node)?)
+    pub fn load_entry_for_cache(store_dir: &Path, node: &PassNode) -> Result<EntryData, AppError> {
+        Ok(pass::store::load_entry_from_node(store_dir, node)?)
     }
 
     /// Stores an entry loaded by the background cache warmer.
@@ -237,7 +272,7 @@ impl AppController {
 
     /// Lists commits reachable from the configured branch (or HEAD if none).
     pub fn load_changes(&self) -> Result<Vec<GitChange>, AppError> {
-        Ok(pass::store::load_changes(self.branch())?)
+        Ok(pass::store::load_changes(self.store_dir()?, self.branch())?)
     }
 
     /// Lists one page of commits reachable from the configured branch
@@ -248,6 +283,7 @@ impl AppController {
         limit: usize,
     ) -> Result<Vec<GitChange>, AppError> {
         Ok(pass::store::load_changes_page(
+            self.store_dir()?,
             offset,
             limit,
             self.branch(),
@@ -285,7 +321,7 @@ impl AppController {
             }
             None => {
                 log::debug!("entry cache miss");
-                let entry = pass::store::load_entry_from_node(node)?;
+                let entry = pass::store::load_entry_from_node(self.store_dir()?, node)?;
                 self.state.cache_entry(node, entry.clone());
                 Ok(entry)
             }
@@ -323,7 +359,13 @@ impl AppController {
             return Err(AppError::InvalidEntry);
         }
 
-        let node = pass::store::create_entry_data(folder_path, title, &entry, self.autopush)?;
+        let node = pass::store::create_entry_data(
+            self.store_dir()?,
+            folder_path,
+            title,
+            &entry,
+            self.autopush,
+        )?;
         self.state.cache_entry(&node, entry.clone());
         let session = EntrySession::new(node.clone(), entry.clone());
         self.state.set_current_session(Some(session));
@@ -363,7 +405,7 @@ impl AppController {
                 node.path.clone(),
             )));
         }
-        pass::store::delete_folder(&node, self.autopush)?;
+        pass::store::delete_folder(self.store_dir()?, &node, self.autopush)?;
 
         let prefix = node.path.clone();
         let closed = self
@@ -387,7 +429,7 @@ impl AppController {
                 node.name.clone(),
             )));
         }
-        pass::store::delete_entry(&node, self.autopush)?;
+        pass::store::delete_entry(self.store_dir()?, &node, self.autopush)?;
         self.state.remove_cached_entry(&node.path);
 
         let deleting_current = self
@@ -435,7 +477,8 @@ impl AppController {
         // here would be a real bug, not a recoverable "no entry selected".
         if let Some((node, name)) = rename {
             let old_path = node.path.clone();
-            let renamed_node = pass::store::rename_entry(&node, &name, self.autopush)?;
+            let store_dir = self.store_dir()?.to_path_buf();
+            let renamed_node = pass::store::rename_entry(&store_dir, &node, &name, self.autopush)?;
             // Disk has been renamed. Drop the stale cache entry under the
             // OLD path immediately, regardless of whether the body save below
             // succeeds. Otherwise the cache would point at a path that no
@@ -456,7 +499,13 @@ impl AppController {
                 .state
                 .current_session()
                 .expect("session existed at phase start and isn't cleared mid-save");
-            pass::store::save_entry_data(session.node(), session.current(), self.autopush)?;
+            let store_dir = self.store_dir.as_deref().ok_or(AppError::NoVault)?;
+            pass::store::save_entry_data(
+                store_dir,
+                session.node(),
+                session.current(),
+                self.autopush,
+            )?;
         }
 
         // Phase 3: both phases succeeded. Snapshot the current values for

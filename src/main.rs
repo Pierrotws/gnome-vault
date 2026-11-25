@@ -22,12 +22,8 @@ fn main() -> glib::ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
     log::debug!("main() start");
     configure_local_schema_dir();
-    // Still single-threaded here, which set_password_store_dir_once
-    // requires. Pinning first also turns the GSettings store-dir apply
-    // into a no-op for this session.
     if let Some(dir) = pass::store::dev_store_dir() {
-        log::info!("Debug build: using dev password store {}", dir.display());
-        pass::store::set_password_store_dir_once(&dir);
+        log::info!("Debug build: the first vault defaults to {}", dir.display());
     }
 
     let resource_path = resource_file();

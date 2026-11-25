@@ -22,6 +22,8 @@ pub enum AppError {
     /// Returned by mutation paths so they cannot persist incoherent data
     /// even if the UI layer forgets to gate the save button.
     InvalidEntry,
+    /// No vault is open.
+    NoVault,
 }
 
 impl From<std::io::Error> for AppError {
@@ -55,6 +57,7 @@ impl std::fmt::Display for AppError {
             AppError::PushFailed(_) => f.write_str("Saved locally but failed to push to remote"),
             AppError::NoEntrySelected => f.write_str("No entry selected"),
             AppError::InvalidEntry => f.write_str("Entry is not valid"),
+            AppError::NoVault => f.write_str("No vault is open"),
         }
     }
 }

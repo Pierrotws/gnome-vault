@@ -107,6 +107,109 @@ pub fn init(project_dir: &Path) -> Result<(), GitError> {
     Ok(())
 }
 
+/// Creates an empty bare repository, used as a vault copy on a folder or
+/// drive.
+pub fn init_bare(dir: &Path) -> Result<(), GitError> {
+    Repository::init_bare(dir)?;
+    Ok(())
+}
+
+/// Returns true for a bare repository with no commits yet: a copy that
+/// was created but never received the vault.
+pub fn is_empty_bare_repository(dir: &Path) -> bool {
+    Repository::open_bare(dir)
+        .map(|repo| repo.is_bare() && repo.is_empty().unwrap_or(false))
+        .unwrap_or(false)
+}
+
+/// What [`check_remote`] found at a remote address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoteCheck {
+    /// Reachable, with no branches yet: ready to receive a new vault.
+    Empty,
+    /// Reachable, but it already holds commits.
+    NotEmpty,
+    /// The server answered but refused our credentials.
+    AccessDenied,
+    /// The SSH server's host key is not in `known_hosts` yet.
+    UnknownHost,
+    /// Nothing usable at this address: typo, missing repository, no
+    /// network.
+    Unreachable,
+}
+
+/// Connects to a remote address read-only, with the same credentials as
+/// a push, and reports whether a new vault can be uploaded there.
+pub fn check_remote(remote_url: &str) -> RemoteCheck {
+    match remote_has_history(remote_url) {
+        Ok(false) => RemoteCheck::Empty,
+        Ok(true) => RemoteCheck::NotEmpty,
+        Err(err) => {
+            // Debug only: libgit2 messages can contain the address.
+            log::debug!("Remote check failed: {err:?}");
+            classify_remote_error(&err)
+        }
+    }
+}
+
+/// Returns whether the remote advertises a default branch, i.e. already
+/// holds a vault.
+///
+/// `RemoteConnection::list` would be the natural call, but git2 0.20
+/// builds a slice from libgit2's null pointer when the advertisement is
+/// empty (exactly the empty-repository case), which is undefined
+/// behaviour. `default_branch` stays in C: it fails with `NotFound` when
+/// HEAD is unborn or not advertised.
+fn remote_has_history(remote_url: &str) -> Result<bool, git2::Error> {
+    let config = git2::Config::open_default()?;
+    let mut callbacks = RemoteCallbacks::new();
+    install_remote_callbacks(&mut callbacks, &config);
+    let mut remote = git2::Remote::create_detached(remote_url)?;
+    let connection = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)?;
+    match connection.default_branch() {
+        Ok(_) => Ok(true),
+        Err(err) if err.code() == ErrorCode::NotFound => Ok(false),
+        Err(err) => Err(err),
+    }
+}
+
+fn classify_remote_error(err: &git2::Error) -> RemoteCheck {
+    let message = err.message().to_ascii_lowercase();
+    if err.code() == ErrorCode::Certificate || message.contains("hostkey") {
+        RemoteCheck::UnknownHost
+    } else if err.code() == ErrorCode::Auth
+        || message.contains("authenticat")
+        || message.contains("permission denied")
+    {
+        RemoteCheck::AccessDenied
+    } else {
+        RemoteCheck::Unreachable
+    }
+}
+
+/// True when the repository has at least one remote configured.
+pub fn has_remote(project_dir: &Path) -> bool {
+    open_repository(project_dir)
+        .and_then(|repo| Ok(!repo.remotes()?.is_empty()))
+        .unwrap_or(false)
+}
+
+/// The origin remote's URL, if any.
+pub fn origin_url(project_dir: &Path) -> Option<String> {
+    let repo = open_repository(project_dir).ok()?;
+    let remote = repo.find_remote("origin").ok()?;
+    remote.url().map(str::to_string)
+}
+
+/// Removes the origin remote; a missing one is not an error.
+pub fn remove_origin(project_dir: &Path) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    match repo.remote_delete("origin") {
+        Err(err) if err.code() == ErrorCode::NotFound => Ok(()),
+        other => Ok(other?),
+    }
+}
+
 /// Adds or updates the origin remote URL.
 pub fn set_origin(project_dir: &Path, remote_url: &str) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;
@@ -149,6 +252,17 @@ pub fn add(project_dir: &Path, file_path: &Path) -> Result<(), GitError> {
     let mut index = repo.index()?;
 
     index.add_path(&file_path)?;
+    index.write()?;
+
+    Ok(())
+}
+
+/// Stages every file in the worktree, honoring `.gitignore`.
+pub fn add_all(project_dir: &Path) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let mut index = repo.index()?;
+
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
     index.write()?;
 
     Ok(())
@@ -557,7 +671,7 @@ fn push_refspec_verified(
 ) -> Result<Option<String>, GitError> {
     let config = repo.config()?;
     let mut callbacks = RemoteCallbacks::new();
-    install_credentials_callback(&mut callbacks, &config);
+    install_remote_callbacks(&mut callbacks, &config);
 
     // libgit2's `Remote::push` does not surface per-ref rejections in its
     // return value; it only reports transport errors. Capture rejection
@@ -594,6 +708,74 @@ fn push_refspec_verified(
     }
 
     Ok(None)
+}
+
+/// SHA-256 fingerprints (unpadded base64, as `ssh-keygen -lf` prints
+/// them) of the SSH host keys published by the hosting services the setup
+/// wizard suggests. Sources, checked 2026-11-25:
+/// - github.com: <https://api.github.com/meta> (`ssh_key_fingerprints`)
+/// - gitlab.com: <https://docs.gitlab.com/user/gitlab_com/>
+/// - bitbucket.org: <https://bitbucket.org/site/ssh>
+/// - ssh.dev.azure.com: <https://learn.microsoft.com/azure/devops/repos/git/use-ssh-keys-to-authenticate>
+const KNOWN_HOST_KEYS: &[(&str, &[&str])] = &[
+    (
+        "github.com",
+        &[
+            "+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU",
+            "p2QAMXNIC1TJYWeIOttrVc98/R1BUFWu3/LiyKgUfQM",
+            "uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s",
+        ],
+    ),
+    (
+        "gitlab.com",
+        &[
+            "eUXGGm1YGsMAS7vkcx6JOJdOGHPem5gQp4taiCfCLB8",
+            "HbW3g8zUjNSksFbqTiUWPWg2Bq1x8xdGUrliXFzSnUw",
+            "ROQFvPThGrW4RuWLoL9tq9I9zJ42fK4XywyRtbOz/EQ",
+        ],
+    ),
+    (
+        "bitbucket.org",
+        &[
+            "ybgmFkzwOSotHTHLJgHO0QN8L0xErw6vd0VhFA9m3SM",
+            "FC73VB6C4OQLSCrjEayhMp9UMxS97caD/Yyi2bhW/J0",
+            "46OSHA1Rmj8E8ERTC6xkNcmGOw9oFxYr0WF6zWW8l1E",
+        ],
+    ),
+    (
+        "ssh.dev.azure.com",
+        &["ohD8VZEXGWo6Ez8GSEJQ9WpafgLFsOfLOtGGQCQo6Og"],
+    ),
+];
+
+/// True when `host` is one of [`KNOWN_HOST_KEYS`] and presented one of
+/// its published keys.
+fn is_published_host_key(host: &str, sha256: &[u8; 32]) -> bool {
+    let fingerprint = data_encoding::BASE64_NOPAD.encode(sha256);
+    KNOWN_HOST_KEYS.iter().any(|(known, keys)| {
+        host.eq_ignore_ascii_case(known) && keys.contains(&fingerprint.as_str())
+    })
+}
+
+/// Wires up the callbacks used for every network operation: host key
+/// checks and credentials.
+fn install_remote_callbacks<'a>(callbacks: &mut RemoteCallbacks<'a>, config: &'a git2::Config) {
+    // A first connection to github.com & co. would otherwise fail until
+    // the user ran `ssh` once in a terminal to fill `known_hosts`. Their
+    // published keys are accepted directly; any other host, or a key that
+    // does not match, goes through libgit2's usual `known_hosts` check.
+    callbacks.certificate_check(|cert, host| {
+        let published = cert
+            .as_hostkey()
+            .and_then(|hostkey| hostkey.hash_sha256())
+            .is_some_and(|sha256| is_published_host_key(host, sha256));
+        Ok(if published {
+            git2::CertificateCheckStatus::CertificateOk
+        } else {
+            git2::CertificateCheckStatus::CertificatePassthrough
+        })
+    });
+    install_credentials_callback(callbacks, config);
 }
 
 /// Wires up the credential callback used for every push.
@@ -704,6 +886,83 @@ mod tests {
         config.set_str("user.name", "Passel Tests").unwrap();
         drop(config);
         repo
+    }
+
+    #[test]
+    fn checks_whether_a_remote_can_receive_a_vault() {
+        let root = temp_dir("git-check-remote");
+        let remote_dir = root.join("remote.git");
+        init_bare(&remote_dir).unwrap();
+        let url = remote_dir.to_str().unwrap();
+        assert!(is_empty_bare_repository(&remote_dir));
+        assert_eq!(check_remote(url), RemoteCheck::Empty);
+
+        let work_dir = root.join("work");
+        let repo = init_repo(&work_dir);
+        fs::write(work_dir.join("entry.gpg"), "encrypted").unwrap();
+        add(&work_dir, &work_dir.join("entry.gpg")).unwrap();
+        commit(&work_dir, "Add entry").unwrap();
+        repo.remote("origin", url).unwrap();
+        push(&work_dir, None).unwrap();
+        assert!(!is_empty_bare_repository(&remote_dir));
+        assert_eq!(check_remote(url), RemoteCheck::NotEmpty);
+
+        let missing = root.join("missing.git");
+        assert_eq!(
+            check_remote(missing.to_str().unwrap()),
+            RemoteCheck::Unreachable
+        );
+        assert!(!is_empty_bare_repository(&missing));
+        assert!(!is_empty_bare_repository(&work_dir));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn accepts_only_published_host_keys() {
+        let github_ed25519 = data_encoding::BASE64_NOPAD
+            .decode(b"+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU")
+            .unwrap();
+        let github_ed25519: [u8; 32] = github_ed25519.try_into().unwrap();
+        assert!(is_published_host_key("github.com", &github_ed25519));
+        assert!(is_published_host_key("GitHub.com", &github_ed25519));
+        assert!(!is_published_host_key("gitlab.com", &github_ed25519));
+        assert!(!is_published_host_key(
+            "github.com.evil.example",
+            &github_ed25519
+        ));
+        assert!(!is_published_host_key("github.com", &[0; 32]));
+    }
+
+    #[test]
+    fn classifies_remote_errors() {
+        let error = |code, message: &str| git2::Error::new(code, git2::ErrorClass::Ssh, message);
+        assert_eq!(
+            classify_remote_error(&error(ErrorCode::Auth, "denied")),
+            RemoteCheck::AccessDenied
+        );
+        assert_eq!(
+            classify_remote_error(&error(
+                ErrorCode::GenericError,
+                "Authentication failed after repeated credential attempts"
+            )),
+            RemoteCheck::AccessDenied
+        );
+        assert_eq!(
+            classify_remote_error(&error(ErrorCode::Certificate, "unknown")),
+            RemoteCheck::UnknownHost
+        );
+        assert_eq!(
+            classify_remote_error(&error(
+                ErrorCode::GenericError,
+                "invalid or unknown remote ssh hostkey"
+            )),
+            RemoteCheck::UnknownHost
+        );
+        assert_eq!(
+            classify_remote_error(&error(ErrorCode::NotFound, "repository not found")),
+            RemoteCheck::Unreachable
+        );
     }
 
     #[test]

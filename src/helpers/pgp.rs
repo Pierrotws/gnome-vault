@@ -3,7 +3,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use gpgme::{Context, Data, Key, Protocol};
+use std::io::Write;
+use std::time::Duration;
+
+use gpgme::{
+    Context, CreateKeyFlags, Data, ExportMode, InteractionStatus, Interactor, Key, Protocol,
+    Validity,
+};
 use zeroize::Zeroizing;
 
 /// Secret key identity that can decrypt password-store entries.
@@ -27,6 +33,16 @@ pub enum PgpError {
     Utf8Error,
     NoRecipients(PathBuf),
     NoKeys(String),
+    /// The name or email typed for a new key cannot form a user id.
+    InvalidUserId,
+    KeyCreationError(String),
+    ImportError(String),
+    /// The imported file held no usable secret key (e.g. only a public
+    /// key).
+    NoSecretKey,
+    ExportError(String),
+    /// The user dismissed the passphrase prompt.
+    Cancelled,
 }
 
 // Hand-rolled Debug matches Display's redaction posture so a stray
@@ -48,6 +64,12 @@ impl std::fmt::Debug for PgpError {
             PgpError::Utf8Error => "Utf8Error",
             PgpError::NoRecipients(_) => "NoRecipients",
             PgpError::NoKeys(_) => "NoKeys",
+            PgpError::InvalidUserId => "InvalidUserId",
+            PgpError::KeyCreationError(_) => "KeyCreationError",
+            PgpError::ImportError(_) => "ImportError",
+            PgpError::NoSecretKey => "NoSecretKey",
+            PgpError::ExportError(_) => "ExportError",
+            PgpError::Cancelled => "Cancelled",
         };
         write!(f, "PgpError::{name}(<redacted>)")
     }
@@ -70,6 +92,12 @@ impl std::fmt::Debug for PgpError {
             PgpError::Utf8Error => f.debug_struct("Utf8Error").finish(),
             PgpError::NoRecipients(p) => f.debug_tuple("NoRecipients").field(p).finish(),
             PgpError::NoKeys(s) => f.debug_tuple("NoKeys").field(s).finish(),
+            PgpError::InvalidUserId => f.write_str("InvalidUserId"),
+            PgpError::KeyCreationError(s) => f.debug_tuple("KeyCreationError").field(s).finish(),
+            PgpError::ImportError(s) => f.debug_tuple("ImportError").field(s).finish(),
+            PgpError::NoSecretKey => f.write_str("NoSecretKey"),
+            PgpError::ExportError(s) => f.debug_tuple("ExportError").field(s).finish(),
+            PgpError::Cancelled => f.write_str("Cancelled"),
         }
     }
 }
@@ -95,6 +123,16 @@ impl std::fmt::Display for PgpError {
             PgpError::Utf8Error => f.write_str("Decrypted content is not valid UTF-8"),
             PgpError::NoRecipients(_) => f.write_str("No recipients found"),
             PgpError::NoKeys(_) => f.write_str("No usable keys found"),
+            PgpError::InvalidUserId => f.write_str(
+                "Enter a name, and optionally a valid email, without “<”, “>” or line breaks",
+            ),
+            PgpError::KeyCreationError(_) => f.write_str("Could not create the key"),
+            PgpError::ImportError(_) => f.write_str("Could not import this file"),
+            PgpError::NoSecretKey => f.write_str(
+                "This file has no secret key. Import the backup of your secret key, not a public key.",
+            ),
+            PgpError::ExportError(_) => f.write_str("Could not save the key backup"),
+            PgpError::Cancelled => f.write_str("Cancelled"),
         }
     }
 }
@@ -218,6 +256,175 @@ pub fn available_recipients() -> Result<Vec<GpgRecipient>, PgpError> {
     }
 
     Ok(recipients)
+}
+
+fn openpgp_context() -> Result<Context, PgpError> {
+    Context::from_protocol(Protocol::OpenPgp).map_err(|e| PgpError::ContextError(e.to_string()))
+}
+
+/// Maps a gpgme failure, keeping a dismissed pinentry apart so the UI
+/// does not report it as an error.
+fn op_error(make: fn(String) -> PgpError) -> impl Fn(gpgme::Error) -> PgpError {
+    move |err| {
+        if err.code() == gpgme::Error::CANCELED.code() {
+            PgpError::Cancelled
+        } else {
+            make(err.to_string())
+        }
+    }
+}
+
+/// Builds the user id of a new key: `Name <email>`, or `Name` alone.
+pub fn key_user_id(name: &str, email: &str) -> Result<String, PgpError> {
+    let name = name.trim();
+    let email = email.trim();
+    let bad = |text: &str| text.chars().any(|c| c == '<' || c == '>' || c.is_control());
+    let email_ok = email.is_empty()
+        || (email.contains('@') && !email.contains(char::is_whitespace) && !bad(email));
+    if name.is_empty() || bad(name) || !email_ok {
+        return Err(PgpError::InvalidUserId);
+    }
+    Ok(if email.is_empty() {
+        name.to_string()
+    } else {
+        format!("{name} <{email}>")
+    })
+}
+
+/// Creates a key pair with gpg's default algorithms (a primary key and
+/// an encryption subkey) and no expiry, and returns its fingerprint.
+///
+/// gpg-agent asks for the passphrase through pinentry: Passel never sees
+/// it. No expiry because an expired key silently stops a password
+/// manager from saving entries, which non-expert users cannot recover
+/// from; the backup and the passphrase are what protect the key.
+pub fn create_key(name: &str, email: &str) -> Result<String, PgpError> {
+    let user_id = key_user_id(name, email)?;
+    create_key_in(&mut openpgp_context()?, &user_id, CreateKeyFlags::NOEXPIRE)
+}
+
+fn create_key_in(
+    ctx: &mut Context,
+    user_id: &str,
+    flags: CreateKeyFlags,
+) -> Result<String, PgpError> {
+    let result = ctx
+        .create_key_with_flags(user_id, "default", Duration::ZERO, flags)
+        .map_err(op_error(PgpError::KeyCreationError))?;
+    result
+        .fingerprint()
+        .map(str::to_string)
+        .map_err(|_| PgpError::KeyCreationError("no fingerprint returned".to_string()))
+}
+
+/// Imports a key file and returns the fingerprints of the secret keys it
+/// held that can encrypt. They are marked as ultimately trusted, like a
+/// key created on this computer: otherwise gpg refuses to encrypt to them
+/// ("no assurance this key belongs to the named user").
+pub fn import_secret_keys(path: &Path) -> Result<Vec<String>, PgpError> {
+    let path_str = path
+        .to_str()
+        .ok_or_else(|| PgpError::InvalidPath(path.to_path_buf()))?;
+    let data = Data::load(path_str).map_err(|e| PgpError::LoadingError(e.to_string()))?;
+    import_secret_keys_in(&mut openpgp_context()?, data)
+}
+
+fn import_secret_keys_in(ctx: &mut Context, data: Data<'_>) -> Result<Vec<String>, PgpError> {
+    let result = ctx.import(data).map_err(op_error(PgpError::ImportError))?;
+    let mut fingerprints = result
+        .imports()
+        .filter(|import| import.result().is_ok())
+        .filter_map(|import| import.fingerprint().ok().map(str::to_string))
+        .collect::<Vec<_>>();
+    fingerprints.dedup();
+
+    let mut usable = Vec::new();
+    for fingerprint in fingerprints {
+        let Ok(key) = ctx.get_secret_key(fingerprint.as_str()) else {
+            continue;
+        };
+        if !key.can_encrypt() || key.is_bad() {
+            continue;
+        }
+        if key.owner_trust() != Validity::Ultimate {
+            ctx.interact(&key, UltimateTrust::default(), Vec::new())
+                .map_err(op_error(PgpError::ImportError))?;
+        }
+        usable.push(fingerprint);
+    }
+    if usable.is_empty() {
+        return Err(PgpError::NoSecretKey);
+    }
+    Ok(usable)
+}
+
+/// Answers gpg's `--edit-key` prompts to set a key's owner trust to
+/// ultimate (`trust`, `5`, `y`, `quit`).
+#[derive(Default)]
+struct UltimateTrust {
+    asked: bool,
+}
+
+impl Interactor for UltimateTrust {
+    fn interact(
+        &mut self,
+        status: InteractionStatus<'_>,
+        out: Option<&mut dyn Write>,
+    ) -> Result<(), gpgme::Error> {
+        let keyword = status.keyword().unwrap_or("");
+        let prompt = status.args().unwrap_or("");
+        let reply = match (keyword, prompt) {
+            ("GET_LINE", "keyedit.prompt") if self.asked => "quit",
+            ("GET_LINE", "keyedit.prompt") => {
+                self.asked = true;
+                "trust"
+            }
+            ("GET_LINE", "edit_ownertrust.value") => "5",
+            ("GET_BOOL", "edit_ownertrust.set_ultimate.okay" | "keyedit.save.okay") => "y",
+            _ => return Ok(()),
+        };
+        if let Some(out) = out {
+            writeln!(out, "{reply}")?;
+        }
+        Ok(())
+    }
+}
+
+/// Writes an armored backup of a secret key to `dest` (owner-only
+/// permissions). gpg-agent asks for the key's passphrase first.
+pub fn export_secret_key(fingerprint: &str, dest: &Path) -> Result<(), PgpError> {
+    let backup = export_secret_key_in(&mut openpgp_context()?, fingerprint)?;
+    write_private_file(dest, &backup).map_err(|e| PgpError::ExportError(e.to_string()))
+}
+
+fn export_secret_key_in(
+    ctx: &mut Context,
+    fingerprint: &str,
+) -> Result<Zeroizing<Vec<u8>>, PgpError> {
+    ctx.set_armor(true);
+    let key = ctx
+        .get_secret_key(fingerprint)
+        .map_err(|e| PgpError::NoKeys(e.to_string()))?;
+    let mut backup = Zeroizing::new(Vec::new());
+    ctx.export_keys([&key], ExportMode::SECRET, &mut *backup)
+        .map_err(op_error(PgpError::ExportError))?;
+    if backup.is_empty() {
+        // gpg exports nothing when the passphrase prompt is dismissed.
+        return Err(PgpError::Cancelled);
+    }
+    Ok(backup)
+}
+
+fn write_private_file(dest: &Path, contents: &[u8]) -> std::io::Result<()> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(dest)?;
+    file.write_all(contents)?;
+    file.sync_all()
 }
 
 /// Reads recipient key IDs from the password-store root `.gpg-id` file.
@@ -358,6 +565,112 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("passel-{name}-{}-{unique}", std::process::id()))
+    }
+
+    /// A gpgme context on a throwaway GnuPG home.
+    fn context_in(home: &Path) -> Context {
+        use std::os::unix::fs::PermissionsExt;
+        fs::create_dir_all(home).unwrap();
+        fs::set_permissions(home, fs::Permissions::from_mode(0o700)).unwrap();
+        let mut ctx = Context::from_protocol(Protocol::OpenPgp).unwrap();
+        ctx.set_engine_home_dir(home.to_str().unwrap()).unwrap();
+        ctx
+    }
+
+    fn stop_agent(home: &Path) {
+        let _ = std::process::Command::new("gpgconf")
+            .arg("--homedir")
+            .arg(home)
+            .args(["--kill", "gpg-agent"])
+            .status();
+    }
+
+    #[test]
+    fn builds_key_user_ids() {
+        assert_eq!(
+            key_user_id(" Ada Lovelace ", " ada@example.org ").unwrap(),
+            "Ada Lovelace <ada@example.org>"
+        );
+        assert_eq!(key_user_id("Ada", "").unwrap(), "Ada");
+        for (name, email) in [
+            ("", "ada@example.org"),
+            ("Ada <x>", ""),
+            ("Ada", "not-an-email"),
+            ("Ada", "a da@example.org"),
+            ("Ada\nEvil", ""),
+        ] {
+            assert!(matches!(
+                key_user_id(name, email),
+                Err(PgpError::InvalidUserId)
+            ));
+        }
+    }
+
+    #[test]
+    fn created_key_survives_a_backup_and_restore() {
+        let root = temp_dir("gpg-keys");
+        let (home_a, home_b, home_c) = (root.join("a"), root.join("b"), root.join("c"));
+
+        let mut a = context_in(&home_a);
+        let flags = CreateKeyFlags::NOEXPIRE | CreateKeyFlags::NOPASSWD;
+        let fingerprint =
+            create_key_in(&mut a, "Passel Tests <tests@example.invalid>", flags).unwrap();
+        let key = a.get_secret_key(fingerprint.as_str()).unwrap();
+        assert!(
+            key.can_encrypt(),
+            "default algorithms add an encryption subkey"
+        );
+        assert!(key
+            .subkeys()
+            .all(|subkey| subkey.expiration_time().is_none()));
+
+        let backup = export_secret_key_in(&mut a, &fingerprint).unwrap();
+        assert!(backup.starts_with(b"-----BEGIN PGP PRIVATE KEY BLOCK-----"));
+
+        // Restoring the backup elsewhere yields a key gpg encrypts to.
+        let mut b = context_in(&home_b);
+        let imported =
+            import_secret_keys_in(&mut b, Data::from_bytes(&backup[..]).unwrap()).unwrap();
+        assert_eq!(imported, std::slice::from_ref(&fingerprint));
+        let restored = b.get_key(fingerprint.as_str()).unwrap();
+        assert_eq!(restored.owner_trust(), Validity::Ultimate);
+        let mut ciphertext = Vec::new();
+        b.encrypt([&restored], "secret", &mut ciphertext).unwrap();
+        assert!(!ciphertext.is_empty());
+
+        // A public key alone cannot open a vault.
+        let mut public = Vec::new();
+        a.export_keys([&key], ExportMode::empty(), &mut public)
+            .unwrap();
+        let mut c = context_in(&home_c);
+        assert!(matches!(
+            import_secret_keys_in(&mut c, Data::from_bytes(&public[..]).unwrap()),
+            Err(PgpError::NoSecretKey)
+        ));
+
+        for home in [&home_a, &home_b, &home_c] {
+            stop_agent(home);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn writes_backups_readable_by_the_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_dir("gpg-backup-file");
+        fs::create_dir_all(&dir).unwrap();
+        let dest = dir.join("key.asc");
+        fs::write(&dest, "old, longer contents").unwrap();
+        write_private_file(&dest, b"new").unwrap();
+        assert_eq!(fs::read(&dest).unwrap(), b"new");
+        fs::set_permissions(&dest, fs::Permissions::from_mode(0o644)).unwrap();
+        fs::remove_file(&dest).unwrap();
+        write_private_file(&dest, b"new").unwrap();
+        assert_eq!(
+            fs::metadata(&dest).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

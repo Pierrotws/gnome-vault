@@ -8,19 +8,31 @@
   <schema id="io.pierrotws.Passel" path="/io/pierrotws/Passel/">
     <key name="autopush" type="b">
       <default>true</default>
-      <summary>Push changes automatically</summary>
+      <summary>Push changes automatically (deprecated)</summary>
       <description
             >When enabled, password-store commits are pushed after each change.</description>
     </key>
+    <key name="vaults" type="aa{sv}">
+      <default>[]</default>
+      <summary>Vaults</summary>
+      <description
+            >The vaults Passel opens, each a dictionary with name, path, history-declined, branch and autopush.</description>
+    </key>
+    <key name="active-vault" type="s">
+      <default>''</default>
+      <summary>Active vault</summary>
+      <description
+            >Folder of the vault opened at startup, one of the vaults.</description>
+    </key>
     <key name="store-dir" type="s">
       <default>''</default>
-      <summary>Password store directory</summary>
+      <summary>Password store directory (deprecated)</summary>
       <description
-            >Directory containing the password-store git repository.</description>
+            >Folder of the active vault, kept for older versions. Replaced by vaults and active-vault.</description>
     </key>
     <key name="branch" type="s">
       <default>''</default>
-      <summary>Branch to operate on</summary>
+      <summary>Branch to operate on (deprecated)</summary>
       <description
             >Local branch the app pushes to and reads history from. When empty, the working tree's current branch is used.</description>
     </key>

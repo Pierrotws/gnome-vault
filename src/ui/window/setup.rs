@@ -1,52 +1,20 @@
-//! Vault setup wizard: GSettings → env propagation, recipient lookup, and
-//! the first-run "create a vault here" form.
+//! Vault setup glue: the setup wizard's dialog (see
+//! [`crate::ui::setup_wizard`]) with the "No Vault Yet" page behind it,
+//! and the "turn on history" page. The vault list itself lives in
+//! [`super::vaults`].
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
+use gtk::glib;
 
-use crate::app::app_error::AppError;
-use crate::app::controller::AppController;
-use crate::pass::store::{StoreError, VaultSetup};
+use crate::ui::setup_wizard::SetupWizard;
 use crate::ui::vault_view::{build_tree_factory, TreeViewSize};
 
-use super::{MainWindow, SETUP_PROVIDER_NONE};
+use super::MainWindow;
 
 impl MainWindow {
-    pub(super) fn apply_store_dir_setting(&self) {
-        // Debug builds are pinned to the dev store in main().
-        if crate::pass::store::dev_store_dir().is_some() {
-            return;
-        }
-        if !self.settings_has_key("store-dir") {
-            if std::env::var_os("PASSWORD_STORE_DIR").is_none() {
-                log::warn!(
-                    "GSettings schema is missing store-dir; using PASSWORD_STORE_DIR fallback"
-                );
-            }
-            return;
-        }
-
-        // A non-empty configured store-dir is authoritative — it wins over
-        // any pre-existing PASSWORD_STORE_DIR so that changing the setting
-        // immediately retargets store ops at startup. Routed through
-        // set_password_store_dir_once so the setter only runs while the
-        // process is still single-threaded; the preferences dialog
-        // already tells the user a restart is required for changes.
-        let store_dir = self.settings().string("store-dir");
-        if !store_dir.trim().is_empty() {
-            crate::pass::store::set_password_store_dir_once(std::path::Path::new(
-                store_dir.as_str(),
-            ));
-        }
-    }
-
-    pub(super) fn apply_autopush_setting(&self) {
-        let autopush = self.settings().boolean("autopush");
-        self.controller().borrow_mut().set_autopush(autopush);
-    }
-
     /// Re-installs the vault-tree factory using the configured row size.
     /// Safe to call repeatedly: replacing the factory triggers GTK to
     /// rebuild visible rows with the new padding.
@@ -65,191 +33,75 @@ impl MainWindow {
         TreeViewSize::from_setting(&value)
     }
 
-    pub(super) fn apply_branch_setting(&self) {
-        if !self.settings_has_key("branch") {
+    /// Opens the setup wizard in a dialog, on a suggested new folder.
+    pub(super) fn present_setup_wizard(&self) {
+        self.present_setup_wizard_in(&self.default_new_vault_dir());
+    }
+
+    /// Opens the setup wizard in a dialog on `store_dir` (once: a second
+    /// call while it is open does nothing).
+    pub(super) fn present_setup_wizard_in(&self, store_dir: &Path) {
+        let imp = self.imp();
+        if imp.setup_dialog.upgrade().is_some() {
             return;
         }
-        let raw = self.settings().string("branch").to_string();
-        let branch = raw.trim();
-        let value = if branch.is_empty() {
-            None
-        } else {
-            Some(branch.to_string())
-        };
-        self.controller().borrow_mut().set_branch(value);
-        // The unpushed-count badge is computed against this branch
-        // override, but we do NOT refresh it here — the caller owns the
-        // refresh so the preferences-apply path doesn't double-refresh
-        // (it follows up with reload_changes_view, which itself refreshes
-        // the badge as part of reloading the change list).
+        let wizard = SetupWizard::new();
+        // New vaults push automatically when they have somewhere to push.
+        wizard.reset(store_dir, true);
+
+        let dialog = adw::Dialog::builder()
+            .title("New Vault")
+            .content_width(620)
+            .content_height(720)
+            .child(&wizard)
+            .build();
+        wizard.connect_locked_changed(glib::clone!(
+            #[weak]
+            dialog,
+            move |_, locked| dialog.set_can_close(!locked)
+        ));
+        wizard.connect_vault_created(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            #[weak]
+            dialog,
+            move |_, store_dir| {
+                if window.add_created_vault(&store_dir) {
+                    dialog.force_close();
+                }
+            }
+        ));
+        imp.setup_dialog.set(Some(&dialog));
+        dialog.present(Some(self));
     }
 
-    pub(super) fn setup_vault_setup_view(&self) {
-        let imp = self.imp();
-        let provider_model = gtk::StringList::new(&["No Sync", "GitHub", "GitLab", "Custom"]);
-        imp.setup_provider_row.set_model(Some(&provider_model));
-        imp.setup_provider_row.set_selected(SETUP_PROVIDER_NONE);
-        imp.setup_remote_row.set_sensitive(false);
-        self.setup_recipient_model();
-
-        // Debug builds ignore the shared store-dir setting, which names
-        // the installed app's real vault.
-        let configured_store_dir = if self.settings_has_key("store-dir")
-            && crate::pass::store::dev_store_dir().is_none()
-        {
-            self.settings().string("store-dir").to_string()
-        } else {
-            String::new()
-        };
-        let default_store_dir = if configured_store_dir.trim().is_empty() {
-            AppController::default_store_dir()
-        } else {
-            PathBuf::from(&configured_store_dir)
-        };
-        imp.setup_path_row
-            .set_text(&default_store_dir.to_string_lossy());
-        self.update_create_vault_button();
-    }
-
+    /// Shows the "No Vault Yet" page and opens the wizard over it.
     pub(super) fn show_setup_view(&self) {
         let imp = self.imp();
         imp.main_stack.set_visible_child_name("setup");
-        imp.new_entry_button.set_sensitive(false);
-        imp.lock_vault_button.set_sensitive(false);
-        imp.changes_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Setup");
+        // At startup the window is not shown yet: a dialog needs a mapped
+        // parent, so open it once the main loop runs.
+        glib::idle_add_local_once(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move || window.present_setup_wizard()
+        ));
+        self.disable_vault_actions();
     }
 
-    pub(super) fn update_create_vault_button(&self) {
+    /// Shown when a vault folder holds a pass store that git does not
+    /// track yet, and the user has not answered for it: turn on history,
+    /// or open it without.
+    pub(super) fn show_enable_history_view(&self, store_dir: &Path) {
         let imp = self.imp();
-        let has_path = !imp.setup_path_row.text().trim().is_empty();
-        let has_recipient = imp
-            .setup_recipients
-            .borrow()
-            .get(imp.setup_recipient_row.selected() as usize)
-            .is_some();
-        let needs_remote = imp.setup_provider_row.selected() != SETUP_PROVIDER_NONE;
-        let has_remote = !imp.setup_remote_row.text().trim().is_empty();
-
-        imp.create_vault_button
-            .set_sensitive(has_path && has_recipient && (!needs_remote || has_remote));
-    }
-
-    pub(super) fn create_vault_from_setup(&self) {
-        let imp = self.imp();
-        let store_dir = PathBuf::from(imp.setup_path_row.text().trim());
-        let Some(recipient) = imp
-            .setup_recipients
-            .borrow()
-            .get(imp.setup_recipient_row.selected() as usize)
-            .map(|recipient| recipient.id.clone())
-        else {
-            self.show_error_dialog("Select a GPG recipient before creating the vault");
-            return;
-        };
-        let remote_url = (imp.setup_provider_row.selected() != SETUP_PROVIDER_NONE)
-            .then(|| imp.setup_remote_row.text().trim().to_string())
-            .filter(|url| !url.is_empty());
-
-        let setup = VaultSetup {
-            store_dir: store_dir.clone(),
-            recipient,
-            remote_url,
-            autopush: self.controller().borrow().autopush(),
-        };
-
-        let setup_result = {
-            let controller = self.controller();
-            let mut controller = controller.borrow_mut();
-            controller.setup_vault(&setup)
-        };
-
-        match setup_result {
-            Ok(()) => {
-                if let Err(err) = self.persist_store_dir_setting(&store_dir) {
-                    self.show_error_dialog(&err);
-                    return;
-                }
-                self.rebuild_vault_tree();
-                if let Err(err) = self.reload_changes_view() {
-                    self.show_error_dialog(&err.to_string());
-                }
-                imp.entry_view.display_empty();
-                self.show_empty_content();
-                self.set_edit_unlock_state(false, false, false);
-                self.show_app_view();
-                self.start_autoload_if_enabled();
-            }
-            // The on-disk vault was created successfully but the running
-            // process can no longer retarget PASSWORD_STORE_DIR. Persist
-            // the new path to GSettings so the next launch loads it, and
-            // tell the user to restart. We deliberately stay on the
-            // setup view — switching to the app view would show the
-            // *previous* vault's tree, which would confuse the user
-            // about whether the wizard succeeded.
-            Err(AppError::Save(StoreError::RestartRequired)) => {
-                if let Err(err) = self.persist_store_dir_setting(&store_dir) {
-                    self.show_error_dialog(&err);
-                    return;
-                }
-                self.show_error_dialog(&StoreError::RestartRequired.to_string());
-            }
-            Err(err) => self.show_error_dialog(&err.to_string()),
-        }
-    }
-
-    /// Writes the chosen vault path to GSettings so the next launch
-    /// resolves to it. Returns the user-facing error message on failure
-    /// (logs a warning if the schema is missing the key, in which case
-    /// persistence is silently skipped — older builds without the
-    /// schema definition still get a working vault for the current
-    /// session).
-    fn persist_store_dir_setting(&self, store_dir: &Path) -> Result<(), String> {
-        // GSettings is shared with the installed app; a debug build must
-        // not retarget it at the dev store.
-        if crate::pass::store::dev_store_dir().is_some() {
-            return Ok(());
-        }
-        if !self.settings_has_key("store-dir") {
-            log::warn!("GSettings schema is missing store-dir; vault path was not persisted");
-            return Ok(());
-        }
-        self.settings()
-            .set_string("store-dir", &store_dir.to_string_lossy())
-            .map_err(|err| err.to_string())
-    }
-
-    pub(super) fn setup_recipient_model(&self) {
-        let imp = self.imp();
-        let recipients = match self.controller().borrow().available_recipients() {
-            Ok(recipients) => recipients,
-            Err(err) => {
-                log::warn!("Failed to list GPG recipients: {err}");
-                Vec::new()
-            }
-        };
-
-        if recipients.is_empty() {
-            let model = gtk::StringList::new(&[]);
-            imp.setup_recipient_row.set_model(Some(&model));
-            imp.setup_recipient_row
-                .set_selected(gtk::INVALID_LIST_POSITION);
-            imp.setup_recipient_row
-                .set_subtitle("No usable local secret encryption key found");
-            imp.setup_recipient_row.set_sensitive(false);
-        } else {
-            let labels = recipients
-                .iter()
-                .map(|recipient| recipient.label.as_str())
-                .collect::<Vec<_>>();
-            let model = gtk::StringList::new(&labels);
-            imp.setup_recipient_row.set_model(Some(&model));
-            imp.setup_recipient_row.set_selected(0);
-            imp.setup_recipient_row.set_subtitle("");
-            imp.setup_recipient_row.set_sensitive(true);
-        }
-
-        imp.setup_recipients.replace(recipients);
-        self.update_create_vault_button();
+        let description = format!(
+            "<b>{}</b> holds a password store whose changes are not recorded. \
+             Passel can keep a history of every change so you can undo it and sync it with a \
+             remote. Your entries stay as they are.",
+            glib::markup_escape_text(&store_dir.to_string_lossy())
+        );
+        imp.enable_history_page.set_description(Some(&description));
+        imp.main_stack.set_visible_child_name("enable-history");
+        self.disable_vault_actions();
     }
 }
