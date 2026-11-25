@@ -17,7 +17,7 @@ use crate::{
     pass::model::{EntryData, PassNode, PassNodeKind},
 };
 
-pub use crate::helpers::git::RemoteCheck;
+pub use crate::helpers::git::{RemoteCheck, SyncReport};
 pub use crate::helpers::pgp::{
     create_key, export_secret_key, import_secret_keys, key_user_id, GpgRecipient, PgpError,
 };
@@ -258,7 +258,10 @@ pub fn run_setup_step(plan: &SetupPlan, step: SetupStep) -> Result<(), StoreErro
             if let Some(SyncTarget::Folder(copy_dir)) = &plan.sync {
                 check_copy_dir(store_dir, copy_dir)?;
                 if !copy_dir.exists() {
-                    git::init_bare(copy_dir)?;
+                    // The copy's HEAD names the branch the vault pushes.
+                    let branch =
+                        git::current_branch_name(store_dir).unwrap_or_else(|| "main".to_string());
+                    git::init_bare(copy_dir, &branch)?;
                 }
             }
         }
@@ -610,6 +613,25 @@ fn write_entry_data(
         return Err(StoreError::PushFailed(err.to_string()));
     }
     Ok(())
+}
+
+/// Clones a vault from `remote_url` into `dir` (missing or empty), and
+/// sets who this device's commits are from.
+pub fn clone_vault(
+    remote_url: &str,
+    dir: &Path,
+    author_name: &str,
+    author_email: &str,
+) -> Result<(), StoreError> {
+    git::clone(remote_url, dir)?;
+    git::set_identity(dir, author_name, author_email)?;
+    Ok(())
+}
+
+/// Exchanges commits with the vault's remote both ways; see
+/// [`git::sync`].
+pub fn sync_vault(store_dir: &Path, branch: Option<&str>) -> Result<SyncReport, StoreError> {
+    Ok(git::sync(store_dir, branch)?)
 }
 
 /// True when the vault records its changes (is a git repository).

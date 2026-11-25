@@ -6,8 +6,8 @@ use std::{
 };
 
 use git2::{
-    build::CheckoutBuilder, Cred, CredentialType, ErrorCode, Oid, PushOptions, RemoteCallbacks,
-    Repository, ResetType, Sort,
+    build::CheckoutBuilder, Cred, CredentialType, Oid, PushOptions, RemoteCallbacks, Repository,
+    ResetType, Sort,
 };
 
 use super::git_credentials::credential_provider;
@@ -15,6 +15,8 @@ pub use super::git_credentials::{
     install_credential_provider, remote_host, Credential, CredentialProvider, CredentialRequest,
     StoredCredentials, SystemCredentials,
 };
+/// libgit2 error details, for front ends that explain failures.
+pub use git2::{Error as Git2Error, ErrorClass, ErrorCode};
 
 /// Maximum number of times the credential callback is allowed to fire for a
 /// single push before we give up. libgit2 invokes the callback in a loop until
@@ -52,6 +54,14 @@ pub enum GitError {
     /// `git config user.name` / `user.email` are not set, so we cannot
     /// build a commit signature.
     NoSignature,
+    /// Syncing found the same entries changed here and on the remote
+    /// (paths relative to the vault). Nothing local was changed; the
+    /// local commits were sent to the remote as branch `kept_as` (when
+    /// that push worked), for a computer to merge.
+    MergeConflicts {
+        entries: Vec<String>,
+        kept_as: Option<String>,
+    },
 }
 
 // Display intentionally drops the inner `git2::Error` message (and the
@@ -81,6 +91,15 @@ impl std::fmt::Display for GitError {
                 write!(f, "Reverting commit {commit_id} produced conflicts")
             }
             GitError::BackupRejected(_) => f.write_str("Remote rejected rollback backup ref"),
+            GitError::MergeConflicts { entries, .. } => write!(
+                f,
+                "{} changed both here and on the remote; nothing was changed here",
+                if entries.len() == 1 {
+                    "An entry was".to_string()
+                } else {
+                    format!("{} entries were", entries.len())
+                }
+            ),
             GitError::NoSignature => write!(
                 f,
                 "git user.name and user.email are not set; configure them with `git config --global user.name '...'` and `git config --global user.email '...'`"
@@ -108,23 +127,43 @@ pub fn is_repository(project_dir: &Path) -> bool {
 }
 
 /// Initializes a Git repository in the directory.
+///
+/// The first branch is `main`, like new repositories on GitHub, GitLab
+/// and Codeberg: an empty remote's HEAD then points at the branch the
+/// vault uploads, so other devices clone a checked-out vault.
 pub fn init(project_dir: &Path) -> Result<(), GitError> {
-    Repository::init(project_dir)?;
+    let mut options = git2::RepositoryInitOptions::new();
+    options.initial_head("main");
+    Repository::init_opts(project_dir, &options)?;
     Ok(())
 }
 
 /// Creates an empty bare repository, used as a vault copy on a folder or
 /// drive.
-pub fn init_bare(dir: &Path) -> Result<(), GitError> {
-    Repository::init_bare(dir)?;
+///
+/// Its HEAD names `branch`, the branch the vault will push there, so a
+/// clone of the copy checks it out.
+pub fn init_bare(dir: &Path, branch: &str) -> Result<(), GitError> {
+    let mut options = git2::RepositoryInitOptions::new();
+    options.bare(true).initial_head(branch);
+    Repository::init_opts(dir, &options)?;
     Ok(())
 }
 
 /// Returns true for a bare repository with no commits yet: a copy that
 /// was created but never received the vault.
 pub fn is_empty_bare_repository(dir: &Path) -> bool {
+    // No reference at all. libgit2's `is_empty` would also require HEAD to
+    // name the configured default branch, which a copy made for a vault
+    // on another branch does not.
     Repository::open_bare(dir)
-        .map(|repo| repo.is_bare() && repo.is_empty().unwrap_or(false))
+        .map(|repo| {
+            repo.is_bare()
+                && repo
+                    .references()
+                    .map(|mut refs| refs.next().is_none())
+                    .unwrap_or(false)
+        })
         .unwrap_or(false)
 }
 
@@ -241,17 +280,30 @@ fn workdir_path(repo: &Repository) -> Result<&Path, GitError> {
 fn relative_workdir_path(repo: &Repository, file_path: &Path) -> Result<PathBuf, GitError> {
     let workdir = workdir_path(repo)?;
 
-    if file_path.is_absolute() {
-        return file_path
-            .strip_prefix(workdir)
-            .map(Path::to_path_buf)
-            .map_err(|_| GitError::InvalidPath {
-                path: file_path.to_path_buf(),
-                base: workdir.to_path_buf(),
-            });
+    if !file_path.is_absolute() {
+        return Ok(file_path.to_path_buf());
     }
-
-    Ok(file_path.to_path_buf())
+    if let Ok(relative) = file_path.strip_prefix(workdir) {
+        return Ok(relative.to_path_buf());
+    }
+    // The same folder can be spelled differently: libgit2 resolves
+    // symlinks in the workdir (Android's /data/user/0 is /data/data), so
+    // compare resolved paths. The file itself may be gone (a deletion is
+    // being staged): resolve its folder instead.
+    let resolved_workdir = workdir.canonicalize().ok();
+    let resolved_file = match (file_path.parent(), file_path.file_name()) {
+        (Some(parent), Some(name)) => parent.canonicalize().ok().map(|p| p.join(name)),
+        _ => None,
+    };
+    if let (Some(workdir), Some(file)) = (resolved_workdir, resolved_file) {
+        if let Ok(relative) = file.strip_prefix(&workdir) {
+            return Ok(relative.to_path_buf());
+        }
+    }
+    Err(GitError::InvalidPath {
+        path: file_path.to_path_buf(),
+        base: workdir.to_path_buf(),
+    })
 }
 
 /// Stages a single path in the repository index.
@@ -566,6 +618,282 @@ pub fn push(project_dir: &Path, branch: Option<&str>) -> Result<(), GitError> {
     update_tracking_ref(&repo, &remote_name, &remote_ref, local_oid)?;
 
     Ok(())
+}
+
+/// Clones a vault into `dir` (missing or empty), authenticating like a
+/// push.
+pub fn clone(remote_url: &str, dir: &Path) -> Result<(), GitError> {
+    let config = global_config();
+    let mut callbacks = RemoteCallbacks::new();
+    install_remote_callbacks(&mut callbacks, &config, credential_provider());
+    let mut fetch_options = git2::FetchOptions::new();
+    fetch_options.remote_callbacks(callbacks);
+    git2::build::RepoBuilder::new()
+        .fetch_options(fetch_options)
+        .clone(remote_url, dir)?;
+    Ok(())
+}
+
+/// Makes HTTPS remotes trust the certificate authorities in `pem` (PEM
+/// certificates, text between them is skipped), on top of OpenSSL's
+/// defaults. Returns how many were added.
+///
+/// Android needs it: libgit2's OpenSSL is built from source there, finds
+/// no system authorities, and cannot even read certificate files (it is
+/// built without stdio), so the system's certificates are handed over
+/// in memory. Call it once at startup, before any network operation.
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios"))))]
+pub fn trust_certificates(pem: &[u8]) -> Result<usize, GitError> {
+    use std::{os::raw::c_int, ptr};
+    /// `GIT_OPT_ADD_SSL_X509_CERT` (libgit2 1.8+), not in libgit2-sys yet.
+    const GIT_OPT_ADD_SSL_X509_CERT: c_int = 45;
+
+    let len = c_int::try_from(pem.len())
+        .map_err(|_| GitError::Git(git2::Error::from_str("certificate bundle too large")))?;
+    libgit2_sys::init();
+    let mut added = 0;
+    // SAFETY: the BIO reads `pem`, which outlives it; each X509 is freed
+    // after libgit2 took its own reference (X509_STORE_add_cert). libgit2
+    // global options are not synchronized with running operations, hence
+    // "call once at startup".
+    unsafe {
+        let bio = openssl_sys::BIO_new_mem_buf(pem.as_ptr().cast(), len);
+        if bio.is_null() {
+            return Err(GitError::Git(git2::Error::from_str("out of memory")));
+        }
+        let result = loop {
+            let cert = openssl_sys::PEM_read_bio_X509(bio, ptr::null_mut(), None, ptr::null_mut());
+            if cert.is_null() {
+                break Ok(added);
+            }
+            let rc = libgit2_sys::git_libgit2_opts(GIT_OPT_ADD_SSL_X509_CERT, cert);
+            openssl_sys::X509_free(cert);
+            if rc < 0 {
+                break Err(GitError::Git(git2::Error::last_error(rc)));
+            }
+            added += 1;
+        };
+        // Reaching the end of the PEM data leaves an error on OpenSSL's
+        // queue; do not let it surface in an unrelated later call.
+        openssl_sys::ERR_clear_error();
+        openssl_sys::BIO_free_all(bio);
+        result
+    }
+}
+
+/// The user's global git configuration, or an empty one where there is
+/// none (a phone has no `~/.gitconfig`).
+fn global_config() -> git2::Config {
+    git2::Config::open_default()
+        .or_else(|_| git2::Config::new())
+        .expect("libgit2 can always create an empty configuration")
+}
+
+/// Sets the author of this vault's commits, for devices without a global
+/// git identity.
+pub fn set_identity(project_dir: &Path, name: &str, email: &str) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let mut config = repo.config()?.open_level(git2::ConfigLevel::Local)?;
+    config.set_str("user.name", name)?;
+    config.set_str("user.email", email)?;
+    Ok(())
+}
+
+/// What [`sync`] exchanged with the remote.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SyncReport {
+    /// Commits made elsewhere, now in the local branch.
+    pub received: usize,
+    /// Local commits the remote did not have, now pushed.
+    pub sent: usize,
+}
+
+/// Brings `branch` (or the current branch) and its remote in line, both
+/// ways: fetches, takes the remote's commits (fast-forward, or a merge
+/// commit when both sides changed), then pushes what the remote lacks.
+///
+/// Edits of different entries merge cleanly. If the same entry changed on
+/// both sides, nothing local is touched and [`GitError::MergeConflicts`]
+/// is returned.
+pub fn sync(project_dir: &Path, branch: Option<&str>) -> Result<SyncReport, GitError> {
+    let repo = open_repository(project_dir)?;
+    // Read HEAD's name rather than its commit: a clone of an empty remote
+    // has an unborn branch that is still the checked-out one.
+    let checked_out = repo
+        .find_reference("HEAD")?
+        .symbolic_target()
+        .and_then(|target| target.strip_prefix("refs/heads/"))
+        .map(str::to_string);
+    let branch = match branch {
+        Some(name) => name.to_string(),
+        None => checked_out.clone().ok_or(GitError::NoHeadName)?,
+    };
+    let is_checked_out = checked_out.as_deref() == Some(branch.as_str());
+    let remote_name = remote_name_for_branch(&repo, &branch)?;
+    let remote_ref = remote_ref_for_branch(&repo, &branch)?;
+    let local_ref = format!("refs/heads/{branch}");
+
+    fetch_ref(&repo, &remote_name, &remote_ref)?;
+    let local = repo
+        .find_reference(&local_ref)
+        .ok()
+        .and_then(|r| r.target());
+    let upstream = upstream_oid_for_branch(&repo, &branch).ok();
+
+    let mut report = SyncReport::default();
+    let new_local = match (local, upstream) {
+        // Nothing on the remote yet: everything local is new to it.
+        (Some(local), None) => {
+            report.sent = count_commits(&repo, local)?;
+            local
+        }
+        // A fresh clone of an empty remote that then received commits.
+        (None, Some(upstream)) => {
+            report.received = count_commits(&repo, upstream)?;
+            move_branch(&repo, &local_ref, upstream, is_checked_out)?;
+            upstream
+        }
+        (None, None) => return Ok(report),
+        (Some(local), Some(upstream)) => {
+            let (ahead, behind) = repo.graph_ahead_behind(local, upstream)?;
+            report.received = behind;
+            report.sent = ahead;
+            match (ahead, behind) {
+                (_, 0) => local,
+                (0, _) => {
+                    move_branch(&repo, &local_ref, upstream, is_checked_out)?;
+                    upstream
+                }
+                _ => {
+                    let merged = match merge_commit(&repo, local, upstream, &remote_name) {
+                        Err(GitError::MergeConflicts { entries, .. }) => {
+                            let kept_as = keep_unmerged(&repo, &remote_name, &local_ref, local);
+                            return Err(GitError::MergeConflicts { entries, kept_as });
+                        }
+                        other => other?,
+                    };
+                    move_branch(&repo, &local_ref, merged, is_checked_out)?;
+                    report.sent += 1;
+                    merged
+                }
+            }
+        }
+    };
+
+    if report.sent > 0 {
+        push_refspec(
+            &repo,
+            &remote_name,
+            &format!("{local_ref}:{remote_ref}"),
+            false,
+        )?;
+        update_tracking_ref(&repo, &remote_name, &remote_ref, new_local)?;
+    }
+    Ok(report)
+}
+
+/// Sends a branch that could not be merged to the remote under a side
+/// name (`passel-unmerged/<commit>`), so another computer can merge it
+/// with plain git. Once merged there, the next sync here fast-forwards.
+/// Returns the side branch's name, or `None` if the push failed too.
+fn keep_unmerged(
+    repo: &Repository,
+    remote_name: &str,
+    local_ref: &str,
+    local: Oid,
+) -> Option<String> {
+    let side = format!("passel-unmerged/{}", &local.to_string()[..12]);
+    let refspec = format!("{local_ref}:refs/heads/{side}");
+    match push_refspec(repo, remote_name, &refspec, true) {
+        Ok(()) => Some(side),
+        Err(err) => {
+            log::warn!("could not send the unmerged changes: {err}");
+            None
+        }
+    }
+}
+
+/// Fetches one remote branch into its remote-tracking ref. A branch the
+/// remote does not have (yet) is not an error.
+fn fetch_ref(repo: &Repository, remote_name: &str, remote_ref: &str) -> Result<(), GitError> {
+    let config = repo.config()?;
+    let mut callbacks = RemoteCallbacks::new();
+    install_remote_callbacks(&mut callbacks, &config, credential_provider());
+    let mut options = git2::FetchOptions::new();
+    options.remote_callbacks(callbacks);
+    let tracking = remote_ref
+        .strip_prefix("refs/heads/")
+        .map(|branch| format!("refs/remotes/{remote_name}/{branch}"))
+        .unwrap_or_else(|| remote_ref.to_string());
+    let mut remote = repo.find_remote(remote_name)?;
+    remote.fetch(
+        &[format!("+{remote_ref}:{tracking}")],
+        Some(&mut options),
+        None,
+    )?;
+    Ok(())
+}
+
+fn count_commits(repo: &Repository, tip: Oid) -> Result<usize, GitError> {
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push(tip)?;
+    Ok(revwalk.count())
+}
+
+/// Points a branch at `target`, updating the working tree first when the
+/// branch is checked out. The checkout is "safe": it refuses to overwrite
+/// uncommitted edits instead of losing them.
+fn move_branch(
+    repo: &Repository,
+    local_ref: &str,
+    target: Oid,
+    is_checked_out: bool,
+) -> Result<(), GitError> {
+    if is_checked_out {
+        let tree = repo.find_commit(target)?.tree()?;
+        repo.checkout_tree(tree.as_object(), Some(CheckoutBuilder::new().safe()))?;
+    }
+    repo.reference(local_ref, target, true, "sync: update from remote")?;
+    if is_checked_out {
+        repo.set_head(local_ref)?;
+    }
+    Ok(())
+}
+
+/// Creates the merge commit of `local` and `upstream`, or fails with
+/// [`GitError::MergeConflicts`] without touching anything.
+fn merge_commit(
+    repo: &Repository,
+    local: Oid,
+    upstream: Oid,
+    remote_name: &str,
+) -> Result<Oid, GitError> {
+    let ours = repo.find_commit(local)?;
+    let theirs = repo.find_commit(upstream)?;
+    let mut index = repo.merge_commits(&ours, &theirs, None)?;
+    if index.has_conflicts() {
+        let entries = index
+            .conflicts()?
+            .filter_map(Result::ok)
+            .filter_map(|conflict| conflict.our.or(conflict.their))
+            .map(|entry| String::from_utf8_lossy(&entry.path).into_owned())
+            .collect::<Vec<_>>();
+        return Err(GitError::MergeConflicts {
+            entries,
+            kept_as: None,
+        });
+    }
+    let tree = repo.find_tree(index.write_tree_to(repo)?)?;
+    let signature = repo.signature().map_err(|_| GitError::NoSignature)?;
+    let oid = repo.commit(
+        None,
+        &signature,
+        &signature,
+        &format!("Merge changes from {remote_name}"),
+        &tree,
+        &[&ours, &theirs],
+    )?;
+    Ok(oid)
 }
 
 fn current_branch(repo: &Repository) -> Result<String, GitError> {
@@ -945,8 +1273,11 @@ mod tests {
         std::env::temp_dir().join(format!("passel-{name}-{}-{unique}", std::process::id()))
     }
 
+    /// A working repository on `main` (not on the machine's git default,
+    /// so tests behave the same everywhere) with its own identity.
     fn init_repo(dir: &PathBuf) -> Repository {
-        let repo = Repository::init(dir).unwrap();
+        init(dir).unwrap();
+        let repo = Repository::open(dir).unwrap();
         let mut config = repo.config().unwrap();
         config
             .set_str("user.email", "test@example.invalid")
@@ -960,7 +1291,7 @@ mod tests {
     fn checks_whether_a_remote_can_receive_a_vault() {
         let root = temp_dir("git-check-remote");
         let remote_dir = root.join("remote.git");
-        init_bare(&remote_dir).unwrap();
+        init_bare(&remote_dir, "main").unwrap();
         let url = remote_dir.to_str().unwrap();
         assert!(is_empty_bare_repository(&remote_dir));
         assert_eq!(check_remote(url), RemoteCheck::Empty);
@@ -986,6 +1317,253 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// A vault shared by two devices through a bare remote: `desktop`
+    /// made the first commit, `phone` cloned it.
+    struct SharedVault {
+        root: PathBuf,
+        remote: PathBuf,
+        desktop: PathBuf,
+        phone: PathBuf,
+    }
+
+    impl SharedVault {
+        fn new(name: &str) -> Self {
+            let root = temp_dir(name);
+            let remote = root.join("remote.git");
+            init_bare(&remote, "main").unwrap();
+            let desktop = root.join("desktop");
+            init_repo(&desktop)
+                .remote("origin", remote.to_str().unwrap())
+                .unwrap();
+            let vault = Self {
+                phone: root.join("phone"),
+                root,
+                remote,
+                desktop,
+            };
+            vault.write(&vault.desktop, "shared.gpg", "v1");
+            push(&vault.desktop, None).unwrap();
+
+            clone(vault.remote.to_str().unwrap(), &vault.phone).unwrap();
+            set_identity(&vault.phone, "Phone", "phone@example.invalid").unwrap();
+            vault
+        }
+
+        fn write(&self, device: &Path, file: &str, contents: &str) {
+            fs::write(device.join(file), contents).unwrap();
+            add(device, &device.join(file)).unwrap();
+            commit(device, &format!("Edit {file}")).unwrap();
+        }
+
+        fn read(&self, device: &Path, file: &str) -> String {
+            fs::read_to_string(device.join(file)).unwrap()
+        }
+    }
+
+    impl Drop for SharedVault {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    /// A vault made here and pushed to an empty copy must clone, checked
+    /// out, on another device: the copy's HEAD has to name the pushed
+    /// branch.
+    #[test]
+    fn a_new_vault_clones_checked_out_elsewhere() {
+        let root = temp_dir("git-new-vault");
+        let (vault, copy, other) = (
+            root.join("vault"),
+            root.join("copy.git"),
+            root.join("other"),
+        );
+        init(&vault).unwrap();
+        set_identity(&vault, "Phone", "phone@example.invalid").unwrap();
+        // An empty repository as GitHub, GitLab or Codeberg create it.
+        let mut hosted = git2::RepositoryInitOptions::new();
+        hosted.bare(true).initial_head("main");
+        Repository::init_opts(&copy, &hosted).unwrap();
+        set_origin(&vault, copy.to_str().unwrap()).unwrap();
+        fs::write(vault.join(".gpg-id"), "ABCD\n").unwrap();
+        add(&vault, &vault.join(".gpg-id")).unwrap();
+        commit(&vault, "Initialize vault").unwrap();
+        push(&vault, None).unwrap();
+
+        assert_eq!(current_branch_name(&vault).as_deref(), Some("main"));
+        clone(copy.to_str().unwrap(), &other).unwrap();
+        assert_eq!(fs::read_to_string(other.join(".gpg-id")).unwrap(), "ABCD\n");
+
+        // Folder copies made by Passel name the same branch.
+        let folder_copy = root.join("drive.git");
+        init_bare(&folder_copy, "main").unwrap();
+        let head = Repository::open_bare(&folder_copy).unwrap();
+        assert_eq!(
+            head.find_reference("HEAD").unwrap().symbolic_target(),
+            Some("refs/heads/main")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn clone_brings_the_vault_and_its_upstream() {
+        let vault = SharedVault::new("git-clone");
+        assert_eq!(vault.read(&vault.phone, "shared.gpg"), "v1");
+        assert_eq!(unpushed_count(&vault.phone, None).unwrap(), 0);
+        assert_eq!(sync(&vault.phone, None).unwrap(), SyncReport::default());
+    }
+
+    #[test]
+    fn sync_takes_remote_commits_and_sends_local_ones() {
+        let vault = SharedVault::new("git-sync-ff");
+        vault.write(&vault.desktop, "desktop.gpg", "from desktop");
+        push(&vault.desktop, None).unwrap();
+
+        let report = sync(&vault.phone, None).unwrap();
+        assert_eq!(
+            report,
+            SyncReport {
+                received: 1,
+                sent: 0
+            }
+        );
+        assert_eq!(vault.read(&vault.phone, "desktop.gpg"), "from desktop");
+
+        vault.write(&vault.phone, "phone.gpg", "from phone");
+        let report = sync(&vault.phone, None).unwrap();
+        assert_eq!(
+            report,
+            SyncReport {
+                received: 0,
+                sent: 1
+            }
+        );
+        assert_eq!(unpushed_count(&vault.phone, None).unwrap(), 0);
+        assert_eq!(
+            sync(&vault.desktop, None).unwrap(),
+            SyncReport {
+                received: 1,
+                sent: 0
+            }
+        );
+        assert_eq!(vault.read(&vault.desktop, "phone.gpg"), "from phone");
+    }
+
+    #[test]
+    fn sync_merges_edits_of_different_entries() {
+        let vault = SharedVault::new("git-sync-merge");
+        vault.write(&vault.desktop, "desktop.gpg", "from desktop");
+        push(&vault.desktop, None).unwrap();
+        vault.write(&vault.phone, "phone.gpg", "from phone");
+
+        let report = sync(&vault.phone, None).unwrap();
+        assert_eq!(
+            report,
+            SyncReport {
+                received: 1,
+                sent: 2
+            }
+        );
+        assert_eq!(vault.read(&vault.phone, "desktop.gpg"), "from desktop");
+        assert_eq!(vault.read(&vault.phone, "phone.gpg"), "from phone");
+
+        let remote = Repository::open_bare(&vault.remote).unwrap();
+        let tip = remote.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(tip.parent_count(), 2, "the merge commit was pushed");
+        assert_eq!(tip.author().name(), Some("Phone"));
+    }
+
+    #[test]
+    fn sync_refuses_conflicting_edits_without_changing_anything() {
+        let vault = SharedVault::new("git-sync-conflict");
+        vault.write(&vault.desktop, "shared.gpg", "desktop v2");
+        push(&vault.desktop, None).unwrap();
+        vault.write(&vault.phone, "shared.gpg", "phone v2");
+        let before = Repository::open(&vault.phone)
+            .unwrap()
+            .head()
+            .unwrap()
+            .target();
+
+        match sync(&vault.phone, None) {
+            Err(GitError::MergeConflicts { entries, kept_as }) => {
+                assert_eq!(entries, vec!["shared.gpg"]);
+                // The phone's version waits on the remote for a merge.
+                let side = kept_as.expect("the unmerged commits were sent");
+                let remote = Repository::open_bare(&vault.remote).unwrap();
+                let sent = remote
+                    .find_reference(&format!("refs/heads/{side}"))
+                    .unwrap()
+                    .target();
+                assert_eq!(sent, before);
+            }
+            other => panic!("expected a conflict, got {other:?}"),
+        }
+        let after = Repository::open(&vault.phone)
+            .unwrap()
+            .head()
+            .unwrap()
+            .target();
+        assert_eq!(before, after);
+        assert_eq!(vault.read(&vault.phone, "shared.gpg"), "phone v2");
+
+        // A computer merges the side branch (keeping the phone's version)
+        // and pushes; the phone's next sync just fast-forwards.
+        let desktop = Repository::open(&vault.desktop).unwrap();
+        let side = format!("passel-unmerged/{}", &before.unwrap().to_string()[..12]);
+        fetch_ref(&desktop, "origin", &format!("refs/heads/{side}")).unwrap();
+        let phone_commit = desktop
+            .find_reference(&format!("refs/remotes/origin/{side}"))
+            .unwrap()
+            .peel_to_commit()
+            .unwrap();
+        let head = desktop.head().unwrap().peel_to_commit().unwrap();
+        let signature = desktop.signature().unwrap();
+        desktop
+            .commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                "Merge the phone's changes",
+                &phone_commit.tree().unwrap(),
+                &[&head, &phone_commit],
+            )
+            .unwrap();
+        desktop
+            .checkout_head(Some(CheckoutBuilder::new().force()))
+            .unwrap();
+        push(&vault.desktop, None).unwrap();
+
+        let report = sync(&vault.phone, None).unwrap();
+        assert_eq!(report.sent, 0);
+        assert!(report.received >= 1);
+        assert_eq!(vault.read(&vault.phone, "shared.gpg"), "phone v2");
+        assert_eq!(unpushed_count(&vault.phone, None).unwrap(), 0);
+    }
+
+    #[test]
+    fn sync_starts_from_a_clone_of_an_empty_remote() {
+        let root = temp_dir("git-sync-empty");
+        let remote = root.join("remote.git");
+        init_bare(&remote, "main").unwrap();
+        let phone = root.join("phone");
+        clone(remote.to_str().unwrap(), &phone).unwrap();
+        set_identity(&phone, "Phone", "phone@example.invalid").unwrap();
+        assert_eq!(sync(&phone, None).unwrap(), SyncReport::default());
+
+        fs::write(phone.join("first.gpg"), "x").unwrap();
+        add(&phone, &phone.join("first.gpg")).unwrap();
+        commit(&phone, "First entry").unwrap();
+        assert_eq!(
+            sync(&phone, None).unwrap(),
+            SyncReport {
+                received: 0,
+                sent: 1
+            }
+        );
+        assert!(!is_empty_bare_repository(&remote));
+        fs::remove_dir_all(root).unwrap();
+    }
+
     /// A smart-HTTP git server for one empty repository that requires
     /// Basic authentication with `expected`. Returns its address and the
     /// `Authorization` headers it received (`None` when absent).
@@ -1000,7 +1578,7 @@ mod tests {
         use std::sync::{Arc, Mutex};
 
         let bare = root.join("vault.git");
-        init_bare(&bare).unwrap();
+        init_bare(&bare, "main").unwrap();
         let advertisement = std::process::Command::new("git")
             .args(["upload-pack", "--stateless-rpc", "--advertise-refs"])
             .arg(&bare)
@@ -1515,5 +2093,75 @@ mod tests {
 
         fs::remove_dir_all(dir).unwrap();
         fs::remove_dir_all(outside_dir).unwrap();
+    }
+
+    #[test]
+    fn trusts_certificates_given_in_memory() {
+        // Two real roots, with text around them as in Android's files.
+        let bundle = "ISRG Root X1\n\
+-----BEGIN CERTIFICATE-----
+MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+-----END CERTIFICATE-----
+Certificate:\n    Data: (text dump)\n";
+        assert_eq!(trust_certificates(bundle.as_bytes()).unwrap(), 1);
+        assert_eq!(trust_certificates(b"no certificate here").unwrap(), 0);
+    }
+
+    /// Android's app folder is reached as /data/user/0/… while libgit2
+    /// reports the workdir as /data/data/… (a symlink between them).
+    #[test]
+    fn stages_paths_reached_through_a_symlinked_folder() {
+        let root = temp_dir("git-symlinked");
+        let real = root.join("data");
+        let alias = root.join("user");
+        fs::create_dir_all(&real).unwrap();
+        std::os::unix::fs::symlink(&real, &alias).unwrap();
+        let vault = alias.join("vault");
+        init_repo(&vault);
+
+        fs::write(vault.join("entry.gpg"), "v1").unwrap();
+        add(&vault, &vault.join("entry.gpg")).unwrap();
+        commit(&vault, "Add entry").unwrap();
+
+        fs::remove_file(vault.join("entry.gpg")).unwrap();
+        remove(&vault, &vault.join("entry.gpg")).unwrap();
+        commit(&vault, "Remove entry").unwrap();
+        assert_eq!(branch_changes(&vault, None).unwrap().len(), 2);
+
+        // Still nothing outside the vault.
+        fs::write(root.join("outside.gpg"), "x").unwrap();
+        assert!(matches!(
+            add(&vault, &alias.join("../outside.gpg")),
+            Err(GitError::InvalidPath { .. })
+        ));
+        fs::remove_dir_all(root).unwrap();
     }
 }

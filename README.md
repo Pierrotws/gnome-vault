@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo-transparent.png" alt="Passel logo" width="160">
+</p>
+
 # Passel
 
 GTK4 + Adwaita app for [pass](https://www.passwordstore.org/).
@@ -85,6 +89,11 @@ opens the setup wizard to create it.
 cd build
 cargo test --workspace
 ```
+
+### Android
+
+A first Android version lives in [`android/`](android/README.md): it opens
+the same vault with the same key, and syncs with the desktop.
 
 ### Doc
 

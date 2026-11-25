@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Passel
+GenericName=Password Manager
+Comment=Your passwords in a pass vault, synced with git
+Exec=passel
+Icon=io.pierrotws.Passel
+Terminal=false
+StartupNotify=true
+Categories=Utility;Security;GTK;
+Keywords=password;pass;gpg;vault;otp;keepass;

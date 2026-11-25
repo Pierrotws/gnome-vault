@@ -127,6 +127,21 @@ impl RpgpBackend {
     /// Imports public keys (other people a vault is shared with) and
     /// returns their fingerprints. Secret keys go through
     /// [`PgpBackend::import_secret_keys`].
+    /// The armored public key of one of the secret keys: what another
+    /// device needs to encrypt entries this one can read.
+    pub fn export_public_key(&self, fingerprint: &str) -> Result<Vec<u8>, PgpError> {
+        let wanted = normalize_hex(fingerprint);
+        let state = self.state();
+        let key = state
+            .secret
+            .iter()
+            .find(|key| wanted.as_deref() == Some(secret_fingerprint(key).as_str()))
+            .ok_or_else(|| PgpError::NoKeys("no such secret key".to_string()))?;
+        key.to_public_key()
+            .to_armored_bytes(ArmorOptions::default())
+            .map_err(|e| PgpError::ExportError(e.to_string()))
+    }
+
     pub fn import_public_keys(&self, data: &[u8]) -> Result<Vec<String>, PgpError> {
         let (keys, _) = SignedPublicKey::from_reader_many(data)
             .map_err(|e| PgpError::ImportError(e.to_string()))?;
