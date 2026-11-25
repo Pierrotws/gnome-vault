@@ -38,6 +38,7 @@ impl ObjectImpl for VaultView {
             vec![
                 Signal::builder("entry-selected").build(),
                 Signal::builder("group-activated").build(),
+                Signal::builder("selection-cleared").build(),
                 Signal::builder("create-entry-requested")
                     .param_types([String::static_type()])
                     .build(),

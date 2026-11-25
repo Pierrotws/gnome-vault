@@ -63,14 +63,8 @@ impl MainWindow {
             .into_iter()
             .map(|(node, parent)| GroupEntry {
                 node,
-                subtitle: parent.map(|p| {
-                    let path = p.path.to_string_lossy();
-                    if path.is_empty() {
-                        "Vault".to_string()
-                    } else {
-                        path.into_owned()
-                    }
-                }),
+                // Top-level entries have no parent group: no subtitle.
+                subtitle: parent.map(|p| p.path.to_string_lossy().into_owned()),
             })
             .collect();
 
@@ -89,11 +83,19 @@ impl MainWindow {
         }
     }
 
+    /// The vault's top level as a group, titled with the vault's name.
+    /// It has no row in the tree: it shows when no group is selected.
     fn root_group_node(&self) -> PassNode {
         let search_text = self.imp().vault_view.search_entry().text().to_string();
         let children = self.controller().borrow().filtered_tree(&search_text);
+        let name = self
+            .imp()
+            .vaults
+            .borrow()
+            .active()
+            .map_or_else(|| "Vault".to_string(), |vault| vault.name.clone());
         PassNode {
-            name: "Vault".to_string(),
+            name,
             path: PathBuf::new(),
             kind: PassNodeKind::Group(children),
         }

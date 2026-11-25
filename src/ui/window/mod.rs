@@ -16,9 +16,7 @@ use gtk::{gio, glib};
 use crate::app::changes;
 use crate::app::controller::AppController;
 use crate::pass::model::{PassNode, PassNodeKind};
-use crate::ui::vault_view::{
-    build_group_selection_with_root, build_selection_from_nodes_with_autoexpand,
-};
+use crate::ui::vault_view::{build_group_selection, build_selection_from_nodes_with_autoexpand};
 use crate::ui::EntryView;
 
 const CHANGES_PAGE_SIZE: usize = 50;
@@ -256,6 +254,27 @@ impl MainWindow {
                 }
 
                 window.show_group_content(&node);
+            }
+        ));
+
+        imp.vault_view.connect_selection_cleared(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
+                if !window.show_group_view_enabled() {
+                    return;
+                }
+
+                if window.controller().borrow().has_unsaved_changes() {
+                    window.imp().entry_view.show_error_dialog(
+                        "Save or cancel current changes before selecting a group",
+                    );
+                    return;
+                }
+
+                // No group selected: the right pane shows the vault's top
+                // level, or the search results while searching.
+                window.show_root_group_content();
             }
         ));
 
@@ -847,7 +866,7 @@ impl MainWindow {
         let nodes = self.controller().borrow().filtered_tree(&search_text);
         let group_view = self.show_group_view_enabled();
         let selection = if group_view {
-            build_group_selection_with_root(&nodes, true)
+            build_group_selection(&nodes, true)
         } else {
             build_selection_from_nodes_with_autoexpand(&nodes, !search_text.trim().is_empty())
         };
