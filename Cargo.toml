@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/passel-core"]
+members = [".", "crates/passel-core", "crates/passel-ffi"]
 
 [package]
 name = "passel"

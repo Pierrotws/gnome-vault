@@ -6,6 +6,9 @@ This document follows the structure from [architecture.md](https://architecture.
 
 ```text
 passel/
+|-- android/                           # Android app (Kotlin/Compose); see android/README.md
+|   |-- build-rust.sh                  # Builds libpassel_ffi.so per ABI + UniFFI Kotlin bindings
+|   `-- app/src/main/kotlin/…          # Screens, view model, passphrase bridge, Keystore token
 |-- assets/
 |   |-- resources.gresource.xml        # GTK resource bundle manifest
 |   |-- schemas/                       # GSettings schema and schema build rules
@@ -17,6 +20,9 @@ passel/
 |       |-- app/                       # (tree below)
 |       |-- helpers/                   # (tree below, all but clipboard.rs)
 |       `-- pass/                      # (tree below)
+|-- crates/passel-ffi/                 # Mobile API (UniFFI): one `Passel` object over passel-core + rPGP
+|   |-- src/lib.rs                     # Keys, HTTPS credentials, clone/sync, entries, OTP, password generator
+|   `-- tests/api.rs                   # The whole API, phone and desktop sharing a vault
 |-- src/                               # The GTK app (`passel` binary)
 |   |-- main.rs                        # Application startup, resources, schema lookup
 |   |-- app/                           # [passel-core] UI-facing application controller and state
@@ -185,7 +191,7 @@ Primary files:
 | --- | --- |
 | `crates/passel-core/src/helpers/parser.rs` | Parses and formats the pass-compatible YAML subset for custom fields. |
 | `crates/passel-core/src/helpers/pgp/` | Decrypts/encrypts `.gpg` files, lists usable local recipients, reads `.gpg-id`. The crypto goes through the process-wide `PgpBackend`: `gpgme.rs` (feature `gpgme`, the default: GnuPG keyring, agent, pinentry) or `rpgp.rs` (feature `rpgp`: pure Rust, keyring in a folder the app picks, passphrases through a `PassphraseProvider` callback and cached until `lock()`), set with `pgp::install_backend`. Tests check rPGP against the real gpg in both directions. |
-| `crates/passel-core/src/helpers/git.rs` | Repository initialization, add/remove/rename, commit, push, history, revert, rollback. |
+| `crates/passel-core/src/helpers/git.rs` | Repository initialization, clone, add/remove/rename, commit, push, history, revert, rollback, and `sync` (fetch, then fast-forward or merge, then push; on conflicting edits nothing local changes and the local commits go to a `passel-unmerged/<commit>` branch for a computer to merge). `trust_certificates` hands CA certificates to libgit2's OpenSSL in memory (Android). |
 | `crates/passel-core/src/helpers/git_credentials.rs` | How remotes authenticate, through the process-wide `CredentialProvider`: `SystemCredentials` (default: ssh-agent, then git's credential helpers) or `StoredCredentials` (credentials the app keeps per host: HTTPS token or in-memory SSH key, offered once per operation), set with `install_credential_provider`. |
 | `crates/passel-core/src/helpers/otp.rs` | Validates `otpauth://` URLs and generates current TOTP values. |
 | `crates/passel-core/src/helpers/password.rs` | Generates passwords for the new-entry dialog. |
@@ -322,6 +328,8 @@ Known architectural follow-ups:
 - Consider an optional 3-pane layout with separate folder, entry list, and entry detail panes.
 - Continue moving static UI structure into Blueprint files where it reduces Rust UI construction code.
 - Keep decrypted cache behavior explicit because it trades fewer GPG reads for longer-lived plaintext in memory.
+- Android: biometric unlock (passphrase sealed by the Keystore), autofill service, SSH remotes, editing the remote/token after setup. Then iOS through the same `passel-ffi` (Swift bindings), once the GPLv3/App Store question is settled.
+- The desktop app could use `git::sync` too, to receive changes made on a phone.
 
 ## 10. Project Identification
 

@@ -81,13 +81,20 @@ jobs:
           exit $status
 
   android:
-    # passel-core must stay buildable for mobile: rPGP instead of GnuPG,
-    # libgit2/OpenSSL/libssh2 built from source, no GTK.
-    name: passel-core for Android (arm64)
+    # The Android app: passel-ffi (passel-core with rPGP instead of GnuPG,
+    # libgit2/OpenSSL/libssh2 built from source, no GTK), its UniFFI
+    # bindings and the Kotlin UI.
+    name: Android app
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
 
       - name: Rust Android target
         run: rustup target add aarch64-linux-android
@@ -96,19 +103,24 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: android
+          workspaces: ". -> build/target"
 
-      - name: Build
+      - name: Android platform
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.1" > /dev/null
+
+      - name: Build the APK
+        working-directory: android
         run: |
-          # The runner image ships the NDK; API 24 is Android 7.0.
-          ndk="$ANDROID_NDK_LATEST_HOME"
-          tc="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          export PATH="$tc:$PATH" ANDROID_NDK_ROOT="$ndk" ANDROID_NDK_HOME="$ndk"
-          export CC_aarch64_linux_android="$tc/aarch64-linux-android24-clang"
-          export AR_aarch64_linux_android="$tc/llvm-ar"
-          export RANLIB_aarch64_linux_android="$tc/llvm-ranlib"
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$tc/aarch64-linux-android24-clang"
-          cargo build --locked -p passel-core --target aarch64-linux-android \
-            --no-default-features --features rpgp,vendored
+          # The runner image ships the NDK.
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          ./gradlew --no-daemon --console=plain -Ppassel.abis=arm64-v8a assembleDebug
+
+      - name: Keep the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: passel-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
 
   ubuntu:
     # The .deb is built on Ubuntu 24.04 against its older GTK/libadwaita;

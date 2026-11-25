@@ -86,6 +86,11 @@ cd build
 cargo test --workspace
 ```
 
+### Android
+
+A first Android version lives in [`android/`](android/README.md): it opens
+the same vault with the same key, and syncs with the desktop.
+
 ### Doc
 
 ```bash
