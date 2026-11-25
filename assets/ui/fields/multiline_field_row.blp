@@ -1,4 +1,5 @@
 using Gtk 4.0;
+translation-domain "passel";
 
 template $MultilineFieldRow : ListBoxRow {
     child: Box {
@@ -21,7 +22,7 @@ template $MultilineFieldRow : ListBoxRow {
             }
 
             Entry title_entry {
-                placeholder-text: _("Key");
+                placeholder-text: C_("field", "Key");
                 hexpand: true;
                 has-frame: false;
                 css-classes: ["title-2", "heading", "field-entry"];

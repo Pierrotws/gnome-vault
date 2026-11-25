@@ -1,4 +1,5 @@
 using Gtk 4.0;
+translation-domain "passel";
 
 template $ChangesView : Gtk.Box {
     orientation: vertical;
@@ -10,13 +11,13 @@ template $ChangesView : Gtk.Box {
     hexpand: true;
 
     Label {
-        label: "Changes";
+        label: _("Changes");
         xalign: 0;
         css-classes: ["heading"];
     }
 
     Label empty_label {
-        label: "No changes";
+        label: _("No changes");
         xalign: 0;
         css-classes: ["dim-label"];
     }

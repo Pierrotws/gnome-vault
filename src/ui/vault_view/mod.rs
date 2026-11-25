@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use gtk::{gdk, gio, glib, ListItemFactory};
 use gtk::{prelude::*, subclass::prelude::*};
 
+use crate::i18n::gettext;
 use crate::pass::model::{PassNode, PassNodeKind};
 
 glib::wrapper! {
@@ -544,7 +545,7 @@ fn install_row_context_menu(row_box: &gtk::Box) {
             let folder_path = node.path.to_string_lossy().to_string();
             let folder_name = node.name.clone();
 
-            let create = popover_button("Create Entry", false);
+            let create = popover_button(&gettext("Create Entry"), false);
             create.connect_clicked(glib::clone!(
                 #[weak]
                 popover,
@@ -561,7 +562,7 @@ fn install_row_context_menu(row_box: &gtk::Box) {
 
             menu.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
 
-            let delete = popover_button("Delete Folder", true);
+            let delete = popover_button(&gettext("Delete Folder"), true);
             delete.connect_clicked(glib::clone!(
                 #[weak]
                 popover,
@@ -581,7 +582,7 @@ fn install_row_context_menu(row_box: &gtk::Box) {
         } else {
             let entry_path = node.path.to_string_lossy().to_string();
             let entry_name = node.name.clone();
-            let button = popover_button("Delete Entry", true);
+            let button = popover_button(&gettext("Delete Entry"), true);
             button.connect_clicked(glib::clone!(
                 #[weak]
                 popover,

@@ -1,33 +1,34 @@
 using Gtk 4.0;
 using Adw 1;
+translation-domain "passel";
 
 Adw.PreferencesDialog preferences_dialog {
-    title: "Preferences";
+    title: _("Preferences");
 
     Adw.PreferencesPage {
         Adw.PreferencesGroup {
-            title: "App";
+            title: _("App");
 
             Adw.SwitchRow autoload_row {
-                title: "Load entries at startup";
-                subtitle: "Decrypt entries in the background so search includes custom field values";
+                title: _("Load entries at startup");
+                subtitle: _("Decrypt entries in the background so search includes custom field values");
             }
 
             Adw.SwitchRow show_group_view_row {
-                title: "Show group view";
-                subtitle: "Use a group-only tree with a separate entries pane";
+                title: _("Show group view");
+                subtitle: _("Use a group-only tree with a separate entries pane");
             }
 
             Adw.SwitchRow interpret_multiline_as_markdown_row {
-                title: "Interpret multiline as markdown";
-                subtitle: "Render multiline fields as Markdown in read-only mode";
+                title: _("Interpret multiline as markdown");
+                subtitle: _("Render multiline fields as Markdown in read-only mode");
             }
 
             Adw.ComboRow tree_view_size_row {
-                title: "Tree view size";
-                subtitle: "Visual density of vault tree rows";
+                title: _("Tree view size");
+                subtitle: _("Visual density of vault tree rows");
                 model: Gtk.StringList {
-                    strings ["Small", "Medium", "Large"]
+                    strings [_("Small"), _("Medium"), _("Large")]
                 };
             }
         }

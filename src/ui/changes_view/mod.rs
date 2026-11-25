@@ -11,6 +11,7 @@ pub use change_item::ChangeItem;
 use change_row::ChangeRow;
 
 use crate::helpers::git::GitChange;
+use crate::i18n::{gettext, ngettext_f};
 
 /// Number of pixels remaining at the bottom of the scrolled window
 /// before we trigger a load-more emit. Tuned so that fast scrollers
@@ -214,10 +215,11 @@ impl ChangesView {
         actions.set_margin_start(6);
         actions.set_margin_end(6);
 
-        let undo_button = gtk::Button::with_label("Undo this change");
-        let rollback_button = gtk::Button::with_label("Discard later changes");
+        let undo_button = gtk::Button::with_label(&gettext("Undo this change"));
+        let rollback_button = gtk::Button::with_label(&gettext("Discard later changes"));
         rollback_button.add_css_class("destructive-action");
-        let push_button = (!change.is_pushed).then(|| gtk::Button::with_label("Sync to remote"));
+        let push_button =
+            (!change.is_pushed).then(|| gtk::Button::with_label(&gettext("Sync to remote")));
 
         let undo_commit_id = change.id.clone();
         let rollback_commit_id = change.id.clone();
@@ -389,34 +391,52 @@ fn format_relative_time(timestamp: i64, now: i64) -> String {
     };
 
     if seconds < 5 {
-        return "just now".to_string();
+        return gettext("just now");
     }
 
     let (value, unit) = if seconds < 60 {
-        (seconds, "second")
+        (seconds, TimeUnit::Second)
     } else if seconds < 60 * 60 {
-        (seconds / 60, "minute")
+        (seconds / 60, TimeUnit::Minute)
     } else if seconds < 60 * 60 * 24 {
-        (seconds / (60 * 60), "hour")
+        (seconds / (60 * 60), TimeUnit::Hour)
     } else if seconds < 60 * 60 * 24 * 30 {
-        (seconds / (60 * 60 * 24), "day")
+        (seconds / (60 * 60 * 24), TimeUnit::Day)
     } else if seconds < 60 * 60 * 24 * 365 {
-        (seconds / (60 * 60 * 24 * 30), "month")
+        (seconds / (60 * 60 * 24 * 30), TimeUnit::Month)
     } else {
-        (seconds / (60 * 60 * 24 * 365), "year")
+        (seconds / (60 * 60 * 24 * 365), TimeUnit::Year)
     };
 
-    let unit = if value == 1 {
-        unit.to_string()
-    } else {
-        format!("{unit}s")
-    };
-
-    if is_future {
-        format!("in {value} {unit}")
-    } else {
-        format!("{value} {unit} ago")
+    // Whole phrases per unit and direction: languages inflect them
+    // differently ("il y a 2 jours", "dans 2 jours").
+    let n = value.to_string();
+    let args = [("n", n.as_str())];
+    let value = value as u64;
+    match (is_future, unit) {
+        (false, TimeUnit::Second) => ngettext_f("{n} second ago", "{n} seconds ago", value, &args),
+        (false, TimeUnit::Minute) => ngettext_f("{n} minute ago", "{n} minutes ago", value, &args),
+        (false, TimeUnit::Hour) => ngettext_f("{n} hour ago", "{n} hours ago", value, &args),
+        (false, TimeUnit::Day) => ngettext_f("{n} day ago", "{n} days ago", value, &args),
+        (false, TimeUnit::Month) => ngettext_f("{n} month ago", "{n} months ago", value, &args),
+        (false, TimeUnit::Year) => ngettext_f("{n} year ago", "{n} years ago", value, &args),
+        (true, TimeUnit::Second) => ngettext_f("in {n} second", "in {n} seconds", value, &args),
+        (true, TimeUnit::Minute) => ngettext_f("in {n} minute", "in {n} minutes", value, &args),
+        (true, TimeUnit::Hour) => ngettext_f("in {n} hour", "in {n} hours", value, &args),
+        (true, TimeUnit::Day) => ngettext_f("in {n} day", "in {n} days", value, &args),
+        (true, TimeUnit::Month) => ngettext_f("in {n} month", "in {n} months", value, &args),
+        (true, TimeUnit::Year) => ngettext_f("in {n} year", "in {n} years", value, &args),
     }
+}
+
+#[derive(Clone, Copy)]
+enum TimeUnit {
+    Second,
+    Minute,
+    Hour,
+    Day,
+    Month,
+    Year,
 }
 
 impl Default for ChangesView {

@@ -9,6 +9,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
 
+use crate::i18n::gettext;
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
 
@@ -22,9 +23,9 @@ use super::MainWindow;
 impl MainWindow {
     pub(super) fn show_new_entry_dialog(&self, folder_path: Option<String>) {
         if self.controller().borrow().has_unsaved_changes() {
-            self.imp()
-                .entry_view
-                .show_error_dialog("Save or cancel current changes before creating a new entry");
+            self.imp().entry_view.show_error_dialog(&gettext(
+                "Save or cancel current changes before creating a new entry",
+            ));
             return;
         }
 

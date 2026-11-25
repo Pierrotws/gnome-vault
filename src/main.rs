@@ -1,9 +1,11 @@
 mod helpers;
+mod localization;
 mod ui;
 
 // The application and store layers live in `passel-core`; re-exported at
 // the crate root so UI code keeps using `crate::app::…` / `crate::pass::…`.
-use passel_core::{app, pass};
+// UI messages are translated with `crate::i18n::{gettext, …}`.
+use passel_core::{app, i18n, pass};
 
 use std::cell::RefCell;
 use std::path::Path;
@@ -24,6 +26,7 @@ fn main() -> glib::ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
     log::debug!("main() start");
     configure_local_schema_dir();
+    localization::init();
     if let Some(dir) = pass::store::dev_store_dir() {
         log::info!("Debug build: the first vault defaults to {}", dir.display());
     }

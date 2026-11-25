@@ -48,6 +48,15 @@ crates/passel-core (rpgp feature: keyring in the app's storage;
 - The app excludes its data from backups, and release builds block
   screenshots (`FLAG_SECURE`).
 
+## Languages
+
+English and French, from the same gettext catalogs as the desktop
+(`po/`, see [po/README.md](../po/README.md)): `passel-ffi`'s build
+compiles them with `msgfmt` (install GNU gettext) into the library, and
+the Kotlin UI looks its messages up with `tr()`/`trn()` (`I18n.kt`).
+The app follows the system language, or on Android 13+ the per-app
+language chosen in the system settings.
+
 ## Building
 
 Needs the Android SDK (platform 37.1), the NDK, JDK 21 and Rust with the

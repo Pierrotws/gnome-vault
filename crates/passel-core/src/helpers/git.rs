@@ -15,6 +15,7 @@ pub use super::git_credentials::{
     install_credential_provider, remote_host, Credential, CredentialProvider, CredentialRequest,
     StoredCredentials, SystemCredentials,
 };
+use crate::i18n::{gettext, gettext_f, ngettext_f};
 /// libgit2 error details, for front ends that explain failures.
 pub use git2::{Error as Git2Error, ErrorClass, ErrorCode};
 
@@ -73,38 +74,38 @@ pub enum GitError {
 // upstream message for `{err:?}` log output.
 impl std::fmt::Display for GitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GitError::Git(_) => f.write_str("Git operation failed"),
-            GitError::InvalidPath { path, base } => write!(
-                f,
-                "Path {} is not inside git workdir {}",
-                path.display(),
-                base.display()
+        let message = match self {
+            GitError::Git(_) => gettext("Git operation failed"),
+            GitError::InvalidPath { path, base } => gettext_f(
+                "Path {path} is not inside git workdir {base}",
+                &[
+                    ("path", &path.display().to_string()),
+                    ("base", &base.display().to_string()),
+                ],
             ),
-            GitError::MissingWorkdir(path) => {
-                write!(f, "Repository has no workdir: {}", path.display())
-            }
-            GitError::NoHeadName => write!(f, "Current git HEAD has no branch name"),
-            GitError::NoHeadTarget => write!(f, "Current git HEAD has no target commit"),
-            GitError::NoChanges => write!(f, "No changes to commit"),
-            GitError::Conflicts(commit_id) => {
-                write!(f, "Reverting commit {commit_id} produced conflicts")
-            }
-            GitError::BackupRejected(_) => f.write_str("Remote rejected rollback backup ref"),
-            GitError::MergeConflicts { entries, .. } => write!(
-                f,
-                "{} changed both here and on the remote; nothing was changed here",
-                if entries.len() == 1 {
-                    "An entry was".to_string()
-                } else {
-                    format!("{} entries were", entries.len())
-                }
+            GitError::MissingWorkdir(path) => gettext_f(
+                "Repository has no workdir: {path}",
+                &[("path", &path.display().to_string())],
             ),
-            GitError::NoSignature => write!(
-                f,
-                "git user.name and user.email are not set; configure them with `git config --global user.name '...'` and `git config --global user.email '...'`"
+            GitError::NoHeadName => gettext("Current git HEAD has no branch name"),
+            GitError::NoHeadTarget => gettext("Current git HEAD has no target commit"),
+            GitError::NoChanges => gettext("No changes to commit"),
+            GitError::Conflicts(commit_id) => gettext_f(
+                "Reverting commit {commit} produced conflicts",
+                &[("commit", commit_id)],
             ),
-        }
+            GitError::BackupRejected(_) => gettext("Remote rejected rollback backup ref"),
+            GitError::MergeConflicts { entries, .. } => ngettext_f(
+                "An entry was changed both here and on the remote; nothing was changed here",
+                "{n} entries were changed both here and on the remote; nothing was changed here",
+                entries.len() as u64,
+                &[("n", &entries.len().to_string())],
+            ),
+            GitError::NoSignature => gettext(
+                "git user.name and user.email are not set; configure them with `git config --global user.name '...'` and `git config --global user.email '...'`",
+            ),
+        };
+        f.write_str(&message)
     }
 }
 
@@ -462,12 +463,12 @@ pub fn branch_changes_page(
             let summary = commit
                 .summary()
                 .map(str::to_string)
-                .unwrap_or_else(|| "(no message)".to_string());
+                .unwrap_or_else(|| gettext("(no message)"));
             let author = commit
                 .author()
                 .name()
                 .map(str::to_string)
-                .unwrap_or_else(|| "Unknown author".to_string());
+                .unwrap_or_else(|| gettext("Unknown author"));
             let author_time = commit.author().when();
             let is_pushed = pushed_head
                 .map(|pushed_head| {

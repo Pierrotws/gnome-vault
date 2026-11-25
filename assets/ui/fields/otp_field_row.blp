@@ -1,4 +1,5 @@
 using Gtk 4.0;
+translation-domain "passel";
 
 // One layout for both modes. The row used to hold two sibling boxes -
 // a "view" box (key label, code, progress) and an "edit" box (key and
@@ -29,7 +30,7 @@ template $OtpFieldRow : ListBoxRow {
 
             Entry key_entry {
                 hexpand: true;
-                placeholder-text: _("Key");
+                placeholder-text: C_("field", "Key");
                 has-frame: false;
                 css-classes: ["title-2", "heading", "field-entry"];
             }

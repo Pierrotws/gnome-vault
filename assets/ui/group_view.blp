@@ -1,4 +1,5 @@
 using Gtk 4.0;
+translation-domain "passel";
 
 template $GroupView : Box {
     orientation: vertical;
@@ -12,14 +13,14 @@ template $GroupView : Box {
         margin-end: 12;
 
         Label group_title_label {
-            label: "Group";
+            label: _("Group");
             xalign: 0;
             ellipsize: end;
             css-classes: ["heading"];
         }
 
         Label group_count_label {
-            label: "No entries";
+            label: _("No entries");
             xalign: 0;
             css-classes: ["dim-label"];
         }

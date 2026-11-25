@@ -11,6 +11,7 @@ use gtk::{gio, glib};
 
 use crate::app::controller::AppController;
 use crate::app::vaults::{self, VaultConfig, VaultList};
+use crate::i18n::{gettext, gettext_f, ngettext_f};
 use crate::pass::store::StoreStatus;
 
 use super::MainWindow;
@@ -91,7 +92,10 @@ impl MainWindow {
             result = settings.set_string("store-dir", &active);
         }
         if let Err(err) = result {
-            self.show_error_dialog(&format!("Could not save the vault list: {err}"));
+            self.show_error_dialog(&gettext_f(
+                "Could not save the vault list: {error}",
+                &[("error", &err.to_string())],
+            ));
         }
     }
 
@@ -255,15 +259,19 @@ impl MainWindow {
 
     fn show_missing_vault_view(&self, vault: &VaultConfig) {
         let imp = self.imp();
-        let description = format!(
-            "<b>{}</b> was not found, or holds no vault. If it is on a drive, plug it in and \
-             switch to this vault again.",
-            glib::markup_escape_text(&vault.path.to_string_lossy())
+        let description = gettext_f(
+            // Translators: {folder} is a folder path, in bold.
+            "<b>{folder}</b> was not found, or holds no vault. If it is on a drive, plug it in \
+             and switch to this vault again.",
+            &[(
+                "folder",
+                &glib::markup_escape_text(&vault.path.to_string_lossy()),
+            )],
         );
         imp.missing_vault_page.set_description(Some(&description));
         imp.main_stack.set_visible_child_name("missing");
         self.disable_vault_actions();
-        imp.window_title.set_subtitle("Folder not found");
+        imp.window_title.set_subtitle(&gettext("Folder not found"));
     }
 
     pub(super) fn disable_vault_actions(&self) {
@@ -299,12 +307,16 @@ impl MainWindow {
     /// pushed yet.
     pub(super) fn update_vault_subtitle(&self, unpushed: usize) {
         let subtitle = if !self.controller().borrow().has_history() {
-            "No history".to_string()
+            gettext("No history")
         } else {
             match unpushed {
                 0 => String::new(),
-                1 => "1 change not pushed".to_string(),
-                n => format!("{n} changes not pushed"),
+                n => ngettext_f(
+                    "{n} change not pushed",
+                    "{n} changes not pushed",
+                    n as u64,
+                    &[("n", &n.to_string())],
+                ),
             }
         };
         self.imp().window_title.set_subtitle(&subtitle);
@@ -333,13 +345,18 @@ impl MainWindow {
                 info.status,
                 StoreStatus::Ready | StoreStatus::PassWithoutGit
             ) {
-                "not found"
+                // Translators: a vault's state, after its folder in the
+                // vault list: "~/.password-store · not found".
+                gettext("not found")
             } else if !info.has_history {
-                "no history"
+                // Translators: a vault's state in the vault list.
+                gettext("no history")
             } else if info.remote_url.is_some() {
-                "history, synced"
+                // Translators: a vault's state in the vault list.
+                gettext("history, synced")
             } else {
-                "history"
+                // Translators: a vault's state in the vault list.
+                gettext("history")
             };
             row.set_subtitle(&format!("{} · {state}", short_path(&vault.path)));
             row.set_subtitle_lines(1);
@@ -354,7 +371,7 @@ impl MainWindow {
             row.add_prefix(&check);
 
             let settings_button = gtk::Button::from_icon_name("emblem-system-symbolic");
-            settings_button.set_tooltip_text(Some("Vault Settings"));
+            settings_button.set_tooltip_text(Some(&gettext("Vault Settings")));
             settings_button.set_valign(gtk::Align::Center);
             settings_button.add_css_class("flat");
             let path = vault.path.clone();
@@ -400,7 +417,7 @@ impl MainWindow {
     /// folder opens the wizard on it instead.
     pub(super) fn add_existing_vault(&self) {
         let dialog = gtk::FileDialog::builder()
-            .title("Open a Vault Folder")
+            .title(gettext("Open a Vault Folder"))
             .modal(true)
             .build();
         dialog.select_folder(
@@ -452,7 +469,7 @@ impl MainWindow {
         let info = AppController::vault_info(path);
 
         let dialog = adw::PreferencesDialog::builder()
-            .title(format!("{} Settings", vault.name))
+            .title(gettext_f("{name} Settings", &[("name", &vault.name)]))
             .build();
         let page = adw::PreferencesPage::new();
         dialog.add(&page);
@@ -460,7 +477,7 @@ impl MainWindow {
         // Vault
         let vault_group = adw::PreferencesGroup::new();
         let name_row = adw::EntryRow::builder()
-            .title("Name")
+            .title(gettext("Name"))
             .text(vault.name.as_str())
             .show_apply_button(true)
             .build();
@@ -484,7 +501,7 @@ impl MainWindow {
         ));
         vault_group.add(&name_row);
         let folder_row = adw::ActionRow::builder()
-            .title("Folder")
+            .title(gettext("Folder"))
             .subtitle(path.to_string_lossy().as_ref())
             .use_markup(false)
             .subtitle_selectable(true)
@@ -493,14 +510,16 @@ impl MainWindow {
         page.add(&vault_group);
 
         // History
-        let history_group = adw::PreferencesGroup::builder().title("History").build();
-        let history_row = adw::ActionRow::builder().title("History").build();
+        let history_group = adw::PreferencesGroup::builder()
+            .title(gettext("History"))
+            .build();
+        let history_row = adw::ActionRow::builder().title(gettext("History")).build();
         if info.has_history {
-            history_row.set_subtitle("On: every change is recorded and can be undone.");
+            history_row.set_subtitle(&gettext("On: every change is recorded and can be undone."));
         } else {
-            history_row.set_subtitle("Off: changes are saved but not recorded.");
+            history_row.set_subtitle(&gettext("Off: changes are saved but not recorded."));
             if info.status == StoreStatus::PassWithoutGit {
-                let turn_on = gtk::Button::with_label("Turn On");
+                let turn_on = gtk::Button::with_label(&gettext("Turn On"));
                 turn_on.set_valign(gtk::Align::Center);
                 turn_on.add_css_class("suggested-action");
                 turn_on.connect_clicked(glib::clone!(
@@ -537,11 +556,13 @@ impl MainWindow {
         // Sync (needs history)
         if info.has_history {
             let sync_group = adw::PreferencesGroup::builder()
-                .title("Sync")
-                .description("Leave the address empty to keep this vault on this computer only.")
+                .title(gettext("Sync"))
+                .description(gettext(
+                    "Leave the address empty to keep this vault on this computer only.",
+                ))
                 .build();
             let remote_row = adw::EntryRow::builder()
-                .title("Remote address")
+                .title(gettext("Remote address"))
                 .text(info.remote_url.clone().unwrap_or_default().as_str())
                 .show_apply_button(true)
                 .build();
@@ -562,7 +583,7 @@ impl MainWindow {
             sync_group.add(&remote_row);
 
             let branch_row = adw::EntryRow::builder()
-                .title("Branch (empty: current branch)")
+                .title(gettext("Branch (empty: current branch)"))
                 .text(vault.branch.as_str())
                 .show_apply_button(true)
                 .build();
@@ -579,8 +600,8 @@ impl MainWindow {
             sync_group.add(&branch_row);
 
             let autopush_row = adw::SwitchRow::builder()
-                .title("Push changes automatically")
-                .subtitle("Upload after every saved change")
+                .title(gettext("Push changes automatically"))
+                .subtitle(gettext("Upload after every saved change"))
                 .active(vault.autopush)
                 .build();
             autopush_row.connect_active_notify(glib::clone!(
@@ -600,10 +621,10 @@ impl MainWindow {
         // Remove
         let remove_group = adw::PreferencesGroup::new();
         let remove_row = adw::ActionRow::builder()
-            .title("Remove from List")
-            .subtitle("The folder and its entries stay on disk.")
+            .title(gettext("Remove from List"))
+            .subtitle(gettext("The folder and its entries stay on disk."))
             .build();
-        let remove_button = gtk::Button::with_label("Remove");
+        let remove_button = gtk::Button::with_label(&gettext("Remove"));
         remove_button.set_valign(gtk::Align::Center);
         remove_button.add_css_class("destructive-action");
         remove_button.connect_clicked(glib::clone!(

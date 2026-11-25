@@ -25,7 +25,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ninja-build pkg-config \
+            ninja-build pkg-config gettext \
             libgtk-4-dev libadwaita-1-dev \
             libgpgme-dev libgit2-dev libssh2-1-dev libssl-dev \
             cargo rustc \
@@ -113,7 +113,7 @@ jobs:
       - name: Install build dependencies
         run: |
           pacman -Syu --noconfirm \
-            rust meson ninja pkgconf \
+            rust meson ninja pkgconf gettext \
             gtk4 libadwaita gpgme libgit2 libssh2 \
             git curl
 

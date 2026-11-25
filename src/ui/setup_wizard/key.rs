@@ -11,6 +11,7 @@ use gtk::{gio, glib};
 
 use super::SetupWizard;
 use crate::app::setup::{self, KeyActionError};
+use crate::i18n::{gettext, gettext_f};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum KeyMode {
@@ -86,7 +87,7 @@ impl SetupWizard {
         imp.key_name_row.set_text("");
         imp.key_email_row.set_text("");
         imp.key_file.replace(None);
-        imp.key_file_row.set_subtitle("No file chosen");
+        imp.key_file_row.set_subtitle(&gettext("No file chosen"));
         imp.use_key_check.set_active(true);
         self.set_key_status(KeyStatus::Hidden);
         self.load_recipients(None);
@@ -152,14 +153,14 @@ impl SetupWizard {
             .set_visible(mode == KeyMode::Use && has_key);
 
         let (label, ready) = match mode {
-            KeyMode::Use => ("Next", has_key),
+            KeyMode::Use => (gettext("Next"), has_key),
             KeyMode::Create => (
-                "Create Key",
+                gettext("Create Key"),
                 setup::is_valid_key_identity(&imp.key_name_row.text(), &imp.key_email_row.text()),
             ),
-            KeyMode::Import => ("Import Key", imp.key_file.borrow().is_some()),
+            KeyMode::Import => (gettext("Import Key"), imp.key_file.borrow().is_some()),
         };
-        imp.key_next_button.set_label(label);
+        imp.key_next_button.set_label(&label);
         imp.key_next_button.set_sensitive(ready && !busy);
 
         for widget in [
@@ -213,13 +214,13 @@ impl SetupWizard {
                 let name = imp.key_name_row.text().to_string();
                 let email = imp.key_email_row.text().to_string();
                 self.run_key_task(
-                    "Creating your key… GPG will ask you to choose a passphrase.",
+                    &gettext("Creating your key… GPG will ask you to choose a passphrase."),
                     move || setup::create_key(&name, &email),
                     |wizard, fingerprint| {
                         wizard.load_recipients(Some(&fingerprint));
-                        wizard.set_key_status(KeyStatus::Done(
+                        wizard.set_key_status(KeyStatus::Done(&gettext(
                             "Key created. Save a backup of it before you continue.",
-                        ));
+                        )));
                     },
                 );
             }
@@ -228,11 +229,11 @@ impl SetupWizard {
                     return;
                 };
                 self.run_key_task(
-                    "Importing the key… GPG may ask for its passphrase.",
+                    &gettext("Importing the key… GPG may ask for its passphrase."),
                     move || setup::import_key(&path),
                     |wizard, fingerprints| {
                         wizard.load_recipients(fingerprints.first().map(String::as_str));
-                        wizard.set_key_status(KeyStatus::Done("Key imported."));
+                        wizard.set_key_status(KeyStatus::Done(&gettext("Key imported.")));
                     },
                 );
             }
@@ -258,9 +259,9 @@ impl SetupWizard {
         let wizard = self.clone();
         glib::spawn_future_local(async move {
             let result = gio::spawn_blocking(task).await.unwrap_or_else(|_| {
-                Err(KeyActionError::Failed(
-                    "The key task stopped unexpectedly".to_string(),
-                ))
+                Err(KeyActionError::Failed(gettext(
+                    "The key task stopped unexpectedly",
+                )))
             });
             wizard.imp().key_busy.set(false);
             match result {
@@ -276,19 +277,19 @@ impl SetupWizard {
 
     fn choose_key_file(&self) {
         let filter = gtk::FileFilter::new();
-        filter.set_name(Some("Key files"));
+        filter.set_name(Some(&gettext("Key files")));
         for pattern in ["*.asc", "*.gpg", "*.pgp", "*.key"] {
             filter.add_pattern(pattern);
         }
         let any = gtk::FileFilter::new();
-        any.set_name(Some("All files"));
+        any.set_name(Some(&gettext("All files")));
         any.add_pattern("*");
         let filters = gio::ListStore::new::<gtk::FileFilter>();
         filters.append(&filter);
         filters.append(&any);
 
         let dialog = gtk::FileDialog::builder()
-            .title("Choose a Key Backup")
+            .title(gettext("Choose a Key Backup"))
             .modal(true)
             .filters(&filters)
             .build();
@@ -317,7 +318,7 @@ impl SetupWizard {
             return;
         };
         let dialog = gtk::FileDialog::builder()
-            .title("Save Key Backup")
+            .title(gettext("Save Key Backup"))
             .initial_name("passel-key-backup.asc")
             .modal(true)
             .build();
@@ -341,11 +342,12 @@ impl SetupWizard {
     fn export_backup(&self, fingerprint: String, path: PathBuf) {
         let shown = path.to_string_lossy().into_owned();
         self.run_key_task(
-            "Saving the backup… GPG will ask for the key’s passphrase.",
+            &gettext("Saving the backup… GPG will ask for the key’s passphrase."),
             move || setup::export_key(&fingerprint, &path),
             move |wizard, ()| {
-                wizard.set_key_status(KeyStatus::Done(&format!(
-                    "Backup saved to {shown}. Move it somewhere safe, away from this computer."
+                wizard.set_key_status(KeyStatus::Done(&gettext_f(
+                    "Backup saved to {file}. Move it somewhere safe, away from this computer.",
+                    &[("file", &shown)],
                 )));
             },
         );

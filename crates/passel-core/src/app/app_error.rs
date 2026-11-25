@@ -2,6 +2,7 @@
 
 use std::io;
 
+use crate::i18n::{gettext, gettext_f};
 use crate::pass::store::StoreError;
 
 #[derive(Debug)]
@@ -51,13 +52,17 @@ impl From<StoreError> for AppError {
 // ad-hoc developer inspection.
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AppError::Io(err) => write!(f, "I/O error ({})", err.kind()),
-            AppError::Save(err) => write!(f, "{err}"),
-            AppError::PushFailed(_) => f.write_str("Saved locally but failed to push to remote"),
-            AppError::NoEntrySelected => f.write_str("No entry selected"),
-            AppError::InvalidEntry => f.write_str("Entry is not valid"),
-            AppError::NoVault => f.write_str("No vault is open"),
-        }
+        let message = match self {
+            AppError::Io(err) => gettext_f(
+                "I/O error ({reason})",
+                &[("reason", &err.kind().to_string())],
+            ),
+            AppError::Save(err) => err.to_string(),
+            AppError::PushFailed(_) => gettext("Saved locally but failed to push to remote"),
+            AppError::NoEntrySelected => gettext("No entry selected"),
+            AppError::InvalidEntry => gettext("Entry is not valid"),
+            AppError::NoVault => gettext("No vault is open"),
+        };
+        f.write_str(&message)
     }
 }

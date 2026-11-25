@@ -9,7 +9,7 @@ license=('GPL-3.0-or-later')
 depends=('gtk4' 'libadwaita' 'gpgme' 'libgit2' 'libssh2' 'gnupg')
 conflicts=('gnome-vault' 'gnome-vault-bin')
 replaces=('gnome-vault')
-makedepends=('cargo' 'meson' 'ninja' 'pkgconf' 'blueprint-compiler' 'git')
+makedepends=('cargo' 'meson' 'ninja' 'pkgconf' 'blueprint-compiler' 'gettext' 'git')
 source=("$pkgname-$pkgver::git+$url.git#tag=v$pkgver")
 sha256sums=('a5ff4cca9439b76d3682c5c940e5e13347c577000c2e1a0d22b398c154d6bb9e')
 

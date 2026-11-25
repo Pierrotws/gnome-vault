@@ -28,6 +28,7 @@ custom_target(
   env: {
     'APP_ID': application_id,
     'RESOURCES_FILE': pkgdatadir / 'resources.gresource',
+    'LOCALEDIR': localedir,
   },
   command: [
     sh,

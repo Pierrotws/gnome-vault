@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crate::helpers::{git, pgp};
+use crate::i18n::{gettext, gettext_f};
 
 pub enum StoreError {
     Io(std::io::Error),
@@ -77,18 +78,26 @@ impl std::fmt::Debug for StoreError {
 // so reserve `{err:?}` for ad-hoc developer inspection only.
 impl std::fmt::Display for StoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            StoreError::Io(err) => write!(f, "I/O error ({})", err.kind()),
-            StoreError::Git(err) => write!(f, "Git error: {err}"),
-            StoreError::Pgp(err) => write!(f, "GPG error: {err}"),
-            StoreError::MissingParent(_) => f.write_str("Missing parent directory"),
-            StoreError::EmptyFile(_) => f.write_str("Encrypted file is empty"),
-            StoreError::InvalidEntryName(_) => f.write_str("Invalid entry name"),
-            StoreError::InvalidRecipient => f.write_str("GPG recipient is required"),
-            StoreError::InvalidFolderPath(_) => f.write_str("Invalid folder path"),
-            StoreError::DestinationExists(_) => f.write_str("Destination already exists"),
-            StoreError::PushFailed(_) => f.write_str("Saved locally but failed to push to remote"),
-        }
+        let message = match self {
+            StoreError::Io(err) => gettext_f(
+                "I/O error ({reason})",
+                &[("reason", &err.kind().to_string())],
+            ),
+            StoreError::Git(err) => {
+                gettext_f("Git error: {reason}", &[("reason", &err.to_string())])
+            }
+            StoreError::Pgp(err) => {
+                gettext_f("GPG error: {reason}", &[("reason", &err.to_string())])
+            }
+            StoreError::MissingParent(_) => gettext("Missing parent directory"),
+            StoreError::EmptyFile(_) => gettext("Encrypted file is empty"),
+            StoreError::InvalidEntryName(_) => gettext("Invalid entry name"),
+            StoreError::InvalidRecipient => gettext("GPG recipient is required"),
+            StoreError::InvalidFolderPath(_) => gettext("Invalid folder path"),
+            StoreError::DestinationExists(_) => gettext("Destination already exists"),
+            StoreError::PushFailed(_) => gettext("Saved locally but failed to push to remote"),
+        };
+        f.write_str(&message)
     }
 }
 

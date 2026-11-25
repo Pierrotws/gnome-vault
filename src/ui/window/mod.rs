@@ -17,6 +17,7 @@ use gtk::{gio, glib};
 
 use crate::app::changes;
 use crate::app::controller::AppController;
+use crate::i18n::{gettext, gettext_f};
 use crate::pass::model::{PassNode, PassNodeKind};
 use crate::ui::vault_view::{build_group_selection, build_selection_from_nodes_with_autoexpand};
 use crate::ui::EntryView;
@@ -485,17 +486,22 @@ impl MainWindow {
 
     fn confirm_delete_entry(&self, node: PassNode) {
         if self.controller().borrow().has_unsaved_changes() {
-            self.imp()
-                .entry_view
-                .show_error_dialog("Save or cancel current changes before deleting an entry");
+            self.imp().entry_view.show_error_dialog(&gettext(
+                "Save or cancel current changes before deleting an entry",
+            ));
             return;
         }
 
         let dialog = adw::AlertDialog::builder()
-            .heading(format!("Delete \u{201C}{}\u{201D}?", node.name))
-            .body("The entry is removed and a single commit is recorded.")
+            .heading(gettext_f("Delete “{name}”?", &[("name", &node.name)]))
+            .body(gettext(
+                "The entry is removed and a single commit is recorded.",
+            ))
             .build();
-        dialog.add_responses(&[("cancel", "Cancel"), ("delete", "Delete")]);
+        dialog.add_responses(&[
+            ("cancel", &gettext("Cancel")),
+            ("delete", &gettext("Delete")),
+        ]);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
         dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
@@ -532,9 +538,9 @@ impl MainWindow {
 
     fn confirm_delete_current_entry(&self) {
         if self.controller().borrow().has_unsaved_changes() {
-            self.imp()
-                .entry_view
-                .show_error_dialog("Save or cancel current changes before deleting an entry");
+            self.imp().entry_view.show_error_dialog(&gettext(
+                "Save or cancel current changes before deleting an entry",
+            ));
             return;
         }
 
@@ -550,10 +556,15 @@ impl MainWindow {
         };
 
         let dialog = adw::AlertDialog::builder()
-            .heading(format!("Delete \u{201C}{name}\u{201D}?"))
-            .body("The entry is removed and a single commit is recorded.")
+            .heading(gettext_f("Delete “{name}”?", &[("name", &name)]))
+            .body(gettext(
+                "The entry is removed and a single commit is recorded.",
+            ))
             .build();
-        dialog.add_responses(&[("cancel", "Cancel"), ("delete", "Delete")]);
+        dialog.add_responses(&[
+            ("cancel", &gettext("Cancel")),
+            ("delete", &gettext("Delete")),
+        ]);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
         dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
@@ -587,20 +598,23 @@ impl MainWindow {
 
     fn confirm_delete_folder(&self, node: PassNode) {
         if self.controller().borrow().has_unsaved_changes() {
-            self.imp()
-                .entry_view
-                .show_error_dialog("Save or cancel current changes before deleting a folder");
+            self.imp().entry_view.show_error_dialog(&gettext(
+                "Save or cancel current changes before deleting a folder",
+            ));
             return;
         }
 
         let dialog = adw::AlertDialog::builder()
-            .heading(format!("Delete \u{201C}{}\u{201D}?", node.name))
+            .heading(gettext_f("Delete “{name}”?", &[("name", &node.name)]))
             .body(
                 "Every entry inside this folder is removed and a single \
                  commit is recorded.",
             )
             .build();
-        dialog.add_responses(&[("cancel", "Cancel"), ("delete", "Delete")]);
+        dialog.add_responses(&[
+            ("cancel", &gettext("Cancel")),
+            ("delete", &gettext("Delete")),
+        ]);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
         dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
@@ -637,20 +651,20 @@ impl MainWindow {
 
     fn confirm_revert_change(&self, commit_id: &str) {
         if self.controller().borrow().has_unsaved_changes() {
-            self.imp()
-                .entry_view
-                .show_error_dialog("Save or cancel current changes before undoing a change");
+            self.imp().entry_view.show_error_dialog(&gettext(
+                "Save or cancel current changes before undoing a change",
+            ));
             return;
         }
 
         let dialog = adw::AlertDialog::builder()
-            .heading("Undo this change?")
+            .heading(gettext("Undo this change?"))
             .body(
                 "A new change will be recorded that reverses the selected one. \
                  The original change is kept in history.",
             )
             .build();
-        dialog.add_responses(&[("cancel", "Cancel"), ("revert", "Undo")]);
+        dialog.add_responses(&[("cancel", &gettext("Cancel")), ("revert", &gettext("Undo"))]);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
         dialog.set_response_appearance("revert", adw::ResponseAppearance::Destructive);
@@ -667,9 +681,9 @@ impl MainWindow {
 
     fn revert_change(&self, commit_id: &str) {
         if self.controller().borrow().has_unsaved_changes() {
-            self.imp()
-                .entry_view
-                .show_error_dialog("Save or cancel current changes before undoing a change");
+            self.imp().entry_view.show_error_dialog(&gettext(
+                "Save or cancel current changes before undoing a change",
+            ));
             return;
         }
 
@@ -691,7 +705,7 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error_dialog("Undo task panicked unexpectedly");
+                        .show_error_dialog(&gettext("Undo task panicked unexpectedly"));
                     return;
                 }
             };
@@ -720,21 +734,24 @@ impl MainWindow {
 
     fn confirm_rollback_change(&self, commit_id: &str) {
         if self.controller().borrow().has_unsaved_changes() {
-            self.imp().entry_view.show_error_dialog(
+            self.imp().entry_view.show_error_dialog(&gettext(
                 "Save or cancel current changes before discarding later changes",
-            );
+            ));
             return;
         }
 
         let dialog = adw::AlertDialog::builder()
-            .heading("Discard changes after this point?")
+            .heading(gettext("Discard changes after this point?"))
             .body(
                 "Every change after the selected one will be removed from the \
                  vault. A backup is saved to the remote first so you can \
                  recover if something goes wrong.",
             )
             .build();
-        dialog.add_responses(&[("cancel", "Cancel"), ("rollback", "Discard later changes")]);
+        dialog.add_responses(&[
+            ("cancel", &gettext("Cancel")),
+            ("rollback", &gettext("Discard later changes")),
+        ]);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
         dialog.set_response_appearance("rollback", adw::ResponseAppearance::Destructive);
@@ -767,7 +784,7 @@ impl MainWindow {
                     window
                         .imp()
                         .entry_view
-                        .show_error_dialog("Discard-changes task panicked unexpectedly");
+                        .show_error_dialog(&gettext("Discard-changes task panicked unexpectedly"));
                     return;
                 }
             };
@@ -795,13 +812,14 @@ impl MainWindow {
             window.start_autoload_if_enabled();
 
             let dialog = adw::AlertDialog::builder()
-                .heading("Changes discarded")
-                .body(format!(
-                    "A backup was saved to the remote as \"{backup_branch}\" \
-                     in case you need to recover."
+                .heading(gettext("Changes discarded"))
+                .body(gettext_f(
+                    "A backup was saved to the remote as “{branch}” \
+                     in case you need to recover.",
+                    &[("branch", &backup_branch)],
                 ))
                 .build();
-            dialog.add_responses(&[("ok", "OK")]);
+            dialog.add_responses(&[("ok", &gettext("OK"))]);
             dialog.set_default_response(Some("ok"));
             dialog.set_close_response("ok");
             dialog.present(Some(&window));
@@ -1017,10 +1035,10 @@ impl MainWindow {
 
     fn show_error_dialog(&self, message: &str) {
         let dialog = adw::AlertDialog::builder()
-            .heading("Error")
+            .heading(gettext("Error"))
             .body(message)
             .build();
-        dialog.add_responses(&[("ok", "OK")]);
+        dialog.add_responses(&[("ok", &gettext("OK"))]);
         dialog.set_default_response(Some("ok"));
         dialog.set_close_response("ok");
         dialog.present(Some(self));
@@ -1042,10 +1060,9 @@ impl MainWindow {
                 {
                     Ok(r) => r,
                     Err(_) => {
-                        window
-                            .imp()
-                            .entry_view
-                            .show_error_dialog("Sync-to-remote task panicked unexpectedly");
+                        window.imp().entry_view.show_error_dialog(&gettext(
+                            "Sync-to-remote task panicked unexpectedly",
+                        ));
                         return;
                     }
                 };

@@ -8,6 +8,7 @@ use gtk::subclass::prelude::*;
 //use crate::pass::model::*;
 use crate::app::state::EntryViewData;
 use crate::helpers::{clipboard, otp};
+use crate::i18n::gettext;
 use crate::pass::model::{EntryData, EntryField};
 use crate::ui::generate_password_view::GeneratePasswordView;
 use fields::{
@@ -262,10 +263,10 @@ impl EntryView {
     /// `MainWindow::show_error_dialog`.
     pub fn show_error_dialog(&self, msg: &str) {
         let dialog = adw::AlertDialog::builder()
-            .heading("Error")
+            .heading(gettext("Error"))
             .body(msg)
             .build();
-        dialog.add_responses(&[("ok", "OK")]);
+        dialog.add_responses(&[("ok", &gettext("OK"))]);
         dialog.set_default_response(Some("ok"));
         dialog.set_close_response("ok");
         dialog.present(Some(self));
@@ -329,7 +330,7 @@ impl EntryView {
             .and_then(|root| root.downcast::<gtk::Window>().ok());
 
         let dialog = adw::Window::builder()
-            .title("Generate Password")
+            .title(gettext("Generate Password"))
             .modal(true)
             .resizable(true)
             .default_width(640)
@@ -357,8 +358,8 @@ impl EntryView {
             .margin_end(18)
             .build();
 
-        let cancel_button = gtk::Button::with_label("Cancel");
-        let ok_button = gtk::Button::with_label("OK");
+        let cancel_button = gtk::Button::with_label(&gettext("Cancel"));
+        let ok_button = gtk::Button::with_label(&gettext("OK"));
         ok_button.add_css_class("suggested-action");
 
         actions.append(&cancel_button);

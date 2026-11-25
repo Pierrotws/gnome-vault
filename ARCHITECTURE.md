@@ -197,6 +197,7 @@ Primary files:
 | `crates/passel-core/src/helpers/password.rs` | Generates passwords for the new-entry dialog. |
 | `src/helpers/clipboard.rs` | Single entry point for copying secrets into the GTK clipboard. |
 | `crates/passel-core/src/helpers/entry_preview.rs` | Formats the first-field preview shown as a group-row subtitle. |
+| `crates/passel-core/src/i18n/` | Translations: reads gettext `.mo` catalogs (no libintl), picks the user's language, `gettext`/`ngettext`/`pgettext` and `{name}` placeholders. Every front end installs one catalog at startup: the desktop from its locale dir (`src/localization.rs`, which also binds libintl for the `.ui` templates), the mobile library from catalogs embedded by `passel-ffi`'s `build.rs`. Catalogs live in `po/` (see `po/README.md`). |
 
 ## 4. Data Stores
 

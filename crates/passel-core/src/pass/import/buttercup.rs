@@ -34,6 +34,7 @@ use sha2::Sha256;
 use zeroize::Zeroizing;
 
 use super::{entry_from_fields, ImportError, ImportedItem};
+use crate::i18n::gettext;
 
 const SIGNATURE_A: &str = "b~>buttercup/a";
 const SIGNATURE_B: &str = "b~>buttercup/b";
@@ -54,21 +55,21 @@ pub(super) fn read(
     password: &Zeroizing<String>,
 ) -> Result<Vec<ImportedItem>, ImportError> {
     let text = std::str::from_utf8(bytes)
-        .map_err(|_| unreadable("not a Buttercup vault"))?
+        .map_err(|_| unreadable(gettext("not a Buttercup vault")))?
         .trim();
     let (format, payload) = if let Some(payload) = text.strip_prefix(SIGNATURE_B) {
         (Format::B, payload)
     } else if let Some(payload) = text.strip_prefix(SIGNATURE_A) {
         (Format::A, payload)
     } else {
-        return Err(unreadable("not a Buttercup vault"));
+        return Err(unreadable(gettext("not a Buttercup vault")));
     };
     let plaintext = decrypt(payload, password)?;
     match format {
         Format::B => {
             let gzip = BASE64
                 .decode(plaintext.trim().as_bytes())
-                .map_err(|_| unreadable("unexpected content"))?;
+                .map_err(|_| unreadable(gettext("unexpected content")))?;
             let json = gunzip(&gzip)?;
             read_format_b(&json)
         }
@@ -78,15 +79,15 @@ pub(super) fn read(
                 .chars()
                 .map(|c| u8::try_from(u32::from(c)))
                 .collect::<Result<Vec<u8>, _>>()
-                .map_err(|_| unreadable("unexpected content"))?;
+                .map_err(|_| unreadable(gettext("unexpected content")))?;
             let history = gunzip(&gzip)?;
             Ok(read_format_a(&history))
         }
     }
 }
 
-fn unreadable(reason: &str) -> ImportError {
-    ImportError::Unreadable(reason.to_string())
+fn unreadable(reason: String) -> ImportError {
+    ImportError::Unreadable(reason)
 }
 
 struct Payload<'a> {
@@ -101,20 +102,20 @@ struct Payload<'a> {
 fn parse_payload(payload: &str) -> Result<Payload<'_>, ImportError> {
     let parts: Vec<&str> = payload.split('$').collect();
     if !(4..=6).contains(&parts.len()) {
-        return Err(unreadable("unexpected encryption format"));
+        return Err(unreadable(gettext("unexpected encryption format")));
     }
     let rounds = match parts.get(4).filter(|rounds| !rounds.is_empty()) {
         Some(rounds) => rounds
             .parse::<u32>()
             .ok()
             .filter(|rounds| (1..=MAX_ROUNDS).contains(rounds))
-            .ok_or_else(|| unreadable("unexpected key derivation"))?,
+            .ok_or_else(|| unreadable(gettext("unexpected key derivation")))?,
         None => DEFAULT_ROUNDS,
     };
     let gcm = match parts.get(5).copied().unwrap_or("") {
         "" | "cbc" => false,
         "gcm" => true,
-        _ => return Err(unreadable("unsupported encryption method")),
+        _ => return Err(unreadable(gettext("unsupported encryption method"))),
     };
     Ok(Payload {
         content: parts[0],
@@ -130,13 +131,13 @@ fn decrypt(payload: &str, password: &Zeroizing<String>) -> Result<Zeroizing<Stri
     let payload = parse_payload(payload)?;
     let ciphertext = BASE64
         .decode(payload.content.as_bytes())
-        .map_err(|_| unreadable("damaged content"))?;
+        .map_err(|_| unreadable(gettext("damaged content")))?;
     let iv = HEXLOWER_PERMISSIVE
         .decode(payload.iv.as_bytes())
-        .map_err(|_| unreadable("damaged content"))?;
+        .map_err(|_| unreadable(gettext("damaged content")))?;
     let auth = HEXLOWER_PERMISSIVE
         .decode(payload.auth.as_bytes())
-        .map_err(|_| unreadable("damaged content"))?;
+        .map_err(|_| unreadable(gettext("damaged content")))?;
 
     let mut keys = Zeroizing::new([0u8; 64]);
     pbkdf2::pbkdf2_hmac::<Sha256>(
@@ -151,7 +152,7 @@ fn decrypt(payload: &str, password: &Zeroizing<String>) -> Result<Zeroizing<Stri
         decrypt_gcm(key, &iv, &ciphertext, &auth, payload)?
     } else {
         let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(hmac_key)
-            .map_err(|_| unreadable("key derivation failed"))?;
+            .map_err(|_| unreadable(gettext("key derivation failed")))?;
         mac.update(payload.content.as_bytes());
         mac.update(payload.iv.as_bytes());
         mac.update(payload.salt.as_bytes());
@@ -162,15 +163,16 @@ fn decrypt(payload: &str, password: &Zeroizing<String>) -> Result<Zeroizing<Stri
         let iv: [u8; 16] = iv
             .as_slice()
             .try_into()
-            .map_err(|_| unreadable("damaged content"))?;
+            .map_err(|_| unreadable(gettext("damaged content")))?;
         let key: [u8; 32] = key.try_into().expect("32-byte half of 64");
         Zeroizing::new(
             cbc::Decryptor::<aes::Aes256>::new(&key.into(), &iv.into())
                 .decrypt_padded_vec::<Pkcs7>(&ciphertext)
-                .map_err(|_| unreadable("damaged content"))?,
+                .map_err(|_| unreadable(gettext("damaged content")))?,
         )
     };
-    let text = String::from_utf8(plain.to_vec()).map_err(|_| unreadable("unexpected content"))?;
+    let text =
+        String::from_utf8(plain.to_vec()).map_err(|_| unreadable(gettext("unexpected content")))?;
     Ok(Zeroizing::new(text))
 }
 
@@ -185,8 +187,9 @@ fn decrypt_gcm(
     use aes_gcm::{AesGcm, KeyInit as _};
 
     let cipher = AesGcm::<aes::Aes256, U16>::new_from_slice(key)
-        .map_err(|_| unreadable("key derivation failed"))?;
-    let nonce = aes_gcm::Nonce::<U16>::try_from(iv).map_err(|_| unreadable("damaged content"))?;
+        .map_err(|_| unreadable(gettext("key derivation failed")))?;
+    let nonce =
+        aes_gcm::Nonce::<U16>::try_from(iv).map_err(|_| unreadable(gettext("damaged content")))?;
     let mut message = ciphertext.to_vec();
     message.extend_from_slice(tag);
     let aad = format!("{}{}", payload.iv, payload.salt);
@@ -206,7 +209,7 @@ fn gunzip(bytes: &[u8]) -> Result<Zeroizing<String>, ImportError> {
     let mut text = Zeroizing::new(String::new());
     flate2::read::GzDecoder::new(bytes)
         .read_to_string(&mut text)
-        .map_err(|_| unreadable("damaged content"))?;
+        .map_err(|_| unreadable(gettext("damaged content")))?;
     Ok(text)
 }
 
@@ -223,12 +226,11 @@ struct Node {
 /// one-item history array).
 fn read_format_b(json: &str) -> Result<Vec<ImportedItem>, ImportError> {
     let value: Value =
-        serde_json::from_str(json.trim()).map_err(|_| unreadable("unexpected content"))?;
+        serde_json::from_str(json.trim()).map_err(|_| unreadable(gettext("unexpected content")))?;
     let vault = match value {
         Value::Array(mut lines) if !lines.is_empty() => match lines.swap_remove(0) {
-            Value::String(inner) => {
-                serde_json::from_str(&inner).map_err(|_| unreadable("unexpected content"))?
-            }
+            Value::String(inner) => serde_json::from_str(&inner)
+                .map_err(|_| unreadable(gettext("unexpected content")))?,
             other => other,
         },
         other => other,

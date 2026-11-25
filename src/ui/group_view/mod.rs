@@ -8,6 +8,7 @@ use gtk::{gdk, gio, glib};
 pub use group_item::GroupItem;
 use group_row::GroupRow;
 
+use crate::i18n::{gettext, ngettext_f};
 use crate::pass::model::PassNode;
 
 glib::wrapper! {
@@ -201,7 +202,7 @@ impl GroupView {
 
         let entry_path = node.path.to_string_lossy().to_string();
         let entry_name = node.name.clone();
-        let button = gtk::Button::with_label("Delete Entry");
+        let button = gtk::Button::with_label(&gettext("Delete Entry"));
         button.set_margin_top(6);
         button.set_margin_bottom(6);
         button.set_margin_start(6);
@@ -322,8 +323,12 @@ impl Default for GroupView {
 
 fn format_entry_count(count: usize) -> String {
     match count {
-        0 => "No entries".to_string(),
-        1 => "1 entry".to_string(),
-        count => format!("{count} entries"),
+        0 => gettext("No entries"),
+        count => ngettext_f(
+            "{n} entry",
+            "{n} entries",
+            count as u64,
+            &[("n", &count.to_string())],
+        ),
     }
 }

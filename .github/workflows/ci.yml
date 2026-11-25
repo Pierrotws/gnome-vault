@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm \
-            rust meson ninja pkgconf blueprint-compiler \
+            rust meson ninja pkgconf blueprint-compiler gettext \
             gtk4 libadwaita gpgme libgit2 libssh2 \
             git gnupg
 
@@ -80,6 +80,17 @@ jobs:
           done < <(git ls-files 'assets/ui/*.blp')
           exit $status
 
+      - name: Translations are up to date
+        shell: bash
+        run: |
+          # One template for every target (po/README.md): after changing
+          # messages, po/update.sh must be run and its output committed.
+          po/update.sh
+          if ! git diff --exit-code -I '^"POT-Creation-Date: ' -- po/; then
+            echo "::error::po/ is out of date: run po/update.sh and commit the result"
+            exit 1
+          fi
+
   android:
     # The Android app: passel-ffi (passel-core with rPGP instead of GnuPG,
     # libgit2/OpenSSL/libssh2 built from source, no GTK), its UniFFI
@@ -98,6 +109,11 @@ jobs:
 
       - name: Rust Android target
         run: rustup target add aarch64-linux-android
+
+      # msgfmt compiles the translations into the library (passel-ffi's
+      # build.rs).
+      - name: gettext
+        run: sudo apt-get install -y --no-install-recommends gettext
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -135,7 +151,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ninja-build pkg-config \
+            ninja-build pkg-config gettext \
             libgtk-4-dev libadwaita-1-dev \
             libgpgme-dev libgit2-dev libssh2-1-dev libssl-dev \
             python3-pip

@@ -12,6 +12,7 @@ use std::path::Path;
 
 use zeroize::Zeroizing;
 
+use crate::i18n::{gettext, gettext_f};
 use crate::pass::model::{EntryData, EntryField};
 
 /// Where an import comes from.
@@ -50,11 +51,17 @@ pub enum ImportError {
 
 impl std::fmt::Display for ImportError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ImportError::WrongPassword => f.write_str("The master password is not correct"),
-            ImportError::Unreadable(reason) => write!(f, "This file cannot be read: {reason}"),
-            ImportError::Io(err) => write!(f, "This file cannot be opened ({})", err.kind()),
-        }
+        let message = match self {
+            ImportError::WrongPassword => gettext("The master password is not correct"),
+            ImportError::Unreadable(reason) => {
+                gettext_f("This file cannot be read: {reason}", &[("reason", reason)])
+            }
+            ImportError::Io(err) => gettext_f(
+                "This file cannot be opened ({reason})",
+                &[("reason", &err.kind().to_string())],
+            ),
+        };
+        f.write_str(&message)
     }
 }
 

@@ -10,6 +10,7 @@ use gtk::{gio, glib};
 use super::hosts::{self, Host, HOSTS};
 use super::SetupWizard;
 use crate::app::setup::{self, CopyDirStatus};
+use crate::i18n::{gettext, gettext_f};
 use crate::pass::store::{RemoteCheck, SyncTarget};
 
 /// Index of "I already have one" in the service combo. The services of
@@ -22,8 +23,9 @@ const COPY_NAME: &str = "passwords.git";
 impl SetupWizard {
     pub(super) fn setup_sync(&self) {
         let imp = self.imp();
-        let mut names = vec!["I already have one"];
-        names.extend(HOSTS.iter().map(|host| host.name));
+        let mut names = vec![gettext("I already have one")];
+        names.extend(HOSTS.iter().map(|host| host.name.to_string()));
+        let names: Vec<&str> = names.iter().map(String::as_str).collect();
         imp.host_row.set_model(Some(&gtk::StringList::new(&names)));
         imp.host_row.set_selected(HOST_OWN);
         imp.copy_row.set_use_markup(false);
@@ -125,10 +127,11 @@ impl SetupWizard {
         }
 
         let host = self.selected_host();
-        imp.host_row.set_subtitle(host.map_or("", |host| host.note));
-        imp.address_row.set_title(match host {
-            Some(host) => host.address_example,
-            None => "SSH address, like git@server:you/passwords.git",
+        imp.host_row
+            .set_subtitle(&host.map_or_else(String::new, |host| (host.note)()));
+        imp.address_row.set_title(&match host {
+            Some(host) => host.address_example.to_string(),
+            None => gettext("SSH address, like git@server:you/passwords.git"),
         });
         imp.host_steps_group.set_visible(host.is_some());
         let Some(host) = host else {
@@ -138,8 +141,14 @@ impl SetupWizard {
         let mut rows: Vec<gtk::Widget> = Vec::new();
         let open_row = adw::ActionRow::new();
         open_row.set_use_markup(false);
-        open_row.set_title(&format!("Open {}", host.name));
-        open_row.set_subtitle("Sign in or create a free account, then start a new repository");
+        open_row.set_title(&gettext_f(
+            // Translators: {service} is GitHub, GitLab…
+            "Open {service}",
+            &[("service", host.name)],
+        ));
+        open_row.set_subtitle(&gettext(
+            "Sign in or create a free account, then start a new repository",
+        ));
         open_row.set_activatable(true);
         open_row.add_suffix(&gtk::Image::from_icon_name("web-browser-symbolic"));
         let url = host.new_repo_url;
@@ -150,7 +159,7 @@ impl SetupWizard {
         ));
         rows.push(open_row.upcast());
 
-        for (index, item) in host.checklist.iter().enumerate() {
+        for (index, item) in (host.checklist)().iter().enumerate() {
             let row = adw::ActionRow::new();
             row.set_use_markup(false);
             row.set_title(item);
@@ -181,7 +190,11 @@ impl SetupWizard {
 
         let row = adw::ActionRow::new();
         row.set_use_markup(false);
-        row.set_title(&format!("Add your SSH key to {}", host.name));
+        row.set_title(&gettext_f(
+            // Translators: {service} is GitHub, GitLab…
+            "Add your SSH key to {service}",
+            &[("service", host.name)],
+        ));
         let button = |icon: &str, tooltip: &str| {
             let button = gtk::Button::from_icon_name(icon);
             button.set_tooltip_text(Some(tooltip));
@@ -197,10 +210,11 @@ impl SetupWizard {
                     .file_name()
                     .map(|name| name.to_string_lossy().into_owned())
                     .unwrap_or_default();
-                row.set_subtitle(&format!(
-                    "This lets Passel upload. Copy your key ({file_name}), then add it on the SSH keys page."
+                row.set_subtitle(&gettext_f(
+                    "This lets Passel upload. Copy your key ({file}), then add it on the SSH keys page.",
+                    &[("file", &file_name)],
                 ));
-                let copy = button("edit-copy-symbolic", "Copy Key");
+                let copy = button("edit-copy-symbolic", &gettext("Copy Key"));
                 let text = key.text.clone();
                 copy.connect_clicked(move |button| {
                     // A public key: no need for the auto-clearing secret
@@ -208,7 +222,7 @@ impl SetupWizard {
                     button.clipboard().set_text(&text);
                     button.set_icon_name("object-select-symbolic");
                 });
-                let open = button("web-browser-symbolic", "Open the SSH Keys Page");
+                let open = button("web-browser-symbolic", &gettext("Open the SSH Keys Page"));
                 let url = host.ssh_keys_url;
                 open.connect_clicked(glib::clone!(
                     #[weak(rename_to = wizard)]
@@ -219,12 +233,14 @@ impl SetupWizard {
                 row.add_suffix(&open);
             }
             None => {
-                row.set_subtitle(if host.rsa_only && !keys.is_empty() {
-                    "This service only accepts RSA keys, and this computer has none yet."
+                row.set_subtitle(&if host.rsa_only && !keys.is_empty() {
+                    gettext("This service only accepts RSA keys, and this computer has none yet.")
                 } else {
-                    "This computer has no SSH key yet. Create one, then add it to your account."
+                    gettext(
+                        "This computer has no SSH key yet. Create one, then add it to your account.",
+                    )
                 });
-                let help = gtk::Button::with_label("How to Create One");
+                let help = gtk::Button::with_label(&gettext("How to Create One"));
                 help.set_valign(gtk::Align::Center);
                 let url = host.ssh_help_url;
                 help.connect_clicked(glib::clone!(
@@ -276,7 +292,7 @@ impl SetupWizard {
             imp.check_icon.remove_css_class(class);
         }
         if checking {
-            imp.check_label.set_label("Checking the address…");
+            imp.check_label.set_label(&gettext("Checking the address…"));
         } else if let Some(result) = result {
             let (ok, message) = check_message(result, &address);
             let (icon, class) = if ok {
@@ -295,8 +311,11 @@ impl SetupWizard {
         imp.online_next_button.set_sensitive(
             !address.is_empty() && !checking && result != Some(RemoteCheck::NotEmpty),
         );
-        imp.online_next_button
-            .set_label(if failed { "Continue Anyway" } else { "Next" });
+        imp.online_next_button.set_label(&if failed {
+            gettext("Continue Anyway")
+        } else {
+            gettext("Next")
+        });
     }
 
     /// Next checks the address first. A failed check can be overridden
@@ -355,7 +374,7 @@ impl SetupWizard {
 
     fn choose_copy_folder(&self) {
         let dialog = gtk::FileDialog::builder()
-            .title("Choose a Folder for the Copy")
+            .title(gettext("Choose a Folder for the Copy"))
             .modal(true)
             .build();
         if let Some(parent) = self.imp().copy_parent.borrow().as_ref() {
@@ -383,7 +402,7 @@ impl SetupWizard {
         let imp = self.imp();
         let problem = match self.copy_dir() {
             None => {
-                imp.copy_row.set_subtitle("No folder chosen");
+                imp.copy_row.set_subtitle(&gettext("No folder chosen"));
                 imp.copy_group.set_description(None);
                 imp.copy_row.remove_css_class("error");
                 imp.folder_next_button.set_sensitive(false);
@@ -393,21 +412,23 @@ impl SetupWizard {
                 imp.copy_row.set_subtitle(&copy_dir.to_string_lossy());
                 let store_dir = PathBuf::from(imp.path_row.text().trim());
                 if copy_dir.to_str().is_none() {
-                    Some("This folder’s name has unsupported characters. Choose another folder.")
+                    Some(gettext(
+                        "This folder’s name has unsupported characters. Choose another folder.",
+                    ))
                 } else {
                     match setup::copy_dir_status(&store_dir, &copy_dir) {
                         CopyDirStatus::Usable => None,
-                        CopyDirStatus::InsideVault => {
-                            Some("This folder is inside the vault. Choose a folder outside it.")
-                        }
-                        CopyDirStatus::Taken => Some(
+                        CopyDirStatus::InsideVault => Some(gettext(
+                            "This folder is inside the vault. Choose a folder outside it.",
+                        )),
+                        CopyDirStatus::Taken => Some(gettext(
                             "This folder already has a “passwords.git”. Choose another folder.",
-                        ),
+                        )),
                     }
                 }
             }
         };
-        imp.copy_group.set_description(problem);
+        imp.copy_group.set_description(problem.as_deref());
         if problem.is_some() {
             imp.copy_row.add_css_class("error");
         } else {
@@ -420,23 +441,32 @@ impl SetupWizard {
 /// Whether a check result allows uploading, and how to say it.
 fn check_message(result: RemoteCheck, address: &str) -> (bool, String) {
     let message = match result {
-        RemoteCheck::Empty => return (true, "Ready: the repository exists and is empty.".into()),
-        RemoteCheck::NotEmpty => {
-            "This repository already has content. Create a new, empty one for the vault.".into()
+        RemoteCheck::Empty => {
+            return (
+                true,
+                gettext("Ready: the repository exists and is empty."),
+            )
         }
-        RemoteCheck::AccessDenied if address.starts_with("http") => {
-            "Access denied. HTTPS addresses need a saved password or token: use the SSH address instead."
-                .into()
-        }
-        RemoteCheck::AccessDenied => format!(
-            "Access denied. Add your SSH key to {}, then check again.",
-            hosts::detect(address).map_or("the service", |host| host.name)
+        RemoteCheck::NotEmpty => gettext(
+            "This repository already has content. Create a new, empty one for the vault.",
         ),
-        RemoteCheck::UnknownHost => "This server isn’t in your known SSH hosts yet. Connect to it once with ssh in a terminal, then check again.".into(),
-        RemoteCheck::Unreachable => {
-            "No repository found at this address. Check the address and your internet connection."
-                .into()
-        }
+        RemoteCheck::AccessDenied if address.starts_with("http") => gettext(
+            "Access denied. HTTPS addresses need a saved password or token: use the SSH address instead.",
+        ),
+        RemoteCheck::AccessDenied => match hosts::detect(address) {
+            Some(host) => gettext_f(
+                // Translators: {service} is GitHub, GitLab…
+                "Access denied. Add your SSH key to {service}, then check again.",
+                &[("service", host.name)],
+            ),
+            None => gettext("Access denied. Add your SSH key to the service, then check again."),
+        },
+        RemoteCheck::UnknownHost => gettext(
+            "This server isn’t in your known SSH hosts yet. Connect to it once with ssh in a terminal, then check again.",
+        ),
+        RemoteCheck::Unreachable => gettext(
+            "No repository found at this address. Check the address and your internet connection.",
+        ),
     };
     (false, message)
 }

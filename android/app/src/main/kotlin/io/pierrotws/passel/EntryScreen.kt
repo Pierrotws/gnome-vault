@@ -73,7 +73,7 @@ fun EntryScreen(open: OpenEntry, busy: String?, model: VaultViewModel) {
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = model::close) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 title = {
@@ -87,20 +87,20 @@ fun EntryScreen(open: OpenEntry, busy: String?, model: VaultViewModel) {
                 actions = {
                     if (editing) {
                         IconButton(onClick = { draft = open.entry; editing = false }) {
-                            Icon(Icons.Default.Close, contentDescription = "Cancel")
+                            Icon(Icons.Default.Close, contentDescription = tr("Cancel"))
                         }
                         IconButton(
                             // Stay in edit mode until it is saved: a failed save
                             // keeps the edits on screen.
                             onClick = { model.save(open.ref, draft) { editing = false } },
                             enabled = busy == null && draft != open.entry,
-                        ) { Icon(Icons.Default.Check, contentDescription = "Save") }
+                        ) { Icon(Icons.Default.Check, contentDescription = tr("Save")) }
                     } else {
                         IconButton(onClick = { editing = true }, enabled = busy == null) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                            Icon(Icons.Default.Edit, contentDescription = tr("Edit"))
                         }
                         IconButton(onClick = { confirmDelete = true }, enabled = busy == null) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                            Icon(Icons.Default.Delete, contentDescription = tr("Delete"))
                         }
                     }
                 },
@@ -120,7 +120,7 @@ fun EntryScreen(open: OpenEntry, busy: String?, model: VaultViewModel) {
             if (editing) {
                 EntryEditor(draft, onChange = { draft = it })
             } else {
-                SecretRow("Password", open.entry.password, model)
+                SecretRow(tr("Password"), open.entry.password, model)
                 open.entry.fields.forEach { FieldRow(it, model) }
             }
         }
@@ -129,12 +129,12 @@ fun EntryScreen(open: OpenEntry, busy: String?, model: VaultViewModel) {
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete ${open.ref.name}?") },
-            text = { Text("It stays in the vault's history.") },
+            title = { Text(tr("Delete {name}?", "name" to open.ref.name)) },
+            text = { Text(tr("It stays in the vault's history.")) },
             confirmButton = {
-                TextButton(onClick = { confirmDelete = false; model.delete(open.ref) }) { Text("Delete") }
+                TextButton(onClick = { confirmDelete = false; model.delete(open.ref) }) { Text(tr("Delete")) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(tr("Cancel")) } },
         )
     }
 }
@@ -156,14 +156,14 @@ fun NewEntryScreen(busy: String?, model: VaultViewModel) {
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = model::close) { Icon(Icons.Default.Close, contentDescription = "Cancel") }
+                    IconButton(onClick = model::close) { Icon(Icons.Default.Close, contentDescription = tr("Cancel")) }
                 },
-                title = { Text("New entry") },
+                title = { Text(tr("New entry")) },
                 actions = {
                     IconButton(
                         onClick = { model.create(folder, name, draft) },
                         enabled = busy == null && name.isNotBlank(),
-                    ) { Icon(Icons.Default.Check, contentDescription = "Save") }
+                    ) { Icon(Icons.Default.Check, contentDescription = tr("Save")) }
                 },
             )
         },
@@ -178,8 +178,8 @@ fun NewEntryScreen(busy: String?, model: VaultViewModel) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (busy != null) LinearProgressIndicator(Modifier.fillMaxWidth())
-            OutlinedTextField(folder, { folder = it }, label = { Text("Folder (e.g. web)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(name, { name = it }, label = { Text("Name (e.g. github)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(folder, { folder = it }, label = { Text(tr("Folder (e.g. web)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(name, { name = it }, label = { Text(tr("Name (e.g. github)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             EntryEditor(draft, onChange = { draft = it })
         }
     }
@@ -192,14 +192,14 @@ private fun EntryEditor(entry: Entry, onChange: (Entry) -> Unit) {
         OutlinedTextField(
             entry.password,
             { onChange(entry.copy(password = it)) },
-            label = { Text("Password") },
+            label = { Text(tr("Password")) },
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
             modifier = Modifier.weight(1f),
         )
         OutlinedButton(onClick = {
             runCatching { generatePassword(24u, true) }.onSuccess { onChange(entry.copy(password = it)) }
-        }) { Text("Generate") }
+        }) { Text(tr("Generate")) }
     }
     entry.fields.forEachIndexed { index, field ->
         Card(Modifier.fillMaxWidth()) {
@@ -208,18 +208,20 @@ private fun EntryEditor(entry: Entry, onChange: (Entry) -> Unit) {
                     OutlinedTextField(
                         field.name,
                         { name -> onChange(entry.withField(index, field.copy(name = name))) },
-                        label = { Text("Field") },
+                        // Translators: the name of an entry's field, like "login" or "url".
+                        label = { Text(tr("Field")) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = { onChange(entry.copy(fields = entry.fields.filterIndexed { i, _ -> i != index })) }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Remove field")
+                        Icon(Icons.Default.Delete, contentDescription = tr("Remove field"))
                     }
                 }
                 OutlinedTextField(
                     field.value,
                     { value -> onChange(entry.withField(index, field.copy(value = value))) },
-                    label = { Text("Value") },
+                    // Translators: the value of an entry's field.
+                    label = { Text(tr("Value")) },
                     singleLine = field.kind != FieldKind.MULTILINE,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -228,7 +230,7 @@ private fun EntryEditor(entry: Entry, onChange: (Entry) -> Unit) {
     }
     OutlinedButton(onClick = { onChange(entry.copy(fields = entry.fields + Field("", "", FieldKind.TEXT))) }) {
         Icon(Icons.Default.Add, contentDescription = null)
-        Text("Add a field")
+        Text(tr("Add a field"))
     }
 }
 
@@ -241,7 +243,7 @@ private fun FieldRow(field: Field, model: VaultViewModel) {
         FieldKind.PASSWORD -> SecretRow(field.name, field.value, model)
         FieldKind.OTP -> OtpRow(field.name, field.value, model)
         FieldKind.TEXT, FieldKind.MULTILINE -> LabeledValue(field.name, field.value) {
-            TextButton(onClick = { model.copy(field.value, field.name) }) { Text("Copy") }
+            TextButton(onClick = { model.copy(field.value, field.name) }) { Text(tr("Copy")) }
         }
     }
 }
@@ -250,8 +252,8 @@ private fun FieldRow(field: Field, model: VaultViewModel) {
 private fun SecretRow(label: String, value: String, model: VaultViewModel) {
     var shown by remember(value) { mutableStateOf(false) }
     LabeledValue(label, if (shown) value else "•".repeat(minOf(value.length, 12)), monospace = true) {
-        TextButton(onClick = { shown = !shown }) { Text(if (shown) "Hide" else "Show") }
-        TextButton(onClick = { model.copy(value, label) }) { Text("Copy") }
+        TextButton(onClick = { shown = !shown }) { Text(if (shown) tr("Hide") else tr("Show")) }
+        TextButton(onClick = { model.copy(value, label) }) { Text(tr("Copy")) }
     }
 }
 
@@ -274,7 +276,7 @@ private fun OtpRow(label: String, uri: String, model: VaultViewModel) {
         try {
             otp = otpCode(uri)
         } catch (e: PasselException) {
-            error = (e as? PasselException.Failed)?.reason ?: "Invalid one-time password"
+            error = (e as? PasselException.Failed)?.reason ?: tr("Invalid one-time password")
         }
     }
     val leftMs = periodMs - now % periodMs
@@ -320,7 +322,10 @@ private fun OtpRow(label: String, uri: String, model: VaultViewModel) {
                     }
                 }
             }
-            otp?.let { current -> TextButton(onClick = { model.copy(current.code, "Code") }) { Text("Copy") } }
+            otp?.let { current ->
+                // Translators: a one-time password code, as in "Code copied".
+                TextButton(onClick = { model.copy(current.code, tr("Code")) }) { Text(tr("Copy")) }
+            }
         }
     }
 }

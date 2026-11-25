@@ -5,6 +5,7 @@
 //! the same with GnuPG on the desktop and with a pure-Rust implementation
 //! on mobile.
 
+use crate::i18n::{gettext, gettext_f};
 use std::{
     fs,
     io::Write,
@@ -118,29 +119,31 @@ impl std::fmt::Debug for PgpError {
 // log scrubber would have to handle.
 impl std::fmt::Display for PgpError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PgpError::ContextError(_) => f.write_str("Failed to initialize OpenPGP"),
-            PgpError::InvalidPath(_) => f.write_str("Invalid path"),
-            PgpError::ReadError { source, .. } => {
-                write!(f, "Error reading file ({})", source.kind())
-            }
-            PgpError::LoadingError(_) => f.write_str("Error loading encrypted file"),
-            PgpError::DecryptError(_) => f.write_str("Error decrypting data"),
-            PgpError::EncryptError(_) => f.write_str("Error encrypting data"),
-            PgpError::Utf8Error => f.write_str("Decrypted content is not valid UTF-8"),
-            PgpError::NoRecipients(_) => f.write_str("No recipients found"),
-            PgpError::NoKeys(_) => f.write_str("No usable keys found"),
-            PgpError::InvalidUserId => f.write_str(
+        let message = match self {
+            PgpError::ContextError(_) => gettext("Failed to initialize OpenPGP"),
+            PgpError::InvalidPath(_) => gettext("Invalid path"),
+            PgpError::ReadError { source, .. } => gettext_f(
+                "Error reading file ({reason})",
+                &[("reason", &source.kind().to_string())],
+            ),
+            PgpError::LoadingError(_) => gettext("Error loading encrypted file"),
+            PgpError::DecryptError(_) => gettext("Error decrypting data"),
+            PgpError::EncryptError(_) => gettext("Error encrypting data"),
+            PgpError::Utf8Error => gettext("Decrypted content is not valid UTF-8"),
+            PgpError::NoRecipients(_) => gettext("No recipients found"),
+            PgpError::NoKeys(_) => gettext("No usable keys found"),
+            PgpError::InvalidUserId => gettext(
                 "Enter a name, and optionally a valid email, without “<”, “>” or line breaks",
             ),
-            PgpError::KeyCreationError(_) => f.write_str("Could not create the key"),
-            PgpError::ImportError(_) => f.write_str("Could not import this file"),
-            PgpError::NoSecretKey => f.write_str(
+            PgpError::KeyCreationError(_) => gettext("Could not create the key"),
+            PgpError::ImportError(_) => gettext("Could not import this file"),
+            PgpError::NoSecretKey => gettext(
                 "This file has no secret key. Import the backup of your secret key, not a public key.",
             ),
-            PgpError::ExportError(_) => f.write_str("Could not save the key backup"),
-            PgpError::Cancelled => f.write_str("Cancelled"),
-        }
+            PgpError::ExportError(_) => gettext("Could not save the key backup"),
+            PgpError::Cancelled => gettext("Cancelled"),
+        };
+        f.write_str(&message)
     }
 }
 

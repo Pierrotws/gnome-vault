@@ -9,6 +9,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
 
+use crate::i18n::{gettext, gettext_f};
 use crate::ui::setup_wizard::SetupWizard;
 use crate::ui::vault_view::{build_tree_factory, TreeViewSize};
 
@@ -50,7 +51,7 @@ impl MainWindow {
         wizard.reset(store_dir, true);
 
         let dialog = adw::Dialog::builder()
-            .title("New Vault")
+            .title(gettext("New Vault"))
             .content_width(620)
             .content_height(720)
             .child(&wizard)
@@ -94,15 +95,19 @@ impl MainWindow {
     /// or open it without.
     pub(super) fn show_enable_history_view(&self, store_dir: &Path) {
         let imp = self.imp();
-        let description = format!(
-            "<b>{}</b> holds a password store whose changes are not recorded. \
+        let description = gettext_f(
+            // Translators: {folder} is a folder path, in bold.
+            "<b>{folder}</b> holds a password store whose changes are not recorded. \
              Passel can keep a history of every change so you can undo it and sync it with a \
              remote. Your entries stay as they are.",
-            glib::markup_escape_text(&store_dir.to_string_lossy())
+            &[(
+                "folder",
+                &glib::markup_escape_text(&store_dir.to_string_lossy()),
+            )],
         );
         imp.enable_history_page.set_description(Some(&description));
         imp.main_stack.set_visible_child_name("enable-history");
         self.disable_vault_actions();
-        imp.window_title.set_subtitle("No history");
+        imp.window_title.set_subtitle(&gettext("No history"));
     }
 }

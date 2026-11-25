@@ -129,7 +129,9 @@ pub fn suggested_name(path: &Path) -> String {
         .unwrap_or_default();
     let folder = folder.trim_start_matches('.');
     match folder {
-        "" | "password-store" => "Passwords".to_string(),
+        // Translators: the name given to pass's default vault folder
+        // (~/.password-store); the user can rename it.
+        "" | "password-store" => crate::i18n::gettext("Passwords"),
         other => other.to_string(),
     }
 }

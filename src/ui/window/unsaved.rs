@@ -3,6 +3,7 @@ use std::cell::Cell;
 use adw::{prelude::*, subclass::prelude::*};
 
 use super::MainWindow;
+use crate::i18n::gettext;
 
 type Continuation = Box<dyn FnOnce(&MainWindow)>;
 
@@ -34,10 +35,13 @@ impl MainWindow {
         }
 
         let dialog = adw::AlertDialog::builder()
-            .heading("Discard changes?")
-            .body("The changes to this entry have not been saved.")
+            .heading(gettext("Discard changes?"))
+            .body(gettext("The changes to this entry have not been saved."))
             .build();
-        dialog.add_responses(&[("cancel", "_Cancel"), ("discard", "_Discard")]);
+        dialog.add_responses(&[
+            ("cancel", &gettext("_Cancel")),
+            ("discard", &gettext("_Discard")),
+        ]);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
         dialog.set_response_appearance("discard", adw::ResponseAppearance::Destructive);
