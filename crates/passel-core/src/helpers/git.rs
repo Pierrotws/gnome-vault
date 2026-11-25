@@ -127,15 +127,25 @@ pub fn is_repository(project_dir: &Path) -> bool {
 }
 
 /// Initializes a Git repository in the directory.
+///
+/// The first branch is `main`, like new repositories on GitHub, GitLab
+/// and Codeberg: an empty remote's HEAD then points at the branch the
+/// vault uploads, so other devices clone a checked-out vault.
 pub fn init(project_dir: &Path) -> Result<(), GitError> {
-    Repository::init(project_dir)?;
+    let mut options = git2::RepositoryInitOptions::new();
+    options.initial_head("main");
+    Repository::init_opts(project_dir, &options)?;
     Ok(())
 }
 
 /// Creates an empty bare repository, used as a vault copy on a folder or
 /// drive.
 pub fn init_bare(dir: &Path) -> Result<(), GitError> {
-    Repository::init_bare(dir)?;
+    // Same first branch as `init`, so the copy's HEAD names the branch
+    // the vault pushes.
+    let mut options = git2::RepositoryInitOptions::new();
+    options.bare(true).initial_head("main");
+    Repository::init_opts(dir, &options)?;
     Ok(())
 }
 
@@ -1341,6 +1351,44 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.root);
         }
+    }
+
+    /// A vault made here and pushed to an empty copy must clone, checked
+    /// out, on another device: the copy's HEAD has to name the pushed
+    /// branch.
+    #[test]
+    fn a_new_vault_clones_checked_out_elsewhere() {
+        let root = temp_dir("git-new-vault");
+        let (vault, copy, other) = (
+            root.join("vault"),
+            root.join("copy.git"),
+            root.join("other"),
+        );
+        init(&vault).unwrap();
+        set_identity(&vault, "Phone", "phone@example.invalid").unwrap();
+        // An empty repository as GitHub, GitLab or Codeberg create it.
+        let mut hosted = git2::RepositoryInitOptions::new();
+        hosted.bare(true).initial_head("main");
+        Repository::init_opts(&copy, &hosted).unwrap();
+        set_origin(&vault, copy.to_str().unwrap()).unwrap();
+        fs::write(vault.join(".gpg-id"), "ABCD\n").unwrap();
+        add(&vault, &vault.join(".gpg-id")).unwrap();
+        commit(&vault, "Initialize vault").unwrap();
+        push(&vault, None).unwrap();
+
+        assert_eq!(current_branch_name(&vault).as_deref(), Some("main"));
+        clone(copy.to_str().unwrap(), &other).unwrap();
+        assert_eq!(fs::read_to_string(other.join(".gpg-id")).unwrap(), "ABCD\n");
+
+        // Folder copies made by Passel name the same branch.
+        let folder_copy = root.join("drive.git");
+        init_bare(&folder_copy).unwrap();
+        let head = Repository::open_bare(&folder_copy).unwrap();
+        assert_eq!(
+            head.find_reference("HEAD").unwrap().symbolic_target(),
+            Some("refs/heads/main")
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
