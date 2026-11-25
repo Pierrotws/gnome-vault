@@ -10,43 +10,43 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** The remote's HTTPS login: username and personal access token. */
+/** An HTTPS login for a remote's host: username and personal access token. */
 data class RemoteLogin(val host: String, val username: String, val token: String)
 
 /**
- * Keeps the remote's token across restarts, encrypted with an AES key that
- * never leaves the Android Keystore (hardware-backed where available).
- * The Rust side only holds it in memory.
+ * Keeps the remotes' tokens across restarts (one per host), encrypted
+ * with an AES key that never leaves the Android Keystore (hardware-backed
+ * where available). The Rust side only holds them in memory.
  */
 class RemoteSecrets(context: Context) {
-    private val prefs = context.getSharedPreferences("remote", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("remote-logins", Context.MODE_PRIVATE)
 
     fun save(login: RemoteLogin) {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val sealed = cipher.doFinal(login.token.toByteArray())
-        prefs.edit()
-            .putString("host", login.host)
-            .putString("username", login.username)
-            .putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .putString("token", Base64.encodeToString(sealed, Base64.NO_WRAP))
-            .apply()
+        val value = listOf(login.username, cipher.iv, sealed).joinToString(SEPARATOR) {
+            when (it) {
+                is ByteArray -> Base64.encodeToString(it, Base64.NO_WRAP)
+                else -> Base64.encodeToString(it.toString().toByteArray(), Base64.NO_WRAP)
+            }
+        }
+        prefs.edit().putString(login.host, value).apply()
     }
 
-    fun load(): RemoteLogin? {
-        val host = prefs.getString("host", null) ?: return null
-        val username = prefs.getString("username", null) ?: return null
-        val iv = prefs.getString("iv", null) ?: return null
-        val sealed = prefs.getString("token", null) ?: return null
-        return runCatching {
+    /** Every saved login; one that cannot be decrypted is skipped. */
+    fun loadAll(): List<RemoteLogin> = prefs.all.mapNotNull { (host, value) ->
+        val parts = (value as? String)?.split(SEPARATOR)?.takeIf { it.size == 3 } ?: return@mapNotNull null
+        runCatching {
+            val (username, iv, sealed) = parts.map { Base64.decode(it, Base64.NO_WRAP) }
             val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
-            RemoteLogin(host, username, String(cipher.doFinal(Base64.decode(sealed, Base64.NO_WRAP))))
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
+            RemoteLogin(host, String(username), String(cipher.doFinal(sealed)))
         }.getOrNull()
     }
 
-    fun clear() {
-        prefs.edit().clear().apply()
+    fun forget(host: String) {
+        prefs.edit().remove(host).apply()
     }
 
     private fun key(): SecretKey {
@@ -67,5 +67,6 @@ class RemoteSecrets(context: Context) {
         const val KEYSTORE = "AndroidKeyStore"
         const val ALIAS = "passel-remote-token"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
+        const val SEPARATOR = ":"
     }
 }

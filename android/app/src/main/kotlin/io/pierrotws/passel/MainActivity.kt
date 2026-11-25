@@ -89,7 +89,7 @@ private fun PasselScreen(model: VaultViewModel) {
             state.starting -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-            state.keys.isEmpty() || !state.hasVault -> SetupScreen(state, model)
+            state.addingVault || !state.hasVault -> SetupWizard(state, model)
             open != null -> EntryScreen(open, state.busy, model)
             state.creating -> NewEntryScreen(state.busy, model)
             else -> VaultScreen(state, model)

@@ -9,6 +9,8 @@ import io.pierrotws.passel.core.EntryRef
 import io.pierrotws.passel.core.KeyInfo
 import io.pierrotws.passel.core.Passel
 import io.pierrotws.passel.core.PasselException
+import io.pierrotws.passel.core.RemoteState
+import io.pierrotws.passel.core.VaultInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +21,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** The result of checking a remote address, for the address checked. */
+data class RemoteCheckResult(val url: String, val state: RemoteState?)
+
 /** An entry open on screen. */
 data class OpenEntry(val ref: EntryRef, val entry: Entry)
 
@@ -26,7 +31,11 @@ data class VaultState(
     /** Opening the keyring and vault (first screen). */
     val starting: Boolean = true,
     val keys: List<KeyInfo> = emptyList(),
-    val hasVault: Boolean = false,
+    val vaults: List<VaultInfo> = emptyList(),
+    /** The setup wizard is open (first run, or "Add a vault"). */
+    val addingVault: Boolean = false,
+    /** What the wizard's "Check" found at the address it was given. */
+    val remoteCheck: RemoteCheckResult? = null,
     val entries: List<EntryRef> = emptyList(),
     val query: String = "",
     /** Local changes not on the remote yet. */
@@ -36,6 +45,9 @@ data class VaultState(
     val open: OpenEntry? = null,
     val creating: Boolean = false,
 ) {
+    val activeVault: VaultInfo? get() = vaults.firstOrNull { it.active }
+    val hasVault: Boolean get() = activeVault != null
+
     val filtered: List<EntryRef>
         get() = if (query.isBlank()) entries else entries.filter { it.path.contains(query.trim(), ignoreCase = true) }
 }
@@ -58,7 +70,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                app.remoteSecrets.load()?.let { passel.setHttpsCredentials(it.host, it.username, it.token) }
+                app.remoteSecrets.loadAll().forEach { passel.setHttpsCredentials(it.host, it.username, it.token) }
             }
             reload()
             mutableState.update { it.copy(starting = false) }
@@ -105,25 +117,81 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---- Vault -----------------------------------------------------------
 
-    fun cloneVault(url: String, username: String, token: String, name: String, email: String) =
-        run("Downloading the vault") {
-            val host = Uri.parse(url.trim()).host
-            if (host != null && token.isNotEmpty()) {
-                val login = RemoteLogin(host, username.trim(), token)
-                passel.setHttpsCredentials(login.host, login.username, login.token)
-                app.remoteSecrets.save(login)
+    fun startAddingVault() = mutableState.update { it.copy(addingVault = true, remoteCheck = null, open = null) }
+
+    fun stopAddingVault() = mutableState.update { it.copy(addingVault = false, remoteCheck = null) }
+
+    /** Checks what is at [url] (with this login), for the wizard. */
+    fun checkRemote(url: String, username: String, token: String) {
+        val address = url.trim()
+        mutableState.update { it.copy(remoteCheck = RemoteCheckResult(address, null)) }
+        viewModelScope.launch {
+            val found = withContext(Dispatchers.IO) {
+                useLogin(address, username, token)
+                passel.checkRemote(address)
             }
-            passel.cloneVault(url.trim(), name.trim(), email.trim())
+            mutableState.update {
+                if (it.remoteCheck?.url == address) it.copy(remoteCheck = RemoteCheckResult(address, found)) else it
+            }
+        }
+    }
+
+    fun cloneVault(name: String, url: String, username: String, token: String, author: String, email: String) =
+        run("Downloading the vault") {
+            val login = useLogin(url.trim(), username, token)
+            val vault = passel.cloneVault(name.trim(), url.trim(), author.trim(), email.trim())
+            login?.let(app.remoteSecrets::save)
+            mutableState.update { it.copy(addingVault = false, remoteCheck = null) }
             reload()
-            say("Vault ready: ${state.value.entries.size} entries")
+            say("${vault.name} is ready: ${state.value.entries.size} entries")
         }
 
-    fun removeVault() = run("Removing the vault") {
-        passel.removeVault()
-        app.remoteSecrets.load()?.let { passel.forgetCredentials(it.host) }
-        app.remoteSecrets.clear()
-        mutableState.update { it.copy(open = null, creating = false) }
+    /** [url] is null to keep the vault on this phone only. */
+    fun createVault(
+        name: String,
+        fingerprint: String,
+        url: String?,
+        username: String,
+        token: String,
+        author: String,
+        email: String,
+    ) = run("Creating the vault") {
+        val login = url?.let { useLogin(it.trim(), username, token) }
+        val created = passel.createVault(name.trim(), fingerprint, url?.trim(), author.trim(), email.trim())
+        login?.let(app.remoteSecrets::save)
+        mutableState.update { it.copy(addingVault = false, remoteCheck = null) }
         reload()
+        say(
+            created.uploadError?.let { "${created.vault.name} is ready on this phone. Not sent yet: $it" }
+                ?: "${created.vault.name} is ready",
+        )
+    }
+
+    fun switchVault(id: String) = run(null) {
+        passel.switchVault(id)
+        mutableState.update { it.copy(open = null, creating = false, query = "") }
+        reload()
+    }
+
+    fun removeVault(vault: VaultInfo) = run("Removing the vault") {
+        passel.removeVault(vault.id)
+        mutableState.update { it.copy(open = null, creating = false, query = "") }
+        reload()
+        // Forget the token when no other vault uses its host.
+        val host = vault.remoteUrl?.let { Uri.parse(it).host } ?: return@run
+        if (state.value.vaults.none { other -> other.remoteUrl?.let { Uri.parse(it).host } == host }) {
+            passel.forgetCredentials(host)
+            app.remoteSecrets.forget(host)
+        }
+    }
+
+    /** Gives Rust the login for [url]'s host; returns it (to save once it worked). */
+    private fun useLogin(url: String, username: String, token: String): RemoteLogin? {
+        val host = Uri.parse(url).host ?: return null
+        if (token.isEmpty()) return null
+        return RemoteLogin(host, username.trim(), token).also {
+            passel.setHttpsCredentials(it.host, it.username, it.token)
+        }
     }
 
     fun sync(quiet: Boolean = false) = run(if (quiet) null else "Syncing") {
@@ -188,10 +256,11 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun reload() {
         val keys = passel.keys()
-        val hasVault = passel.hasVault()
+        val vaults = passel.vaults()
+        val hasVault = vaults.any { it.active }
         val entries = if (hasVault) passel.entries() else emptyList()
         val unsynced = if (hasVault) passel.unsyncedCount().toInt() else 0
-        mutableState.update { it.copy(keys = keys, hasVault = hasVault, entries = entries, unsynced = unsynced) }
+        mutableState.update { it.copy(keys = keys, vaults = vaults, entries = entries, unsynced = unsynced) }
     }
 
     private fun run(label: String?, block: () -> Unit) {

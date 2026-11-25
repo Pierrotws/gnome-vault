@@ -23,7 +23,7 @@ use passel_core::{
 };
 use passel_ffi::{
     generate_password, otp_code, Entry, EntryRef, Field, FieldKind, KeyInfo, Passel, PasselError,
-    PassphrasePrompt,
+    PassphrasePrompt, RemoteState, VaultInfo,
 };
 
 const PASSPHRASE: &str = "phone passphrase";
@@ -138,13 +138,24 @@ fn a_phone_and_a_desktop_share_a_vault() {
 
     // Clone and browse.
     assert!(!passel.has_vault());
-    passel
+    assert_eq!(passel.check_remote(remote.clone()), RemoteState::NotEmpty);
+    let shared = passel
         .clone_vault(
+            "Shared".into(),
             remote.clone(),
             "Phone".into(),
             "phone@example.invalid".into(),
         )
         .unwrap();
+    assert_eq!(
+        shared,
+        VaultInfo {
+            id: "vaults/shared".into(),
+            name: "Shared".into(),
+            remote_url: Some(remote.clone()),
+            active: true,
+        }
+    );
     assert!(passel.has_vault());
     assert_eq!(passel.remote_url(), Some(remote.clone()));
     assert_eq!(
@@ -267,12 +278,104 @@ fn a_phone_and_a_desktop_share_a_vault() {
         );
     }
 
+    // A second vault, created on the phone and sent to an empty remote.
+    let empty_remote = dirs.root.join("new.git");
+    git::init_bare(&empty_remote).unwrap();
+    let empty_url = empty_remote.to_string_lossy().into_owned();
+    assert_eq!(passel.check_remote(empty_url.clone()), RemoteState::Empty);
+    let created = passel
+        .create_vault(
+            "Personal".into(),
+            fingerprint.clone(),
+            Some(empty_url.clone()),
+            "Phone".into(),
+            "phone@example.invalid".into(),
+        )
+        .unwrap();
+    assert_eq!(created.upload_error, None);
+    assert_eq!(created.vault.id, "vaults/personal");
+    assert!(created.vault.active);
+    assert!(passel.entries().unwrap().is_empty());
+    passel
+        .create_entry(
+            "".into(),
+            "bank".into(),
+            Entry {
+                password: "1234".into(),
+                fields: vec![],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        (passel.sync().unwrap().sent, passel.unsynced_count()),
+        (1, 0)
+    );
+    // The remote now holds it: a clone elsewhere reads .gpg-id and bank.
+    let elsewhere = dirs.root.join("elsewhere");
+    git::clone(&empty_url, &elsewhere).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(elsewhere.join(".gpg-id")).unwrap(),
+        format!("{fingerprint}\n")
+    );
+    assert!(elsewhere.join("bank.gpg").exists());
+
+    // Creating where a vault already is: refused, nothing made.
+    assert!(matches!(
+        passel.create_vault(
+            "Again".into(),
+            fingerprint.clone(),
+            Some(empty_url),
+            "Phone".into(),
+            "phone@example.invalid".into(),
+        ),
+        Err(PasselError::Failed { .. })
+    ));
+    // An unknown key: refused too.
+    assert!(passel
+        .create_vault(
+            "Nope".into(),
+            "DEADBEEF".into(),
+            None,
+            "Phone".into(),
+            "phone@example.invalid".into(),
+        )
+        .is_err());
+    assert!(!data_dir.join("vaults/nope").exists());
+
+    // Two vaults now; switching changes what the entry calls see.
+    let names = |p: &Passel| {
+        p.vaults()
+            .into_iter()
+            .map(|v| (v.name, v.active))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        names(&passel),
+        vec![("Shared".into(), false), ("Personal".into(), true)]
+    );
+    passel.switch_vault("vaults/shared".into()).unwrap();
+    assert!(passel
+        .entries()
+        .unwrap()
+        .iter()
+        .any(|e| e.path == "web/github.gpg"));
+    assert!(passel.switch_vault("../keys".into()).is_err());
+
+    // Removing the open vault opens the other one.
+    passel.remove_vault("vaults/shared".into()).unwrap();
+    assert_eq!(names(&passel), vec![("Personal".into(), true)]);
+    assert!(!data_dir.join("vaults/shared").exists());
+
     // A wrong remote fails cleanly and leaves no half-cloned vault.
-    passel.remove_vault().unwrap();
-    assert!(!passel.has_vault());
     let missing = dirs.root.join("missing.git").to_string_lossy().into_owned();
     assert!(passel
-        .clone_vault(missing, "Phone".into(), "phone@example.invalid".into())
+        .clone_vault(
+            "Missing".into(),
+            missing,
+            "Phone".into(),
+            "phone@example.invalid".into()
+        )
         .is_err());
-    assert!(!data_dir.join("vault").exists());
+    assert!(!data_dir.join("vaults/missing").exists());
+    assert_eq!(passel.vaults().len(), 1);
 }

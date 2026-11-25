@@ -1,6 +1,17 @@
 package io.pierrotws.passel
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +29,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,6 +45,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,10 +56,10 @@ import androidx.compose.ui.unit.dp
 import io.pierrotws.passel.core.Entry
 import io.pierrotws.passel.core.Field
 import io.pierrotws.passel.core.FieldKind
+import io.pierrotws.passel.core.OtpCode
 import io.pierrotws.passel.core.PasselException
 import io.pierrotws.passel.core.generatePassword
 import io.pierrotws.passel.core.otpCode
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -241,28 +255,73 @@ private fun SecretRow(label: String, value: String, model: VaultViewModel) {
     }
 }
 
-/** The current code, refreshed every second. */
+/**
+ * The current code, with a ring that empties smoothly until the next one
+ * (red for the last 5 seconds); each new code slides in.
+ */
 @Composable
 private fun OtpRow(label: String, uri: String, model: VaultViewModel) {
-    var code by remember(uri) { mutableStateOf<String?>(null) }
-    var secondsLeft by remember(uri) { mutableStateOf(0u) }
+    var otp by remember(uri) { mutableStateOf<OtpCode?>(null) }
     var error by remember(uri) { mutableStateOf<String?>(null) }
-    LaunchedEffect(uri) {
-        while (true) {
-            try {
-                val otp = otpCode(uri)
-                code = otp.code
-                secondsLeft = otp.secondsLeft
-            } catch (e: PasselException) {
-                error = (e as? PasselException.Failed)?.reason ?: "Invalid one-time password"
-                break
-            }
-            delay(1000)
+    // Wall-clock time, refreshed every frame while the row is shown.
+    val now by produceState(System.currentTimeMillis(), uri) {
+        while (true) withFrameMillis { value = System.currentTimeMillis() }
+    }
+    val periodMs = (otp?.period?.toLong() ?: 30L).coerceAtLeast(1L) * 1000L
+    val window = now / periodMs
+    // A new code is due at each period boundary.
+    LaunchedEffect(uri, window) {
+        try {
+            otp = otpCode(uri)
+        } catch (e: PasselException) {
+            error = (e as? PasselException.Failed)?.reason ?: "Invalid one-time password"
         }
     }
-    val shown = error ?: code?.let { it.chunked(3).joinToString(" ") + "  (${secondsLeft}s)" } ?: "…"
-    LabeledValue(label, shown, monospace = error == null) {
-        code?.let { current -> TextButton(onClick = { model.copy(current, "Code") }) { Text("Copy") } }
+    val leftMs = periodMs - now % periodMs
+    val urgent = leftMs <= 5_000
+    val accent by animateColorAsState(
+        if (urgent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+        label = "otp color",
+    )
+
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                val failure = error
+                if (failure != null) {
+                    Text(failure, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(36.dp)) {
+                            CircularProgressIndicator(
+                                progress = { leftMs.toFloat() / periodMs },
+                                modifier = Modifier.fillMaxSize(),
+                                color = accent,
+                                strokeWidth = 3.dp,
+                                trackColor = MaterialTheme.colorScheme.outlineVariant,
+                            )
+                            Text("${(leftMs + 999) / 1000}", style = MaterialTheme.typography.labelMedium, color = accent)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        AnimatedContent(
+                            targetState = otp?.code.orEmpty(),
+                            transitionSpec = {
+                                (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut())
+                            },
+                            label = "otp code",
+                        ) { code ->
+                            Text(
+                                code.chunked(3).joinToString(" "),
+                                style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Monospace),
+                                color = if (urgent) accent else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            }
+            otp?.let { current -> TextButton(onClick = { model.copy(current.code, "Code") }) { Text("Copy") } }
+        }
     }
 }
 

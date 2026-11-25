@@ -3,12 +3,17 @@
 A first version of Passel on Android: the same `pass` vault as the
 desktop app, opened with the same key.
 
-- Import the key backup made on a computer (or create a key on the phone
-  and share its public key), then download the vault from its HTTPS
-  address with a personal access token.
+- A setup wizard, like the desktop's: your key (import the backup made
+  on a computer, or create one and share its public key), then an
+  existing vault to download from its HTTPS address with a personal
+  access token, or a new vault to create, online in an empty repository
+  or only on the phone. "Check" tells whether an address holds a vault,
+  is empty, or refuses the token.
+- Several vaults: switch from the title bar, add one (the same wizard),
+  or remove one from the phone.
 - Browse and search entries; show and copy passwords and fields (marked
-  sensitive, cleared from the clipboard after 45 s); live one-time
-  password codes.
+  sensitive, cleared from the clipboard after 45 s); one-time password
+  codes with a countdown ring.
 - Create, edit and delete entries. Each change is committed and synced
   right away, or kept on the phone until the next sync when offline.
 - Sync both ways: changes made elsewhere come in, edits of different
@@ -17,7 +22,7 @@ desktop app, opened with the same key.
   computer; the next sync on the phone then catches up. Nothing is lost.
 
 Not there yet: biometric unlock, autofill, SSH remotes, and settings to
-change the remote or token after setup.
+change a vault's remote, token or name after setup.
 
 ## How it fits together
 
@@ -31,14 +36,15 @@ crates/passel-core (rpgp feature: keyring in the app's storage;
                     StoredCredentials: the token, kept in memory)
 ```
 
-- `Passel` (Rust) owns the keyring (`files/passel/keys`) and the vault
-  (`files/passel/vault`). Every call blocks: the app calls it on
-  `Dispatchers.IO`.
+- `Passel` (Rust) owns the keyring (`files/passel/keys`) and the vaults
+  (`files/passel/vaults/<name>`, listed in `vaults.json`; new vaults
+  are made with core's `SetupPlan`, like the desktop wizard). Every call
+  blocks: the app calls it on `Dispatchers.IO`.
 - Key passphrases are asked from Rust through `PassphrasePrompt`;
   `PromptBroker` shows the dialog and hands the answer back. They stay
   cached until **Lock**.
-- The token is stored encrypted with an Android Keystore key
-  (`RemoteSecrets`) and given to Rust at each start.
+- Tokens (one per host) are stored encrypted with an Android Keystore
+  key (`RemoteSecrets`) and given to Rust at each start.
 - The app excludes its data from backups, and release builds block
   screenshots (`FLAG_SECURE`).
 

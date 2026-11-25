@@ -2,6 +2,7 @@ package io.pierrotws.passel
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -36,19 +39,52 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VaultScreen(state: VaultState, model: VaultViewModel) {
     var menu by remember { mutableStateOf(false) }
+    var switcher by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
+    val active = state.activeVault
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Passel") },
+                // The open vault; tap to switch or add one.
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable(onClickLabel = "Switch vault") { switcher = true },
+                    ) {
+                        Text(active?.name ?: "Passel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+                    DropdownMenu(expanded = switcher, onDismissRequest = { switcher = false }) {
+                        state.vaults.forEach { vault ->
+                            DropdownMenuItem(
+                                text = { Text(vault.name) },
+                                leadingIcon = {
+                                    if (vault.active) Icon(Icons.Default.Check, contentDescription = "Open")
+                                },
+                                onClick = {
+                                    switcher = false
+                                    if (!vault.active) model.switchVault(vault.id)
+                                },
+                            )
+                        }
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("Add a vault") },
+                            leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                            onClick = { switcher = false; model.startAddingVault() },
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = { model.sync() }, enabled = state.busy == null) {
                         BadgedBox(badge = { if (state.unsynced > 0) Badge { Text("${state.unsynced}") } }) {
@@ -59,7 +95,11 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Remove the vault from this phone") },
+                            text = { Text("Add a vault") },
+                            onClick = { menu = false; model.startAddingVault() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Remove ${active?.name ?: "this vault"} from this phone") },
                             onClick = { menu = false; confirmRemove = true },
                         )
                     }
@@ -106,16 +146,16 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
         }
     }
 
-    if (confirmRemove) {
+    if (confirmRemove && active != null) {
         AlertDialog(
             onDismissRequest = { confirmRemove = false },
-            title = { Text("Remove the vault from this phone?") },
+            title = { Text("Remove ${active.name} from this phone?") },
             text = {
                 val unsynced = if (state.unsynced > 0) " ${state.unsynced} change(s) not synced yet will be lost." else ""
                 Text("The copy on your remote stays as it is; you can download it again.$unsynced")
             },
             confirmButton = {
-                TextButton(onClick = { confirmRemove = false; model.removeVault() }) { Text("Remove") }
+                TextButton(onClick = { confirmRemove = false; model.removeVault(active) }) { Text("Remove") }
             },
             dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
         )

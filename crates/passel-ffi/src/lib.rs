@@ -26,10 +26,13 @@ use passel_core::{
     },
     pass::{
         model::{EntryData, EntryField, PassNode, PassNodeKind},
-        store::{self, StoreError},
+        store::{self, RemoteCheck, SetupPlan, SetupStep, StoreError, SyncTarget},
     },
 };
 use zeroize::Zeroizing;
+
+mod vaults;
+use vaults::Vaults;
 
 uniffi::setup_scaffolding!();
 
@@ -195,6 +198,41 @@ pub struct OtpCode {
     pub period: u32,
 }
 
+/// A vault on this device.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct VaultInfo {
+    /// Stable id (its folder in the app's storage, e.g. `vaults/work`).
+    pub id: String,
+    pub name: String,
+    pub remote_url: Option<String>,
+    /// The vault the entry calls work on.
+    pub active: bool,
+}
+
+/// A vault made by [`Passel::create_vault`].
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct CreatedVault {
+    pub vault: VaultInfo,
+    /// Set when the vault works on this device but could not be sent to
+    /// its remote yet; the next [`Passel::sync`] retries.
+    pub upload_error: Option<String>,
+}
+
+/// What [`Passel::check_remote`] found at an address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum RemoteState {
+    /// Reachable and empty: a new vault can be created there.
+    Empty,
+    /// Reachable and holding commits: an existing vault to download.
+    NotEmpty,
+    /// The server refused the credentials (or there were none).
+    AccessDenied,
+    /// An SSH server whose key is not known yet.
+    UnknownHost,
+    /// Nothing usable at this address.
+    Unreachable,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
 pub struct SyncResult {
     /// Commits made elsewhere, now here.
@@ -210,9 +248,10 @@ pub struct Passel {
     keyring: Arc<RpgpBackend>,
     credentials: Arc<StoredCredentials>,
     prompt: Arc<PromptSlot>,
-    /// Serializes operations that write the vault (git is not safe to run
+    /// Serializes operations that write a vault (git is not safe to run
     /// twice at once on one repository).
     vault_lock: Mutex<()>,
+    vaults: Mutex<Vaults>,
 }
 
 /// The process-wide instance: the OpenPGP backend and git credentials are
@@ -222,7 +261,7 @@ static INSTANCE: Mutex<Option<Arc<Passel>>> = Mutex::new(None);
 #[uniffi::export]
 impl Passel {
     /// Opens (creating it on first use) the app's data under `data_dir`:
-    /// `keys/` (the keyring) and `vault/` (the cloned vault). Calling it
+    /// `keys/` (the keyring), `vaults/` and `vaults.json`. Calling it
     /// again with the same folder returns the same instance with the new
     /// prompt (e.g. after an activity was recreated).
     #[uniffi::constructor]
@@ -260,11 +299,12 @@ impl Passel {
             .map_err(|_| PasselError::failed("A git credential provider is already installed"))?;
 
         let passel = Arc::new(Self {
-            data_dir,
             keyring,
             credentials,
             prompt: prompt_slot,
             vault_lock: Mutex::new(()),
+            vaults: Mutex::new(Vaults::load(&data_dir)),
+            data_dir,
         });
         *instance = Some(Arc::clone(&passel));
         Ok(passel)
@@ -337,40 +377,149 @@ impl Passel {
 
     // ---- Vault ------------------------------------------------------
 
+    /// The vaults on this device, the open one marked `active`.
+    pub fn vaults(&self) -> Vec<VaultInfo> {
+        self.vault_list()
+            .listed()
+            .into_iter()
+            .map(|vault| VaultInfo {
+                remote_url: store::remote_url(&vault.dir),
+                id: vault.id,
+                name: vault.name,
+                active: vault.active,
+            })
+            .collect()
+    }
+
+    /// Whether a vault is open (else, run the setup).
     pub fn has_vault(&self) -> bool {
-        store::has_history(&self.vault_dir())
+        self.vault_list().active_dir().is_some()
     }
 
-    /// The vault's remote address, if any.
+    /// Opens another vault of this device.
+    pub fn switch_vault(&self, id: String) -> Result<(), PasselError> {
+        let mut vaults = self.vault_list();
+        if !vaults.activate(&id) {
+            return Err(PasselError::failed("No such vault on this device"));
+        }
+        save_list(&vaults);
+        Ok(())
+    }
+
+    /// The open vault's remote address, if any.
     pub fn remote_url(&self) -> Option<String> {
-        store::remote_url(&self.vault_dir())
+        store::remote_url(&self.vault_dir().ok()?)
     }
 
-    /// Clones the vault from `remote_url`; this device's commits are
-    /// signed `author_name <author_email>`.
+    /// Whether `remote_url` holds a vault, is empty, or cannot be used
+    /// (with the credentials set for its host).
+    pub fn check_remote(&self, remote_url: String) -> RemoteState {
+        match store::check_remote(&remote_url) {
+            RemoteCheck::Empty => RemoteState::Empty,
+            RemoteCheck::NotEmpty => RemoteState::NotEmpty,
+            RemoteCheck::AccessDenied => RemoteState::AccessDenied,
+            RemoteCheck::UnknownHost => RemoteState::UnknownHost,
+            RemoteCheck::Unreachable => RemoteState::Unreachable,
+        }
+    }
+
+    /// Downloads an existing vault from `remote_url` as `name`, and opens
+    /// it. This device's commits are signed `author_name <author_email>`.
     pub fn clone_vault(
         &self,
+        name: String,
         remote_url: String,
         author_name: String,
         author_email: String,
-    ) -> Result<(), PasselError> {
+    ) -> Result<VaultInfo, PasselError> {
         let _guard = self.lock_vault();
-        let dir = self.vault_dir();
-        if dir.exists() {
-            return Err(PasselError::failed("A vault is already set up"));
-        }
-        if let Err(err) = store::clone_vault(&remote_url, &dir, &author_name, &author_email) {
+        let dir = self.vault_list().new_dir(&name);
+        if let Err(err) = store::clone_vault(remote_url.trim(), &dir, &author_name, &author_email) {
             // A failed clone can leave a partial folder behind.
             let _ = std::fs::remove_dir_all(&dir);
             return Err(err.into());
         }
-        Ok(())
+        Ok(self.register(&dir, &name))
     }
 
-    /// Deletes this device's copy of the vault (the remote keeps its own).
-    pub fn remove_vault(&self) -> Result<(), PasselError> {
+    /// Creates a new, empty vault `name` encrypted for the key
+    /// `recipient` (a fingerprint), and opens it. With `remote_url` (an
+    /// empty repository), the vault is also sent there; if only that part
+    /// fails, the vault is still created and `upload_error` says why.
+    pub fn create_vault(
+        &self,
+        name: String,
+        recipient: String,
+        remote_url: Option<String>,
+        author_name: String,
+        author_email: String,
+    ) -> Result<CreatedVault, PasselError> {
         let _guard = self.lock_vault();
-        match std::fs::remove_dir_all(self.vault_dir()) {
+        let remote_url = remote_url
+            .map(|url| url.trim().to_string())
+            .filter(|url| !url.is_empty());
+        if let Some(url) = &remote_url {
+            match self.check_remote(url.clone()) {
+                RemoteState::Empty => {}
+                RemoteState::NotEmpty => {
+                    return Err(PasselError::failed(
+                        "This repository already holds a vault: download it instead",
+                    ))
+                }
+                RemoteState::AccessDenied => return Err(PasselError::AccessDenied),
+                RemoteState::UnknownHost | RemoteState::Unreachable => {
+                    return Err(PasselError::failed("Could not reach this address"))
+                }
+            }
+        }
+        let dir = self.vault_list().new_dir(&name);
+        let plan = SetupPlan {
+            store_dir: dir.clone(),
+            recipient,
+            sync: remote_url.map(SyncTarget::Remote),
+            autopush: true,
+        };
+        store::check_setup_plan(&plan).map_err(|err| match err {
+            StoreError::InvalidRecipient => PasselError::failed("This key is not on this device"),
+            other => other.into(),
+        })?;
+
+        let mut upload_error = None;
+        for step in plan.steps() {
+            let mut result = store::run_setup_step(&plan, step);
+            if step == SetupStep::StartHistory && result.is_ok() {
+                // A phone has no global git identity: set the vault's own
+                // before the first commit.
+                result = git::set_identity(&dir, &author_name, &author_email).map_err(Into::into);
+            }
+            match result {
+                Ok(()) => {}
+                Err(err) if step.is_sync() => {
+                    upload_error = Some(PasselError::from(err).to_string());
+                    break;
+                }
+                Err(err) => {
+                    let _ = std::fs::remove_dir_all(&dir);
+                    return Err(err.into());
+                }
+            }
+        }
+        Ok(CreatedVault {
+            vault: self.register(&dir, &name),
+            upload_error,
+        })
+    }
+
+    /// Deletes this device's copy of a vault (its remote keeps its own)
+    /// and opens the next one, if any.
+    pub fn remove_vault(&self, id: String) -> Result<(), PasselError> {
+        let _guard = self.lock_vault();
+        let mut vaults = self.vault_list();
+        let dir = vaults
+            .remove(&id)
+            .ok_or_else(|| PasselError::failed("No such vault on this device"))?;
+        save_list(&vaults);
+        match std::fs::remove_dir_all(dir) {
             Ok(()) => Ok(()),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(err) => Err(PasselError::failed(err.to_string())),
@@ -380,7 +529,7 @@ impl Passel {
     /// Exchanges changes with the remote, both ways.
     pub fn sync(&self) -> Result<SyncResult, PasselError> {
         let _guard = self.lock_vault();
-        let report = store::sync_vault(&self.vault_dir(), None)?;
+        let report = store::sync_vault(&self.vault_dir()?, None)?;
         Ok(SyncResult {
             received: saturating_u32(report.received),
             sent: saturating_u32(report.sent),
@@ -389,14 +538,16 @@ impl Passel {
 
     /// Local changes not sent to the remote yet.
     pub fn unsynced_count(&self) -> u32 {
-        store::unpushed_count(&self.vault_dir(), None)
+        self.vault_dir()
+            .ok()
+            .and_then(|dir| store::unpushed_count(&dir, None).ok())
             .map(saturating_u32)
             .unwrap_or(0)
     }
 
     /// Every entry of the vault, sorted by path.
     pub fn entries(&self) -> Result<Vec<EntryRef>, PasselError> {
-        let nodes = store::load_password_store(&self.vault_dir())
+        let nodes = store::load_password_store(&self.vault_dir()?)
             .map_err(|e| PasselError::failed(e.to_string()))?;
         let mut entries = Vec::new();
         collect_entries(&nodes, &mut entries);
@@ -407,7 +558,7 @@ impl Passel {
     /// Decrypts an entry (asking for the passphrase if needed).
     pub fn open_entry(&self, path: String) -> Result<Entry, PasselError> {
         let node = entry_node(&path)?;
-        let data = store::load_entry_from_node(&self.vault_dir(), &node)?;
+        let data = store::load_entry_from_node(&self.vault_dir()?, &node)?;
         Ok(entry_from(&data))
     }
 
@@ -416,7 +567,7 @@ impl Passel {
     pub fn save_entry(&self, path: String, entry: Entry) -> Result<(), PasselError> {
         let _guard = self.lock_vault();
         let node = entry_node(&path)?;
-        store::save_entry_data(&self.vault_dir(), &node, &entry_data(entry), false)?;
+        store::save_entry_data(&self.vault_dir()?, &node, &entry_data(entry), false)?;
         Ok(())
     }
 
@@ -430,8 +581,13 @@ impl Passel {
     ) -> Result<String, PasselError> {
         let _guard = self.lock_vault();
         let folder = relative_path(&folder, false)?;
-        let node =
-            store::create_entry_data(&self.vault_dir(), &folder, &name, &entry_data(entry), false)?;
+        let node = store::create_entry_data(
+            &self.vault_dir()?,
+            &folder,
+            &name,
+            &entry_data(entry),
+            false,
+        )?;
         Ok(path_string(&node.path))
     }
 
@@ -439,18 +595,49 @@ impl Passel {
     pub fn delete_entry(&self, path: String) -> Result<(), PasselError> {
         let _guard = self.lock_vault();
         let node = entry_node(&path)?;
-        store::delete_entry(&self.vault_dir(), &node, false)?;
+        store::delete_entry(&self.vault_dir()?, &node, false)?;
         Ok(())
     }
 }
 
 impl Passel {
-    fn vault_dir(&self) -> PathBuf {
-        self.data_dir.join("vault")
+    /// The open vault's folder.
+    fn vault_dir(&self) -> Result<PathBuf, PasselError> {
+        self.vault_list()
+            .active_dir()
+            .ok_or_else(|| PasselError::failed("No vault is open"))
+    }
+
+    fn vault_list(&self) -> std::sync::MutexGuard<'_, Vaults> {
+        self.vaults.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Lists a vault that now exists at `dir`, opens it, and describes it.
+    fn register(&self, dir: &Path, name: &str) -> VaultInfo {
+        let mut vaults = self.vault_list();
+        vaults.add(dir, name);
+        save_list(&vaults);
+        let listed = vaults
+            .listed()
+            .into_iter()
+            .find(|vault| vault.dir == dir)
+            .expect("just added");
+        VaultInfo {
+            remote_url: store::remote_url(dir),
+            id: listed.id,
+            name: listed.name,
+            active: listed.active,
+        }
     }
 
     fn lock_vault(&self) -> std::sync::MutexGuard<'_, ()> {
         self.vault_lock.lock().unwrap_or_else(|p| p.into_inner())
+    }
+}
+
+fn save_list(vaults: &Vaults) {
+    if let Err(err) = vaults.save() {
+        log::warn!("could not save the vault list: {err}");
     }
 }
 
