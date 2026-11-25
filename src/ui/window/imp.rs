@@ -60,6 +60,9 @@ pub struct MainWindow {
     pub new_entry_button: TemplateChild<gtk::Button>,
 
     #[template_child]
+    pub changes_area: TemplateChild<gtk::Box>,
+
+    #[template_child]
     pub changes_button: TemplateChild<gtk::Button>,
 
     #[template_child]

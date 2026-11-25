@@ -208,41 +208,47 @@ template $MainWindow : Adw.ApplicationWindow {
                             }
                         }
 
-                        Separator {
-                            orientation: horizontal;
-                        }
-
-                        Box {
+                        // Hidden when the open vault has no history:
+                        // there is nothing to show in Changes.
+                        Box changes_area {
                             orientation: vertical;
-                            margin-top: 8;
-                            margin-bottom: 8;
-                            margin-start: 8;
-                            margin-end: 8;
 
-                            Button changes_button {
-                                halign: fill;
-                                css-classes: ["flat"];
+                            Separator {
+                                orientation: horizontal;
+                            }
 
-                                child: Box {
-                                    orientation: horizontal;
-                                    spacing: 8;
-                                    halign: center;
-                                    margin-top: 6;
-                                    margin-bottom: 6;
+                            Box {
+                                orientation: vertical;
+                                margin-top: 8;
+                                margin-bottom: 8;
+                                margin-start: 8;
+                                margin-end: 8;
 
-                                    Image {
-                                        icon-name: "view-list-symbolic";
-                                    }
+                                Button changes_button {
+                                    halign: fill;
+                                    css-classes: ["flat"];
 
-                                    Label {
-                                        label: "Changes";
-                                    }
+                                    child: Box {
+                                        orientation: horizontal;
+                                        spacing: 8;
+                                        halign: center;
+                                        margin-top: 6;
+                                        margin-bottom: 6;
 
-                                    Label changes_badge {
-                                        css-classes: ["changes-badge"];
-                                        visible: false;
-                                    }
-                                };
+                                        Image {
+                                            icon-name: "view-list-symbolic";
+                                        }
+
+                                        Label {
+                                            label: "Changes";
+                                        }
+
+                                        Label changes_badge {
+                                            css-classes: ["changes-badge"];
+                                            visible: false;
+                                        }
+                                    };
+                                }
                             }
                         }
                     };

@@ -269,18 +269,23 @@ impl MainWindow {
         imp.window_title.set_subtitle("");
     }
 
-    /// Without history there is nothing to show in Changes.
+    /// Without history there is nothing to show in Changes: the area
+    /// (button and separator) is hidden, and the changes page is left
+    /// if it was showing.
     pub(super) fn update_history_controls(&self) {
         let has_history = self.controller().borrow().has_history();
         let imp = self.imp();
-        imp.changes_button.set_sensitive(has_history);
-        imp.changes_button.set_tooltip_text(if has_history {
-            None
-        } else {
-            Some("History is off for this vault. Turn it on in the vault’s settings.")
-        });
+        imp.changes_area.set_visible(has_history);
         if !has_history {
             imp.changes_badge.set_visible(false);
+            if imp.content_stack.visible_child_name().as_deref() == Some("changes") {
+                imp.entry_view.display_empty();
+                if self.show_group_view_enabled() {
+                    self.show_root_group_content();
+                } else {
+                    self.show_empty_content();
+                }
+            }
         }
     }
 
