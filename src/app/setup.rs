@@ -3,7 +3,7 @@
 //! Plan checks and steps touch gpgme, the filesystem and the network, so
 //! the wizard runs them on `gio::spawn_blocking` threads. Opening the new
 //! vault afterwards happens back on the main loop through
-//! [`AppController::open_new_vault`](crate::app::AppController::open_new_vault).
+//! the window's vault list (`ui::window::vaults`).
 
 use std::fs;
 use std::path::{Path, PathBuf};

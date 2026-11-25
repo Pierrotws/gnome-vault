@@ -47,6 +47,9 @@ impl MainWindow {
         imp.autoload_running.set(false);
 
         let nodes = self.controller().borrow().uncached_entry_nodes();
+        let Some(store_dir) = self.open_store_dir() else {
+            return;
+        };
         if nodes.is_empty() {
             return;
         }
@@ -54,7 +57,7 @@ impl MainWindow {
         imp.autoload_running.set(true);
         let cancel = Arc::new(AtomicBool::new(false));
         *imp.autoload_cancel.borrow_mut() = Some(Arc::clone(&cancel));
-        let receiver = cache_warmup::load_entries(nodes, Arc::clone(&cancel));
+        let receiver = cache_warmup::load_entries(store_dir, nodes, Arc::clone(&cancel));
 
         glib::timeout_add_local(
             AUTOLOAD_TICK,

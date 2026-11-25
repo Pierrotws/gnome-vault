@@ -13,5 +13,6 @@ pub mod controller;
 pub mod group_preview;
 pub mod setup;
 pub mod state;
+pub mod vaults;
 
 pub use controller::AppController;

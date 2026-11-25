@@ -164,9 +164,12 @@ impl MainWindow {
             return;
         }
 
+        let Some(store_dir) = self.open_store_dir() else {
+            return;
+        };
         let cancel = Arc::new(AtomicBool::new(false));
         *self.imp().group_preview_cancel.borrow_mut() = Some(Arc::clone(&cancel));
-        let receiver = group_preview::load_group_previews(to_load, Arc::clone(&cancel));
+        let receiver = group_preview::load_group_previews(store_dir, to_load, Arc::clone(&cancel));
 
         glib::timeout_add_local(
             GROUP_PREVIEW_TICK,

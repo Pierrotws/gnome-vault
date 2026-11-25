@@ -15,9 +15,67 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
         <child type="top">
           <object class="AdwHeaderBar">
             <property name="title-widget">
-              <object class="AdwWindowTitle" id="window_title">
-                <property name="title">Passel</property>
-                <property name="subtitle">Read-only</property>
+              <object class="GtkMenuButton" id="vault_menu_button">
+                <property name="tooltip-text">Vaults</property>
+                <property name="css-classes">flat</property>
+                <property name="popover">
+                  <object class="GtkPopover" id="vault_popover">
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">1</property>
+                        <property name="spacing">6</property>
+                        <property name="width-request">360</property>
+                        <child>
+                          <object class="GtkListBox" id="vault_list">
+                            <property name="selection-mode">0</property>
+                            <property name="css-classes">boxed-list</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSeparator"></object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="new_vault_button">
+                            <property name="css-classes">flat</property>
+                            <property name="child">
+                              <object class="GtkLabel">
+                                <property name="label">New Vault…</property>
+                                <property name="xalign">0</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="add_vault_button">
+                            <property name="css-classes">flat</property>
+                            <property name="child">
+                              <object class="GtkLabel">
+                                <property name="label">Add Existing Folder…</property>
+                                <property name="xalign">0</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+                <property name="child">
+                  <object class="GtkBox">
+                    <property name="spacing">6</property>
+                    <child>
+                      <object class="AdwWindowTitle" id="window_title">
+                        <property name="title">Passel</property>
+                        <property name="subtitle">Read-only</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkImage">
+                        <property name="icon-name">pan-down-symbolic</property>
+                      </object>
+                    </child>
+                  </object>
+                </property>
               </object>
             </property>
             <child type="start">
@@ -51,11 +109,23 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                     <property name="title">No Vault Yet</property>
                     <property name="description">A vault is an encrypted folder that holds your passwords.</property>
                     <property name="child">
-                      <object class="GtkButton" id="create_vault_button">
-                        <property name="label">Create a Vault</property>
+                      <object class="GtkBox">
+                        <property name="orientation">1</property>
+                        <property name="spacing">12</property>
                         <property name="halign">3</property>
-                        <property name="css-classes">suggested-action
+                        <child>
+                          <object class="GtkButton" id="create_vault_button">
+                            <property name="label">Create a Vault</property>
+                            <property name="css-classes">suggested-action
 pill</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="open_existing_vault_button">
+                            <property name="label">Open an Existing Folder…</property>
+                            <property name="css-classes">pill</property>
+                          </object>
+                        </child>
                       </object>
                     </property>
                   </object>
@@ -70,11 +140,42 @@ pill</property>
                     <property name="icon-name">document-open-recent-symbolic</property>
                     <property name="title">Turn On History</property>
                     <property name="child">
-                      <object class="GtkButton" id="enable_history_button">
-                        <property name="label">Turn On History</property>
+                      <object class="GtkBox">
+                        <property name="orientation">1</property>
+                        <property name="spacing">12</property>
                         <property name="halign">3</property>
-                        <property name="css-classes">suggested-action
+                        <child>
+                          <object class="GtkButton" id="enable_history_button">
+                            <property name="label">Turn On History</property>
+                            <property name="css-classes">suggested-action
 pill</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="decline_history_button">
+                            <property name="label">Not Now</property>
+                            <property name="tooltip-text">Open this vault without history. You can turn it on later in the vault’s settings.</property>
+                            <property name="css-classes">pill</property>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkStackPage">
+                <property name="name">missing</property>
+                <property name="child">
+                  <object class="AdwStatusPage" id="missing_vault_page">
+                    <property name="icon-name">folder-open-symbolic</property>
+                    <property name="title">Vault Not Found</property>
+                    <property name="child">
+                      <object class="GtkButton" id="remove_missing_vault_button">
+                        <property name="label">Remove from List</property>
+                        <property name="halign">3</property>
+                        <property name="css-classes">pill</property>
                       </object>
                     </property>
                   </object>

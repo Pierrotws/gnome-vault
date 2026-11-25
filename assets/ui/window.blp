@@ -9,9 +9,55 @@ template $MainWindow : Adw.ApplicationWindow {
     content: Adw.ToolbarView {
         [top]
         Adw.HeaderBar {
-            title-widget: Adw.WindowTitle window_title {
-                title: "Passel";
-                subtitle: "Read-only";
+            title-widget: MenuButton vault_menu_button {
+                tooltip-text: "Vaults";
+                css-classes: ["flat"];
+
+                popover: Popover vault_popover {
+                    child: Box {
+                        orientation: vertical;
+                        spacing: 6;
+                        width-request: 360;
+
+                        ListBox vault_list {
+                            selection-mode: none;
+                            css-classes: ["boxed-list"];
+                        }
+
+                        Separator {}
+
+                        Button new_vault_button {
+                            css-classes: ["flat"];
+
+                            child: Label {
+                                label: "New Vault…";
+                                xalign: 0;
+                            };
+                        }
+
+                        Button add_vault_button {
+                            css-classes: ["flat"];
+
+                            child: Label {
+                                label: "Add Existing Folder…";
+                                xalign: 0;
+                            };
+                        }
+                    };
+                };
+
+                child: Box {
+                    spacing: 6;
+
+                    Adw.WindowTitle window_title {
+                        title: "Passel";
+                        subtitle: "Read-only";
+                    }
+
+                    Image {
+                        icon-name: "pan-down-symbolic";
+                    }
+                };
             };
 
             [start]
@@ -41,10 +87,20 @@ template $MainWindow : Adw.ApplicationWindow {
                     title: "No Vault Yet";
                     description: "A vault is an encrypted folder that holds your passwords.";
 
-                    child: Button create_vault_button {
-                        label: "Create a Vault";
+                    child: Box {
+                        orientation: vertical;
+                        spacing: 12;
                         halign: center;
-                        css-classes: ["suggested-action", "pill"];
+
+                        Button create_vault_button {
+                            label: "Create a Vault";
+                            css-classes: ["suggested-action", "pill"];
+                        }
+
+                        Button open_existing_vault_button {
+                            label: "Open an Existing Folder…";
+                            css-classes: ["pill"];
+                        }
                     };
                 };
             }
@@ -55,10 +111,35 @@ template $MainWindow : Adw.ApplicationWindow {
                     icon-name: "document-open-recent-symbolic";
                     title: "Turn On History";
 
-                    child: Button enable_history_button {
-                        label: "Turn On History";
+                    child: Box {
+                        orientation: vertical;
+                        spacing: 12;
                         halign: center;
-                        css-classes: ["suggested-action", "pill"];
+
+                        Button enable_history_button {
+                            label: "Turn On History";
+                            css-classes: ["suggested-action", "pill"];
+                        }
+
+                        Button decline_history_button {
+                            label: "Not Now";
+                            tooltip-text: "Open this vault without history. You can turn it on later in the vault’s settings.";
+                            css-classes: ["pill"];
+                        }
+                    };
+                };
+            }
+
+            StackPage {
+                name: "missing";
+                child: Adw.StatusPage missing_vault_page {
+                    icon-name: "folder-open-symbolic";
+                    title: "Vault Not Found";
+
+                    child: Button remove_missing_vault_button {
+                        label: "Remove from List";
+                        halign: center;
+                        css-classes: ["pill"];
                     };
                 };
             }

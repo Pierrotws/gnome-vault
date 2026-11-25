@@ -75,6 +75,33 @@ pub struct MainWindow {
     pub create_vault_button: TemplateChild<gtk::Button>,
 
     #[template_child]
+    pub open_existing_vault_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub decline_history_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub missing_vault_page: TemplateChild<adw::StatusPage>,
+
+    #[template_child]
+    pub remove_missing_vault_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub vault_menu_button: TemplateChild<gtk::MenuButton>,
+
+    #[template_child]
+    pub vault_popover: TemplateChild<gtk::Popover>,
+
+    #[template_child]
+    pub vault_list: TemplateChild<gtk::ListBox>,
+
+    #[template_child]
+    pub new_vault_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub add_vault_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
     pub enable_history_page: TemplateChild<adw::StatusPage>,
 
     #[template_child]
@@ -90,6 +117,8 @@ pub struct MainWindow {
     /// preferences can stop an in-flight cache warmup.
     pub autoload_cancel: RefCell<Option<Arc<AtomicBool>>>,
     pub group_preview_generation: Cell<u64>,
+    /// The vaults the user opened, and which one is active.
+    pub vaults: RefCell<crate::app::vaults::VaultList>,
     /// The setup wizard's dialog while it is open.
     pub setup_dialog: glib::WeakRef<adw::Dialog>,
     /// Shared with the in-flight group-preview worker. Navigating away

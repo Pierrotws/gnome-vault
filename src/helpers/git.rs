@@ -187,6 +187,29 @@ fn classify_remote_error(err: &git2::Error) -> RemoteCheck {
     }
 }
 
+/// True when the repository has at least one remote configured.
+pub fn has_remote(project_dir: &Path) -> bool {
+    open_repository(project_dir)
+        .and_then(|repo| Ok(!repo.remotes()?.is_empty()))
+        .unwrap_or(false)
+}
+
+/// The origin remote's URL, if any.
+pub fn origin_url(project_dir: &Path) -> Option<String> {
+    let repo = open_repository(project_dir).ok()?;
+    let remote = repo.find_remote("origin").ok()?;
+    remote.url().map(str::to_string)
+}
+
+/// Removes the origin remote; a missing one is not an error.
+pub fn remove_origin(project_dir: &Path) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    match repo.remote_delete("origin") {
+        Err(err) if err.code() == ErrorCode::NotFound => Ok(()),
+        other => Ok(other?),
+    }
+}
+
 /// Adds or updates the origin remote URL.
 pub fn set_origin(project_dir: &Path, remote_url: &str) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;

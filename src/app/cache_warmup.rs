@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 
@@ -28,6 +29,7 @@ pub enum CacheWarmupMessage {
 /// cancellation set by the UI stops the loop without finishing the
 /// remaining nodes.
 pub fn load_entries(
+    store_dir: PathBuf,
     nodes: Vec<PassNode>,
     cancel: Arc<AtomicBool>,
 ) -> mpsc::Receiver<CacheWarmupMessage> {
@@ -38,7 +40,7 @@ pub fn load_entries(
             if cancel.load(Ordering::Relaxed) {
                 break;
             }
-            let message = match AppController::load_entry_for_cache(&node) {
+            let message = match AppController::load_entry_for_cache(&store_dir, &node) {
                 Ok(entry) => CacheWarmupMessage::Loaded(node, entry),
                 Err(err) => CacheWarmupMessage::Failed {
                     index,

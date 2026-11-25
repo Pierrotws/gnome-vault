@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 
@@ -29,6 +30,7 @@ pub enum GroupPreviewMessage {
 /// checks `cancel` before each entry so navigating away (or starting a
 /// new preview load) stops the loop instead of running to completion.
 pub fn load_group_previews(
+    store_dir: PathBuf,
     items: Vec<(usize, PassNode)>,
     cancel: Arc<AtomicBool>,
 ) -> mpsc::Receiver<GroupPreviewMessage> {
@@ -39,7 +41,7 @@ pub fn load_group_previews(
             if cancel.load(Ordering::Relaxed) {
                 break;
             }
-            let message = match AppController::load_entry_for_cache(&node) {
+            let message = match AppController::load_entry_for_cache(&store_dir, &node) {
                 Ok(entry) => GroupPreviewMessage::Loaded { index, node, entry },
                 Err(err) => GroupPreviewMessage::Failed {
                     index,

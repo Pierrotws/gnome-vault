@@ -1,10 +1,10 @@
-//! Preferences dialog: autopush, startup autoload, group-view layout.
+//! Preferences dialog: startup autoload, group-view layout, tree size.
+//! Per-vault settings (branch, auto-push, remote) are in each vault's
+//! settings dialog.
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
-
-use crate::app::controller::AppController;
 
 use super::MainWindow;
 
@@ -14,9 +14,6 @@ impl MainWindow {
         let dialog = builder
             .object::<adw::PreferencesDialog>("preferences_dialog")
             .expect("preferences_dialog must exist in preferences_dialog.ui");
-        let autopush_row = builder
-            .object::<adw::SwitchRow>("autopush_row")
-            .expect("autopush_row must exist in preferences_dialog.ui");
         let autoload_row = builder
             .object::<adw::SwitchRow>("autoload_row")
             .expect("autoload_row must exist in preferences_dialog.ui");
@@ -29,54 +26,13 @@ impl MainWindow {
         let tree_view_size_row = builder
             .object::<adw::ComboRow>("tree_view_size_row")
             .expect("tree_view_size_row must exist in preferences_dialog.ui");
-        let store_dir_row = builder
-            .object::<adw::EntryRow>("store_dir_row")
-            .expect("store_dir_row must exist in preferences_dialog.ui");
-        let branch_row = builder
-            .object::<adw::EntryRow>("branch_row")
-            .expect("branch_row must exist in preferences_dialog.ui");
 
-        autopush_row.set_active(self.setting_boolean("autopush", true));
         autoload_row.set_active(self.setting_boolean("autoload", false));
         show_group_view_row.set_active(self.show_group_view_enabled());
         interpret_multiline_as_markdown_row
             .set_active(self.setting_boolean("interpret-multiline-as-markdown", true));
         tree_view_size_row.set_selected(tree_view_size_index(
             &self.setting_string("tree-view-size", "medium"),
-        ));
-        // Debug builds are pinned to the dev store, and GSettings is
-        // shared with the installed app, so show the pin read-only.
-        if let Some(dev_dir) = crate::pass::store::dev_store_dir() {
-            store_dir_row.set_text(&dev_dir.to_string_lossy());
-            store_dir_row.set_sensitive(false);
-        } else {
-            store_dir_row.set_text(&self.setting_string("store-dir", ""));
-        }
-        // Prefer an explicit user override; otherwise fall back to whatever
-        // branch the working tree currently has checked out, so the field is
-        // never blank if the repo is in a sensible state.
-        let branch_setting = self.setting_string("branch", "");
-        let branch_text = if branch_setting.trim().is_empty() {
-            AppController::current_branch_name().unwrap_or_default()
-        } else {
-            branch_setting
-        };
-        branch_row.set_text(&branch_text);
-
-        autopush_row.connect_active_notify(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |row| {
-                let settings = window.settings();
-                if let Err(err) = settings.set_boolean("autopush", row.is_active()) {
-                    window.imp().entry_view.show_error_dialog(&err.to_string());
-                    return;
-                }
-                window.apply_autopush_setting();
-                if let Err(err) = window.reload_changes_view() {
-                    window.imp().entry_view.show_error_dialog(&err.to_string());
-                }
-            }
         ));
 
         autoload_row.connect_active_notify(glib::clone!(
@@ -168,59 +124,6 @@ impl MainWindow {
                     return;
                 }
                 window.apply_tree_view_size_setting();
-            }
-        ));
-
-        store_dir_row.connect_apply(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |row| {
-                if !window.settings_has_key("store-dir") {
-                    window
-                        .imp()
-                        .entry_view
-                        .show_error_dialog("GSettings schema is missing store-dir");
-                    return;
-                }
-                let value = row.text().trim().to_string();
-                let settings = window.settings();
-                if let Err(err) = settings.set_string("store-dir", &value) {
-                    window.imp().entry_view.show_error_dialog(&err.to_string());
-                    return;
-                }
-                // Update the env var so subsequent store ops resolve to the
-                // new directory. The currently-loaded tree, opened entry,
-                // and decrypted cache still reflect the old vault until the
-                // user reloads or restarts.
-                window.apply_store_dir_setting();
-                window
-                    .imp()
-                    .entry_view
-                    .show_error_dialog("Vault directory updated; restart the app to load it");
-            }
-        ));
-
-        branch_row.connect_apply(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |row| {
-                if !window.settings_has_key("branch") {
-                    window
-                        .imp()
-                        .entry_view
-                        .show_error_dialog("GSettings schema is missing branch");
-                    return;
-                }
-                let value = row.text().trim().to_string();
-                let settings = window.settings();
-                if let Err(err) = settings.set_string("branch", &value) {
-                    window.imp().entry_view.show_error_dialog(&err.to_string());
-                    return;
-                }
-                window.apply_branch_setting();
-                if let Err(err) = window.reload_changes_view() {
-                    window.imp().entry_view.show_error_dialog(&err.to_string());
-                }
             }
         ));
 
