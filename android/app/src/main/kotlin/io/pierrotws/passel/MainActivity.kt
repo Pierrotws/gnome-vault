@@ -131,6 +131,16 @@ private fun PassphraseDialog(request: PromptRequest, onAnswer: (String?) -> Unit
     )
 }
 
+/**
+ * A masked field for passphrases and tokens.
+ *
+ * It keeps the deprecated `PasswordVisualTransformation` on purpose: its
+ * replacement, `OutlinedSecureTextField` (Compose 1.13), hands the typed
+ * text in clear to accessibility services, where this one only exposes
+ * the dots (checked with a UI Automator dump on Android 16). Revisit
+ * when the secure field masks its accessibility text.
+ */
+@Suppress("DEPRECATION")
 @Composable
 fun PasswordField(
     value: String,

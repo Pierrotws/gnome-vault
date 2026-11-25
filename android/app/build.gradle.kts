@@ -9,7 +9,7 @@ plugins {
 val rustOut = layout.buildDirectory.dir("generated/rust")
 val rustAbis = providers.gradleProperty("passel.abis").get().split(" ").filter(String::isNotBlank)
 
-val buildRust by tasks.registering(Exec::class) {
+val buildRust = tasks.register<Exec>("buildRust") {
     description = "Builds libpassel_ffi.so and its Kotlin bindings"
     workingDir = rootDir
     commandLine(listOf("bash", rootDir.resolve("build-rust.sh").path, rustOut.get().asFile.path) + rustAbis)

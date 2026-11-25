@@ -1526,15 +1526,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "glib-build-tools"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bf3abfd1e60b194dded50f802277c68a59121a5a221701102f02db223cdda27"
-dependencies = [
- "gio",
-]
-
-[[package]]
 name = "glib-macros"
 version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2502,7 +2493,6 @@ version = "0.2.0"
 dependencies = [
  "env_logger",
  "getrandom 0.4.2",
- "glib-build-tools",
  "gtk-markdown",
  "gtk4",
  "libadwaita",
