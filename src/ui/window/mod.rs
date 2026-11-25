@@ -15,6 +15,7 @@ use gtk::{gio, glib};
 use crate::app::changes;
 use crate::app::controller::AppController;
 use crate::pass::model::{PassNode, PassNodeKind};
+use crate::pass::store::StoreStatus;
 use crate::ui::vault_view::{
     build_group_selection_with_root, build_selection_from_nodes_with_autoexpand,
 };
@@ -57,16 +58,33 @@ impl MainWindow {
     }
 
     fn setup_views(&self) {
-        let imp = self.imp();
-
         self.setup_vault_setup_view();
         self.apply_tree_view_size_setting();
 
+        match AppController::store_status() {
+            StoreStatus::Ready => {}
+            StoreStatus::PassWithoutGit => {
+                self.show_enable_history_view();
+                return;
+            }
+            status @ (StoreStatus::Missing | StoreStatus::Empty | StoreStatus::Unrelated) => {
+                log::debug!("no vault to open ({status:?}), showing setup view");
+                self.show_setup_view();
+                return;
+            }
+        }
         if let Err(err) = self.reload_vault_tree() {
             log::debug!("vault unavailable, showing setup view: {err}");
             self.show_setup_view();
             return;
         }
+        self.show_opened_vault();
+    }
+
+    /// Switches to the app view on a vault whose tree the controller has
+    /// just loaded: at startup, or once setup has created or adopted one.
+    fn show_opened_vault(&self) {
+        let imp = self.imp();
         imp.entry_view.display_empty();
         if self.show_group_view_enabled() {
             self.show_root_group_content();
@@ -467,6 +485,14 @@ impl MainWindow {
             self,
             move |_| {
                 window.create_vault_from_setup();
+            }
+        ));
+
+        imp.enable_history_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
+                window.enable_history_from_setup();
             }
         ));
     }

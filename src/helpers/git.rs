@@ -154,6 +154,17 @@ pub fn add(project_dir: &Path, file_path: &Path) -> Result<(), GitError> {
     Ok(())
 }
 
+/// Stages every file in the worktree, honoring `.gitignore`.
+pub fn add_all(project_dir: &Path) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let mut index = repo.index()?;
+
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    index.write()?;
+
+    Ok(())
+}
+
 /// Stages a file deletion in the repository index.
 pub fn remove(project_dir: &Path, file_path: &Path) -> Result<(), GitError> {
     let repo = open_repository(project_dir)?;

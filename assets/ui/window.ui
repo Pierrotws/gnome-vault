@@ -71,7 +71,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                       </object>
                     </child>
                     <child>
-                      <object class="AdwPreferencesGroup">
+                      <object class="AdwPreferencesGroup" id="setup_vault_group">
                         <property name="title">Vault</property>
                         <child>
                           <object class="AdwEntryRow" id="setup_path_row">
@@ -114,6 +114,25 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                         </child>
                       </object>
                     </child>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkStackPage">
+                <property name="name">enable-history</property>
+                <property name="child">
+                  <object class="AdwStatusPage" id="enable_history_page">
+                    <property name="icon-name">document-open-recent-symbolic</property>
+                    <property name="title">Turn On History</property>
+                    <property name="child">
+                      <object class="GtkButton" id="enable_history_button">
+                        <property name="label">Turn On History</property>
+                        <property name="halign">3</property>
+                        <property name="css-classes">suggested-action
+pill</property>
+                      </object>
+                    </property>
                   </object>
                 </property>
               </object>

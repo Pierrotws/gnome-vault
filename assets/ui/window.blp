@@ -59,7 +59,7 @@ template $MainWindow : Adw.ApplicationWindow {
                         css-classes: ["dim-label"];
                     }
 
-                    Adw.PreferencesGroup {
+                    Adw.PreferencesGroup setup_vault_group {
                         title: "Vault";
 
                         Adw.EntryRow setup_path_row {
@@ -94,6 +94,20 @@ template $MainWindow : Adw.ApplicationWindow {
                             css-classes: ["suggested-action"];
                         }
                     }
+                };
+            }
+
+            StackPage {
+                name: "enable-history";
+                child: Adw.StatusPage enable_history_page {
+                    icon-name: "document-open-recent-symbolic";
+                    title: "Turn On History";
+
+                    child: Button enable_history_button {
+                        label: "Turn On History";
+                        halign: center;
+                        css-classes: ["suggested-action", "pill"];
+                    };
                 };
             }
 

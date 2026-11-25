@@ -5,10 +5,11 @@ use std::path::{Path, PathBuf};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
+use gtk::glib;
 
 use crate::app::app_error::AppError;
 use crate::app::controller::AppController;
-use crate::pass::store::{StoreError, VaultSetup};
+use crate::pass::store::{StoreError, StoreStatus, VaultSetup};
 use crate::ui::vault_view::{build_tree_factory, TreeViewSize};
 
 use super::{MainWindow, SETUP_PROVIDER_NONE};
@@ -120,9 +121,60 @@ impl MainWindow {
         imp.window_title.set_subtitle("Setup");
     }
 
+    /// Shown when the vault folder holds a pass store that git does not
+    /// track yet: offers to put it under git instead of creating a vault.
+    pub(super) fn show_enable_history_view(&self) {
+        let imp = self.imp();
+        let store_dir = AppController::default_store_dir();
+        let description = format!(
+            "<b>{}</b> already holds a password store, but its changes are not tracked yet. \
+             Passel keeps a history of every change so you can undo it and sync it with a remote. \
+             Your entries stay as they are.",
+            glib::markup_escape_text(&store_dir.to_string_lossy())
+        );
+        imp.enable_history_page.set_description(Some(&description));
+        imp.main_stack.set_visible_child_name("enable-history");
+        imp.new_entry_button.set_sensitive(false);
+        imp.lock_vault_button.set_sensitive(false);
+        imp.changes_button.set_sensitive(false);
+        imp.window_title.set_subtitle("Setup");
+    }
+
+    pub(super) fn enable_history_from_setup(&self) {
+        let result = self.controller().borrow_mut().enable_history();
+        match result {
+            Ok(()) => {
+                self.rebuild_vault_tree();
+                self.show_opened_vault();
+            }
+            Err(err) => self.show_error_dialog(&err.to_string()),
+        }
+    }
+
     pub(super) fn update_create_vault_button(&self) {
         let imp = self.imp();
-        let has_path = !imp.setup_path_row.text().trim().is_empty();
+        let path = imp.setup_path_row.text();
+        let path = path.trim();
+        let has_path = !path.is_empty();
+        let folder_problem = if has_path {
+            match AppController::folder_status(Path::new(path)) {
+                StoreStatus::Missing | StoreStatus::Empty | StoreStatus::Ready => None,
+                StoreStatus::PassWithoutGit => {
+                    Some("This folder already holds a password store. Choose an empty folder.")
+                }
+                StoreStatus::Unrelated => {
+                    Some("This folder is not empty. Choose an empty or new folder.")
+                }
+            }
+        } else {
+            None
+        };
+        imp.setup_vault_group.set_description(folder_problem);
+        if folder_problem.is_some() {
+            imp.setup_path_row.add_css_class("error");
+        } else {
+            imp.setup_path_row.remove_css_class("error");
+        }
         let has_recipient = imp
             .setup_recipients
             .borrow()
@@ -131,8 +183,9 @@ impl MainWindow {
         let needs_remote = imp.setup_provider_row.selected() != SETUP_PROVIDER_NONE;
         let has_remote = !imp.setup_remote_row.text().trim().is_empty();
 
-        imp.create_vault_button
-            .set_sensitive(has_path && has_recipient && (!needs_remote || has_remote));
+        imp.create_vault_button.set_sensitive(
+            has_path && folder_problem.is_none() && has_recipient && (!needs_remote || has_remote),
+        );
     }
 
     pub(super) fn create_vault_from_setup(&self) {
@@ -174,11 +227,7 @@ impl MainWindow {
                 if let Err(err) = self.reload_changes_view() {
                     self.show_error_dialog(&err.to_string());
                 }
-                imp.entry_view.display_empty();
-                self.show_empty_content();
-                self.set_edit_unlock_state(false, false, false);
-                self.show_app_view();
-                self.start_autoload_if_enabled();
+                self.show_opened_vault();
             }
             // The on-disk vault was created successfully but the running
             // process can no longer retarget PASSWORD_STORE_DIR. Persist

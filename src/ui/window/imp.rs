@@ -72,7 +72,16 @@ pub struct MainWindow {
     pub preferences_button: TemplateChild<gtk::Button>,
 
     #[template_child]
+    pub setup_vault_group: TemplateChild<adw::PreferencesGroup>,
+
+    #[template_child]
     pub setup_path_row: TemplateChild<adw::EntryRow>,
+
+    #[template_child]
+    pub enable_history_page: TemplateChild<adw::StatusPage>,
+
+    #[template_child]
+    pub enable_history_button: TemplateChild<gtk::Button>,
 
     #[template_child]
     pub setup_recipient_row: TemplateChild<adw::ComboRow>,

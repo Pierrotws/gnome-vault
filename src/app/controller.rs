@@ -12,7 +12,7 @@ use crate::{
     pass::{
         self,
         model::{EntryData, EntryField, PassNode},
-        store::{GpgRecipient, VaultSetup},
+        store::{GpgRecipient, StoreStatus, VaultSetup},
     },
 };
 use std::path::{Path, PathBuf};
@@ -148,6 +148,25 @@ impl AppController {
         if !tree.is_empty() {
             self.state.clear_entry_cache();
         }
+        self.state.set_current_session(None);
+        self.state.set_tree(tree);
+        Ok(())
+    }
+
+    /// Classifies the active password-store directory for startup.
+    pub fn store_status() -> StoreStatus {
+        pass::store::check_store(&pass::store::password_store_dir())
+    }
+
+    /// Classifies a folder typed into the setup form.
+    pub fn folder_status(dir: &Path) -> StoreStatus {
+        pass::store::check_store(dir)
+    }
+
+    /// Puts the active pass store under git, then loads it.
+    pub fn enable_history(&mut self) -> Result<(), AppError> {
+        pass::store::enable_history(&pass::store::password_store_dir())?;
+        let tree = pass::store::load_password_store()?;
         self.state.set_current_session(None);
         self.state.set_tree(tree);
         Ok(())

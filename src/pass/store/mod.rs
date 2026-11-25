@@ -157,6 +157,83 @@ pub fn setup_vault(setup: &VaultSetup) -> Result<(), StoreError> {
     Ok(())
 }
 
+/// What the startup check found at a password-store directory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StoreStatus {
+    /// The folder does not exist yet.
+    Missing,
+    /// The folder exists and holds nothing.
+    Empty,
+    /// The folder is a git repository: the app can open it.
+    Ready,
+    /// A pass store (`.gpg-id` at its root) whose changes git does not
+    /// track yet, e.g. one made with `pass init` but never `pass git init`.
+    PassWithoutGit,
+    /// The folder holds files but is not a password store, or the path
+    /// is not a readable folder at all.
+    Unrelated,
+}
+
+/// Classifies `dir` so startup can pick between opening the vault,
+/// creating one, or turning on history for an existing pass store.
+pub fn check_store(dir: &Path) -> StoreStatus {
+    if git::is_repository(dir) {
+        return StoreStatus::Ready;
+    }
+    match fs::read_dir(dir) {
+        Err(err) if err.kind() == io::ErrorKind::NotFound => StoreStatus::Missing,
+        Err(_) => StoreStatus::Unrelated,
+        Ok(mut children) => {
+            if children.next().is_none() {
+                StoreStatus::Empty
+            } else if dir.join(".gpg-id").is_file() {
+                StoreStatus::PassWithoutGit
+            } else {
+                StoreStatus::Unrelated
+            }
+        }
+    }
+}
+
+/// Puts an existing pass store under git: initializes the repository and
+/// commits every file already there, like `pass git init`.
+///
+/// When staging or committing fails (typically a missing git identity),
+/// the freshly created `.git` is removed again so the store is left
+/// exactly as it was and the next launch offers the same choice.
+pub fn enable_history(dir: &Path) -> Result<(), StoreError> {
+    enable_history_with(dir, |_| Ok(()))
+}
+
+/// [`enable_history`] with a hook run right after `git init`, before
+/// anything is committed, so tests can set a repository-local identity.
+fn enable_history_with(
+    dir: &Path,
+    configure: impl FnOnce(&Path) -> Result<(), git::GitError>,
+) -> Result<(), StoreError> {
+    if check_store(dir) != StoreStatus::PassWithoutGit {
+        return Err(StoreError::InvalidFolderPath(dir.to_path_buf()));
+    }
+    // check_store found no repository, but a broken `.git` could still be
+    // there; never initialize over it, nor remove it on rollback.
+    let git_dir = dir.join(".git");
+    if git_dir.exists() {
+        return Err(StoreError::DestinationExists(git_dir));
+    }
+
+    git::init(dir)?;
+    let committed = configure(dir)
+        .and_then(|()| git::add_all(dir))
+        .and_then(|()| git::commit(dir, "Add current contents of password store."));
+    if let Err(err) = committed {
+        if let Err(cleanup_err) = fs::remove_dir_all(&git_dir) {
+            log::warn!("Failed to remove the half-initialized repository: {cleanup_err}");
+        }
+        return Err(err.into());
+    }
+    Ok(())
+}
+
 /// Lists usable GPG recipients for a newly created vault.
 pub fn available_recipients() -> Result<Vec<GpgRecipient>, StoreError> {
     Ok(pgp::available_recipients()?)
@@ -858,5 +935,113 @@ mod tests {
         // ensure_inside_store check below catches symlink escapes.
         assert!(validate_folder_path(Path::new("Personal/Work")).is_ok());
         assert!(validate_folder_path(Path::new("")).is_ok());
+    }
+    fn pass_store_without_git(name: &str) -> PathBuf {
+        let dir = temp_dir(name);
+        fs::create_dir_all(dir.join("Personal")).unwrap();
+        fs::write(dir.join(".gpg-id"), "ABCDEF0123456789\n").unwrap();
+        fs::write(dir.join("Personal/mail.gpg"), "encrypted").unwrap();
+        dir
+    }
+
+    fn set_local_identity(dir: &Path, name: &str) -> Result<(), git::GitError> {
+        let mut config = git2::Repository::open(dir)?.config()?;
+        config.set_str("user.name", name)?;
+        config.set_str("user.email", "test@example.invalid")?;
+        Ok(())
+    }
+
+    #[test]
+    fn classifies_store_directories() {
+        let root = temp_dir("check-store");
+
+        assert_eq!(check_store(&root.join("missing")), StoreStatus::Missing);
+
+        let empty = root.join("empty");
+        fs::create_dir_all(&empty).unwrap();
+        assert_eq!(check_store(&empty), StoreStatus::Empty);
+
+        let unrelated = root.join("unrelated");
+        fs::create_dir_all(&unrelated).unwrap();
+        fs::write(unrelated.join("notes.txt"), "hello").unwrap();
+        assert_eq!(check_store(&unrelated), StoreStatus::Unrelated);
+
+        let file = root.join("file");
+        fs::write(&file, "not a folder").unwrap();
+        assert_eq!(check_store(&file), StoreStatus::Unrelated);
+
+        let pass_only = root.join("pass-only");
+        fs::create_dir_all(&pass_only).unwrap();
+        fs::write(pass_only.join(".gpg-id"), "ABCDEF0123456789\n").unwrap();
+        assert_eq!(check_store(&pass_only), StoreStatus::PassWithoutGit);
+
+        let repo = root.join("repo");
+        git2::Repository::init(&repo).unwrap();
+        assert_eq!(check_store(&repo), StoreStatus::Ready);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn enable_history_commits_existing_entries() {
+        let dir = pass_store_without_git("enable-history");
+
+        enable_history_with(&dir, |dir| set_local_identity(dir, "Passel Tests")).unwrap();
+
+        assert_eq!(check_store(&dir), StoreStatus::Ready);
+        let repo = git2::Repository::open(&dir).unwrap();
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        assert_eq!(
+            head.message(),
+            Some("Add current contents of password store.")
+        );
+        let tree = head.tree().unwrap();
+        assert!(tree.get_path(Path::new(".gpg-id")).is_ok());
+        assert!(tree.get_path(Path::new("Personal/mail.gpg")).is_ok());
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn enable_history_rolls_back_when_commit_fails() {
+        let dir = pass_store_without_git("enable-history-rollback");
+
+        // An empty user.name cannot build a commit signature.
+        let result = enable_history_with(&dir, |dir| set_local_identity(dir, ""));
+
+        assert!(matches!(
+            result,
+            Err(StoreError::Git(git::GitError::NoSignature))
+        ));
+        assert!(!dir.join(".git").exists());
+        assert_eq!(check_store(&dir), StoreStatus::PassWithoutGit);
+        assert!(dir.join("Personal/mail.gpg").is_file());
+
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn enable_history_refuses_other_folders() {
+        let root = temp_dir("enable-history-refuse");
+        let empty = root.join("empty");
+        fs::create_dir_all(&empty).unwrap();
+        assert!(matches!(
+            enable_history(&empty),
+            Err(StoreError::InvalidFolderPath(_))
+        ));
+        assert!(!empty.join(".git").exists());
+
+        // A broken .git (not openable as a repository) is left untouched.
+        let broken = pass_store_without_git("enable-history-broken");
+        fs::create_dir_all(broken.join(".git")).unwrap();
+        fs::write(broken.join(".git/marker"), "keep me").unwrap();
+        assert!(matches!(
+            enable_history(&broken),
+            Err(StoreError::DestinationExists(_))
+        ));
+        assert!(broken.join(".git/marker").is_file());
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(broken).unwrap();
     }
 }
