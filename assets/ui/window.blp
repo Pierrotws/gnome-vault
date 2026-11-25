@@ -36,7 +36,17 @@ template $MainWindow : Adw.ApplicationWindow {
         content: Stack main_stack {
             StackPage {
                 name: "setup";
-                child: $SetupWizard setup_wizard {};
+                child: Adw.StatusPage no_vault_page {
+                    icon-name: "dialog-password-symbolic";
+                    title: "No Vault Yet";
+                    description: "A vault is an encrypted folder that holds your passwords.";
+
+                    child: Button create_vault_button {
+                        label: "Create a Vault";
+                        halign: center;
+                        css-classes: ["suggested-action", "pill"];
+                    };
+                };
             }
 
             StackPage {

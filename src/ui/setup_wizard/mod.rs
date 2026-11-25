@@ -84,11 +84,29 @@ impl SetupWizard {
         let imp = self.imp();
         imp.autopush.set(autopush);
         imp.run.replace(None);
+        self.set_locked(false);
         imp.path_row.set_text(&store_dir.to_string_lossy());
         self.reset_key_page();
         imp.navigation.pop_to_tag("welcome");
         self.update_vault_next();
         self.reset_sync();
+    }
+
+    /// Emitted with `true` while the wizard must not be closed.
+    pub fn connect_locked_changed<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self, bool) + 'static,
+    {
+        self.connect_local("locked-changed", false, move |values| {
+            let obj = values[0]
+                .get::<SetupWizard>()
+                .expect("locked-changed: first arg should be SetupWizard");
+            let locked = values[1]
+                .get::<bool>()
+                .expect("locked-changed: second arg should be bool");
+            f(&obj, locked);
+            None
+        })
     }
 
     pub fn connect_vault_created<F>(&self, f: F) -> glib::SignalHandlerId
@@ -260,7 +278,7 @@ impl SetupWizard {
         imp.apply_button.set_label("Create Vault");
         imp.apply_button.set_sensitive(true);
         imp.review_back_button.set_sensitive(true);
-        imp.review_page.set_can_pop(true);
+        self.set_locked(false);
     }
 
     fn apply(&self) {
@@ -281,6 +299,9 @@ impl SetupWizard {
         }
 
         imp.running.set(true);
+        // A run in progress must finish (or fail) before the wizard can
+        // be left, or its worker would keep writing with no one watching.
+        self.set_locked(true);
         imp.apply_button.set_sensitive(false);
         imp.review_back_button.set_sensitive(false);
         imp.skip_button.set_visible(false);
@@ -309,6 +330,7 @@ impl SetupWizard {
             if let Err(message) = flatten(result) {
                 self.show_failure(&message, None);
                 imp.review_back_button.set_sensitive(true);
+                self.set_locked(false);
                 return;
             }
         }
@@ -320,16 +342,15 @@ impl SetupWizard {
             if let Err(message) = flatten(result) {
                 self.set_row_state(index, StepState::Failed);
                 self.show_failure(&message, Some(step));
-                imp.review_back_button.set_sensitive(self.done_count() == 0);
+                let nothing_written = self.done_count() == 0;
+                imp.review_back_button.set_sensitive(nothing_written);
+                self.set_locked(!nothing_written);
                 return;
             }
             self.set_row_state(index, StepState::Done);
             if let Some(run) = imp.run.borrow_mut().as_mut() {
                 run.done = index + 1;
             }
-            // Something is on disk now: going back to change the plan
-            // would leave it half applied.
-            imp.review_page.set_can_pop(false);
         }
 
         imp.apply_button.set_label("Open Vault");
@@ -378,6 +399,13 @@ impl SetupWizard {
 
     fn done_count(&self) -> usize {
         self.imp().run.borrow().as_ref().map_or(0, |run| run.done)
+    }
+
+    /// Locks the wizard while steps run and once anything is on disk:
+    /// going back (or closing it) would leave a half-applied plan.
+    fn set_locked(&self, locked: bool) {
+        self.imp().review_page.set_can_pop(!locked);
+        self.emit_by_name::<()>("locked-changed", &[&locked]);
     }
 
     fn emit_vault_created(&self) {

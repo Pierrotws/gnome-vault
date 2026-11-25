@@ -57,7 +57,6 @@ impl MainWindow {
     }
 
     fn setup_views(&self) {
-        self.setup_vault_setup_view();
         self.apply_tree_view_size_setting();
 
         match AppController::store_status() {
@@ -444,12 +443,10 @@ impl MainWindow {
             }
         ));
 
-        imp.setup_wizard.connect_vault_created(glib::clone!(
+        imp.create_vault_button.connect_clicked(glib::clone!(
             #[weak(rename_to = window)]
             self,
-            move |_, store_dir| {
-                window.open_created_vault(&store_dir);
-            }
+            move |_| window.present_setup_wizard()
         ));
 
         imp.enable_history_button.connect_clicked(glib::clone!(

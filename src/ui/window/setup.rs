@@ -1,5 +1,5 @@
-//! Vault setup glue: GSettings → env propagation, the first-run wizard
-//! (see [`crate::ui::setup_wizard`]) and the "turn on history" page.
+//! Vault setup glue: GSettings → env propagation, the setup wizard's
+//! dialog (see [`crate::ui::setup_wizard`]) and the "turn on history" page.
 
 use std::path::{Path, PathBuf};
 
@@ -10,6 +10,7 @@ use gtk::glib;
 use crate::app::app_error::AppError;
 use crate::app::controller::AppController;
 use crate::pass::store::StoreError;
+use crate::ui::setup_wizard::SetupWizard;
 use crate::ui::vault_view::{build_tree_factory, TreeViewSize};
 
 use super::MainWindow;
@@ -85,7 +86,9 @@ impl MainWindow {
         // the badge as part of reloading the change list).
     }
 
-    pub(super) fn setup_vault_setup_view(&self) {
+    /// Folder suggested for a new vault: the configured one, or pass's
+    /// default location.
+    fn default_new_vault_dir(&self) -> PathBuf {
         // Debug builds ignore the shared store-dir setting, which names
         // the installed app's real vault.
         let configured_store_dir = if self.settings_has_key("store-dir")
@@ -95,18 +98,61 @@ impl MainWindow {
         } else {
             String::new()
         };
-        let default_store_dir = if configured_store_dir.trim().is_empty() {
+        if configured_store_dir.trim().is_empty() {
             AppController::default_store_dir()
         } else {
             PathBuf::from(&configured_store_dir)
-        };
-        let autopush = self.controller().borrow().autopush();
-        self.imp().setup_wizard.reset(&default_store_dir, autopush);
+        }
     }
 
+    /// Opens the setup wizard in a dialog (once: a second call while it
+    /// is open does nothing).
+    pub(super) fn present_setup_wizard(&self) {
+        let imp = self.imp();
+        if imp.setup_dialog.upgrade().is_some() {
+            return;
+        }
+        let wizard = SetupWizard::new();
+        let autopush = self.controller().borrow().autopush();
+        wizard.reset(&self.default_new_vault_dir(), autopush);
+
+        let dialog = adw::Dialog::builder()
+            .title("New Vault")
+            .content_width(620)
+            .content_height(720)
+            .child(&wizard)
+            .build();
+        wizard.connect_locked_changed(glib::clone!(
+            #[weak]
+            dialog,
+            move |_, locked| dialog.set_can_close(!locked)
+        ));
+        wizard.connect_vault_created(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            #[weak]
+            dialog,
+            move |_, store_dir| {
+                if window.open_created_vault(&store_dir) {
+                    dialog.force_close();
+                }
+            }
+        ));
+        imp.setup_dialog.set(Some(&dialog));
+        dialog.present(Some(self));
+    }
+
+    /// Shows the "No Vault Yet" page and opens the wizard over it.
     pub(super) fn show_setup_view(&self) {
         let imp = self.imp();
         imp.main_stack.set_visible_child_name("setup");
+        // At startup the window is not shown yet: a dialog needs a mapped
+        // parent, so open it once the main loop runs.
+        glib::idle_add_local_once(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move || window.present_setup_wizard()
+        ));
         imp.new_entry_button.set_sensitive(false);
         imp.lock_vault_button.set_sensitive(false);
         imp.changes_button.set_sensitive(false);
@@ -144,19 +190,21 @@ impl MainWindow {
     }
 
     /// Opens the vault the setup wizard just created at `store_dir`.
-    pub(super) fn open_created_vault(&self, store_dir: &Path) {
+    /// Returns whether it is now open.
+    pub(super) fn open_created_vault(&self, store_dir: &Path) -> bool {
         let result = self.controller().borrow_mut().open_new_vault(store_dir);
         match result {
             Ok(()) => {
                 if let Err(err) = self.persist_store_dir_setting(store_dir) {
                     self.show_error_dialog(&err);
-                    return;
+                    return false;
                 }
                 self.rebuild_vault_tree();
                 if let Err(err) = self.reload_changes_view() {
                     self.show_error_dialog(&err.to_string());
                 }
                 self.show_opened_vault();
+                true
             }
             // The on-disk vault was created successfully but the running
             // process can no longer retarget PASSWORD_STORE_DIR. Persist
@@ -168,11 +216,15 @@ impl MainWindow {
             Err(AppError::Save(StoreError::RestartRequired)) => {
                 if let Err(err) = self.persist_store_dir_setting(store_dir) {
                     self.show_error_dialog(&err);
-                    return;
+                    return false;
                 }
                 self.show_error_dialog(&StoreError::RestartRequired.to_string());
+                false
             }
-            Err(err) => self.show_error_dialog(&err.to_string()),
+            Err(err) => {
+                self.show_error_dialog(&err.to_string());
+                false
+            }
         }
     }
 

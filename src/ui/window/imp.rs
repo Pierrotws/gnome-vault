@@ -72,7 +72,7 @@ pub struct MainWindow {
     pub preferences_button: TemplateChild<gtk::Button>,
 
     #[template_child]
-    pub setup_wizard: TemplateChild<crate::ui::setup_wizard::SetupWizard>,
+    pub create_vault_button: TemplateChild<gtk::Button>,
 
     #[template_child]
     pub enable_history_page: TemplateChild<adw::StatusPage>,
@@ -90,6 +90,8 @@ pub struct MainWindow {
     /// preferences can stop an in-flight cache warmup.
     pub autoload_cancel: RefCell<Option<Arc<AtomicBool>>>,
     pub group_preview_generation: Cell<u64>,
+    /// The setup wizard's dialog while it is open.
+    pub setup_dialog: glib::WeakRef<adw::Dialog>,
     /// Shared with the in-flight group-preview worker. Navigating away
     /// from a group (or starting a new preview load) sets the previous
     /// flag so the worker stops decrypting the rest of the queue

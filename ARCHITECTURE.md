@@ -102,7 +102,7 @@ Primary files:
 | --- | --- |
 | `src/main.rs` | Initializes logging, GResources, local schema lookup, and the Adwaita application. |
 | `src/ui/window/mod.rs` | Main UI orchestration, signal wiring, edit-mode state. |
-| `src/ui/window/setup.rs` | Startup routing glue, `PASSWORD_STORE_DIR` propagation, and the "Turn On History" page for a pass store without git. |
+| `src/ui/window/setup.rs` | Startup routing glue, `PASSWORD_STORE_DIR` propagation, the setup wizard's dialog with the "No Vault Yet" page behind it, and the "Turn On History" page for a pass store without git. |
 | `src/ui/setup_wizard/` | First-run wizard (`Adw.NavigationView`): collects a `SetupPlan`, then runs its steps on a worker with per-step progress, retry and skip. `key.rs` holds the encryption key page (use, create or import a GPG key, save a backup); `sync.rs` holds the sync pages (online copy, folder/drive copy, this computer only); `hosts.rs` lists the hosting services with free private repositories and how to create an empty one on each. |
 | `src/ui/window/preferences.rs` | Preferences dialog (autopush, autoload, group view, store dir, branch). |
 | `src/ui/window/autoload.rs` | Background entry-cache warmup tick handler. |

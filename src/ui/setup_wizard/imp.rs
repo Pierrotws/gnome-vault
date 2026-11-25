@@ -219,6 +219,11 @@ impl ObjectImpl for SetupWizard {
                 Signal::builder("vault-created")
                     .param_types([String::static_type()])
                     .build(),
+                // The wizard must not be left (or its dialog closed): a run
+                // is in progress or something is already on disk.
+                Signal::builder("locked-changed")
+                    .param_types([bool::static_type()])
+                    .build(),
             ]
         })
     }
