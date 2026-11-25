@@ -29,7 +29,6 @@ impl MainWindow {
         imp.group_view.set_group(node, &entries);
         imp.content_stack.set_visible_child_name("empty");
         imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Group");
         self.start_group_subtitle_load(node);
     }
 
@@ -71,7 +70,6 @@ impl MainWindow {
         imp.group_view.set_group(&pseudo_group, &entries);
         imp.content_stack.set_visible_child_name("empty");
         imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Search");
         // Bump the preview generation so any in-flight subtitle load from a
         // previous (non-search) group view doesn't overwrite parent-path
         // subtitles when its results trickle in. Also cancel its worker

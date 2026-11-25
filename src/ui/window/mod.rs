@@ -910,10 +910,10 @@ impl MainWindow {
             Ok(n) => n,
             Err(err) => {
                 log::debug!("unable to compute unpushed count: {err}");
-                badge.set_visible(false);
-                return;
+                0
             }
         };
+        self.update_vault_subtitle(count);
         if count == 0 {
             badge.set_visible(false);
         } else {
@@ -987,14 +987,12 @@ impl MainWindow {
         imp.new_entry_button.set_sensitive(true);
         imp.changes_button.set_sensitive(true);
         imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Read-only");
     }
 
     fn show_empty_content(&self) {
         let imp = self.imp();
         imp.content_stack.set_visible_child_name("empty");
         imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Read-only");
     }
 
     fn show_entry_content(&self) {
@@ -1062,7 +1060,6 @@ impl MainWindow {
         let imp = self.imp();
         imp.content_stack.set_visible_child_name("changes");
         imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Changes");
     }
 
     fn show_error_dialog(&self, message: &str) {
@@ -1122,8 +1119,6 @@ impl MainWindow {
         } else {
             "Unlock editing"
         }));
-        imp.window_title
-            .set_subtitle(if editing { "Editing" } else { "Read-only" });
     }
 }
 

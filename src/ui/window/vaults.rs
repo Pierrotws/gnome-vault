@@ -259,6 +259,7 @@ impl MainWindow {
         imp.missing_vault_page.set_description(Some(&description));
         imp.main_stack.set_visible_child_name("missing");
         self.disable_vault_actions();
+        imp.window_title.set_subtitle("Folder not found");
     }
 
     pub(super) fn disable_vault_actions(&self) {
@@ -278,6 +279,7 @@ impl MainWindow {
         imp.changes_area.set_visible(has_history);
         if !has_history {
             imp.changes_badge.set_visible(false);
+            self.update_vault_subtitle(0);
             if imp.content_stack.visible_child_name().as_deref() == Some("changes") {
                 imp.entry_view.display_empty();
                 if self.show_group_view_enabled() {
@@ -287,6 +289,22 @@ impl MainWindow {
                 }
             }
         }
+    }
+
+    /// The header's subtitle shows the open vault's state only, and
+    /// nothing when all is well. `unpushed` is the number of commits not
+    /// pushed yet.
+    pub(super) fn update_vault_subtitle(&self, unpushed: usize) {
+        let subtitle = if !self.controller().borrow().has_history() {
+            "No history".to_string()
+        } else {
+            match unpushed {
+                0 => String::new(),
+                1 => "1 change not pushed".to_string(),
+                n => format!("{n} changes not pushed"),
+            }
+        };
+        self.imp().window_title.set_subtitle(&subtitle);
     }
 
     /// Rebuilds the switcher's list and the window title.

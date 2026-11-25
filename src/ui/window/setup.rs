@@ -103,5 +103,6 @@ impl MainWindow {
         imp.enable_history_page.set_description(Some(&description));
         imp.main_stack.set_visible_child_name("enable-history");
         self.disable_vault_actions();
+        imp.window_title.set_subtitle("No history");
     }
 }
