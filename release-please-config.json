@@ -11,6 +11,10 @@
         {
           "type": "generic",
           "path": "meson.build"
+        },
+        {
+          "type": "generic",
+          "path": "android/gradle.properties"
         }
       ]
     }

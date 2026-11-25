@@ -254,3 +254,94 @@ jobs:
               git -C "$aur_dir" push origin master
             fi
           done
+
+  google-play:
+    # The Android app, signed with the upload key, to Google Play's
+    # internal testing track (promote it to wider tracks by hand in Play
+    # Console). One-time setup: android/README.md, "Publishing on Google
+    # Play". Until its secrets exist, the job only says so.
+    name: Android app to Google Play (internal testing)
+    if: startsWith(github.ref, 'refs/tags/')
+    # The upload key and the service account are environment secrets; the
+    # `google-play` environment should only accept v* tags, like `aur`.
+    environment: google-play
+    runs-on: ubuntu-24.04
+    env:
+      CONFIGURED: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' && secrets.PLAY_UPLOAD_KEYSTORE_BASE64 != '' }}
+    steps:
+      - name: Check the Play setup
+        if: env.CONFIGURED != 'true'
+        run: |
+          echo "::notice title=Google Play::Not published: the google-play environment lacks its secrets (see android/README.md)."
+
+      - name: Checkout
+        if: env.CONFIGURED == 'true'
+        uses: actions/checkout@v7
+
+      - name: Release version matches the app's
+        if: env.CONFIGURED == 'true'
+        shell: bash
+        run: |
+          app=$(sed -n 's/^passel\.version=//p' android/gradle.properties)
+          if [[ "$app" != "${GITHUB_REF_NAME#v}" ]]; then
+            echo "::error::android/gradle.properties says $app, the release is $GITHUB_REF_NAME"
+            exit 1
+          fi
+
+      - name: JDK
+        if: env.CONFIGURED == 'true'
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Rust Android targets
+        if: env.CONFIGURED == 'true'
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+
+      - name: Cache cargo
+        if: env.CONFIGURED == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: google-play
+          workspaces: ". -> build/target"
+
+      - name: Android platform
+        if: env.CONFIGURED == 'true'
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.1" > /dev/null
+
+      - name: Build the signed app bundle
+        if: env.CONFIGURED == 'true'
+        working-directory: android
+        env:
+          PLAY_UPLOAD_KEYSTORE_BASE64: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 }}
+          PASSEL_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEYSTORE_PASSWORD }}
+          PASSEL_UPLOAD_KEY_ALIAS: ${{ secrets.PLAY_UPLOAD_KEY_ALIAS }}
+          PASSEL_UPLOAD_KEY_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEY_PASSWORD }}
+        run: |
+          export PASSEL_UPLOAD_KEYSTORE="$RUNNER_TEMP/upload.jks"
+          printf '%s' "$PLAY_UPLOAD_KEYSTORE_BASE64" | base64 -d > "$PASSEL_UPLOAD_KEYSTORE"
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          ./gradlew --no-daemon --console=plain \
+            "-Ppassel.abis=arm64-v8a armeabi-v7a x86_64" bundleRelease
+          rm -f "$PASSEL_UPLOAD_KEYSTORE"
+
+      - name: Keep the bundle
+        if: env.CONFIGURED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: passel-android-release
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Upload to Google Play
+        if: env.CONFIGURED == 'true'
+        # Pinned to a commit: this action receives the service account key.
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: io.pierrotws.passel
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          releaseName: ${{ github.ref_name }}
+          track: internal
+          status: completed

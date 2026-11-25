@@ -68,3 +68,57 @@ found through `ANDROID_NDK_HOME`, or the newest one in the SDK.
 The Rust side is tested on the desktop: `cargo test -p passel-ffi` runs
 the whole mobile API (key, clone, edit, sync, conflict) against a local
 remote.
+
+## Publishing on Google Play
+
+Each release (release-please's tag, `vX.Y.Z`) is built, signed with the
+upload key and sent to Play's **internal testing** track by the
+`google-play` job of `.github/workflows/packages.yml`. Promote a build to
+closed testing or production by hand in Play Console. The version comes
+from `passel.version` in `gradle.properties` (bumped by release-please);
+the version code is derived from it (`1.2.3` → 1002003).
+
+One-time setup:
+
+1. **Play Console**: create the app (Passel, free). Fill in what *App
+   content* asks for (privacy policy, data safety, ads, content rating,
+   target audience) and add testers to *Testing › Internal testing*.
+2. **Upload key** (keep it and its passwords safe; Google signs the
+   installed app with its own key through Play App Signing):
+
+   ```bash
+   keytool -genkeypair -keystore passel-upload.jks -alias upload \
+     -keyalg RSA -keysize 4096 -validity 10000
+   ```
+
+3. **First upload, by hand**: Play only accepts uploads through its API
+   once an app bundle was uploaded in Play Console.
+
+   ```bash
+   cd android
+   PASSEL_UPLOAD_KEYSTORE=/path/to/passel-upload.jks \
+   PASSEL_UPLOAD_KEYSTORE_PASSWORD=… PASSEL_UPLOAD_KEY_ALIAS=upload PASSEL_UPLOAD_KEY_PASSWORD=… \
+     ./gradlew "-Ppassel.abis=arm64-v8a armeabi-v7a x86_64" bundleRelease
+   ```
+
+   Upload `app/build/outputs/bundle/release/app-release.aab` as a new
+   internal testing release (this also sets the package name,
+   `io.pierrotws.passel`, and enrolls Play App Signing).
+4. **Service account**: in Google Cloud, enable the *Google Play Android
+   Developer API*, create a service account and a JSON key for it. In
+   Play Console, *Users and permissions* › invite its email, with the
+   *Release apps to testing tracks* permission on Passel.
+5. **GitHub**: *Settings › Environments*, create `google-play`; under
+   *Deployment branches and tags*, allow only tags matching `v*` (like
+   `aur`). Add these environment secrets:
+
+   | Secret | Value |
+   | --- | --- |
+   | `PLAY_SERVICE_ACCOUNT_JSON` | the service account's JSON key |
+   | `PLAY_UPLOAD_KEYSTORE_BASE64` | `base64 -w0 passel-upload.jks` |
+   | `PLAY_UPLOAD_KEYSTORE_PASSWORD` | the keystore's password |
+   | `PLAY_UPLOAD_KEY_ALIAS` | `upload` |
+   | `PLAY_UPLOAD_KEY_PASSWORD` | the key's password |
+
+Until the secrets exist, releases still go out; the job just notes that
+Google Play was skipped.
