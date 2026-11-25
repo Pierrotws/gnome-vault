@@ -99,25 +99,53 @@ template $SetupWizard : Adw.Bin {
                         spacing: 18;
 
                         Label {
-                            label: "Sync";
+                            label: "Use It on Other Devices?";
+                            wrap: true;
                             css-classes: ["title-1"];
                         }
 
                         Label {
-                            label: "Optionally keep a copy of the vault on a remote, to use it from other devices.";
+                            label: "Passel can keep an encrypted copy of your vault somewhere else, so you can use it from another computer or your phone.";
                             wrap: true;
                             xalign: 0;
                             css-classes: ["dim-label"];
                         }
 
                         Adw.PreferencesGroup {
-                            Adw.ComboRow provider_row {
-                                title: "Provider";
+                            Adw.ActionRow online_row {
+                                title: "Keep an online copy";
+                                subtitle: "In a private repository on a free service like GitHub. Works from anywhere.";
+                                activatable-widget: online_check;
+
+                                [prefix]
+                                CheckButton online_check {
+                                    valign: center;
+                                    active: true;
+                                }
                             }
 
-                            Adw.EntryRow remote_row {
-                                title: "Remote URL";
-                                sensitive: false;
+                            Adw.ActionRow folder_row {
+                                title: "Copy to a folder or drive";
+                                subtitle: "A USB drive, or a folder synced by Nextcloud or Syncthing. No account needed.";
+                                activatable-widget: folder_check;
+
+                                [prefix]
+                                CheckButton folder_check {
+                                    valign: center;
+                                    group: online_check;
+                                }
+                            }
+
+                            Adw.ActionRow local_row {
+                                title: "Only on this computer";
+                                subtitle: "Entries never leave this computer.";
+                                activatable-widget: local_check;
+
+                                [prefix]
+                                CheckButton local_check {
+                                    valign: center;
+                                    group: online_check;
+                                }
                             }
                         }
 
@@ -130,6 +158,184 @@ template $SetupWizard : Adw.Bin {
                             }
 
                             Button sync_next_button {
+                                label: "Next";
+                                css-classes: ["suggested-action"];
+                            }
+                        }
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "online";
+            title: "Online Copy";
+
+            child: ScrolledWindow {
+                hscrollbar-policy: never;
+
+                child: Adw.Clamp {
+                    maximum-size: 560;
+                    valign: center;
+                    margin-top: 24;
+                    margin-bottom: 24;
+                    margin-start: 24;
+                    margin-end: 24;
+
+                    child: Box {
+                        orientation: vertical;
+                        spacing: 18;
+
+                        Label {
+                            label: "Online Copy";
+                            wrap: true;
+                            css-classes: ["title-1"];
+                        }
+
+                        Label {
+                            label: "Any of these services offers free private repositories. If you have no account yet, pick one and create it on the service’s website.";
+                            wrap: true;
+                            xalign: 0;
+                            css-classes: ["dim-label"];
+                        }
+
+                        Box {
+                            spacing: 12;
+                            css-classes: ["card"];
+
+                            Image {
+                                icon-name: "dialog-warning-symbolic";
+                                valign: start;
+                                margin-top: 12;
+                                margin-start: 12;
+                            }
+
+                            Label {
+                                label: "Entries are encrypted, but their names (like “Bank/mybank”) are not. Always keep the repository private.";
+                                wrap: true;
+                                xalign: 0;
+                                hexpand: true;
+                                margin-top: 12;
+                                margin-bottom: 12;
+                                margin-end: 12;
+                            }
+                        }
+
+                        Adw.PreferencesGroup {
+                            Adw.ComboRow host_row {
+                                title: "Service";
+                            }
+                        }
+
+                        Adw.PreferencesGroup host_steps_group {
+                            title: "Create an Empty Private Repository";
+                        }
+
+                        Adw.PreferencesGroup address_group {
+                            title: "Repository Address";
+
+                            Adw.EntryRow address_row {
+                                title: "SSH address";
+
+                                [suffix]
+                                Button check_button {
+                                    label: "Check";
+                                    valign: center;
+                                }
+                            }
+                        }
+
+                        Box check_box {
+                            spacing: 8;
+                            visible: false;
+
+                            Spinner check_spinner {
+                                valign: start;
+                            }
+
+                            Image check_icon {
+                                valign: start;
+                            }
+
+                            Label check_label {
+                                wrap: true;
+                                xalign: 0;
+                                hexpand: true;
+                            }
+                        }
+
+                        Box {
+                            halign: end;
+                            spacing: 12;
+
+                            Button online_back_button {
+                                label: "Back";
+                            }
+
+                            Button online_next_button {
+                                label: "Next";
+                                css-classes: ["suggested-action"];
+                            }
+                        }
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "folder";
+            title: "Folder Copy";
+
+            child: ScrolledWindow {
+                hscrollbar-policy: never;
+
+                child: Adw.Clamp {
+                    maximum-size: 560;
+                    valign: center;
+                    margin-top: 24;
+                    margin-bottom: 24;
+                    margin-start: 24;
+                    margin-end: 24;
+
+                    child: Box {
+                        orientation: vertical;
+                        spacing: 18;
+
+                        Label {
+                            label: "Copy to a Folder or Drive";
+                            wrap: true;
+                            css-classes: ["title-1"];
+                        }
+
+                        Label {
+                            label: "Passel creates an encrypted copy named “passwords.git” in the folder you choose, and keeps it up to date as you save changes.";
+                            wrap: true;
+                            xalign: 0;
+                            css-classes: ["dim-label"];
+                        }
+
+                        Adw.PreferencesGroup copy_group {
+                            Adw.ActionRow copy_row {
+                                title: "Folder";
+                                subtitle: "No folder chosen";
+
+                                [suffix]
+                                Button choose_copy_button {
+                                    label: "Choose…";
+                                    valign: center;
+                                }
+                            }
+                        }
+
+                        Box {
+                            halign: end;
+                            spacing: 12;
+
+                            Button folder_back_button {
+                                label: "Back";
+                            }
+
+                            Button folder_next_button {
                                 label: "Next";
                                 css-classes: ["suggested-action"];
                             }

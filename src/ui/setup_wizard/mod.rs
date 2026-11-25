@@ -1,7 +1,9 @@
 //! First-run wizard: collects a [`SetupPlan`] over a few pages, then runs
 //! its steps on a worker thread with live progress on the review page.
 
+mod hosts;
 mod imp;
+mod sync;
 
 use std::path::{Path, PathBuf};
 
@@ -9,10 +11,7 @@ use adw::{prelude::*, subclass::prelude::*};
 use gtk::{gio, glib};
 
 use crate::app::setup;
-use crate::pass::store::{SetupPlan, SetupStep, StoreStatus};
-
-/// Index of "No Sync" in the provider combo.
-const PROVIDER_NONE: u32 = 0;
+use crate::pass::store::{SetupPlan, SetupStep, StoreStatus, SyncTarget};
 
 glib::wrapper! {
     pub struct SetupWizard(ObjectSubclass<imp::SetupWizard>)
@@ -85,12 +84,10 @@ impl SetupWizard {
         imp.autopush.set(autopush);
         imp.run.replace(None);
         imp.path_row.set_text(&store_dir.to_string_lossy());
-        imp.provider_row.set_selected(PROVIDER_NONE);
-        imp.remote_row.set_text("");
         self.load_recipients();
         imp.navigation.pop_to_tag("welcome");
         self.update_vault_next();
-        self.update_sync_next();
+        self.reset_sync();
     }
 
     pub fn connect_vault_created<F>(&self, f: F) -> glib::SignalHandlerId
@@ -111,9 +108,7 @@ impl SetupWizard {
 
     fn setup(&self) {
         let imp = self.imp();
-        let provider_model = gtk::StringList::new(&["No Sync", "GitHub", "GitLab", "Custom"]);
-        imp.provider_row.set_model(Some(&provider_model));
-        imp.provider_row.set_selected(PROVIDER_NONE);
+        self.setup_sync();
 
         // Every handler captures the wizard weakly: its template children
         // own the closures, so a strong capture would be a ref cycle.
@@ -125,6 +120,8 @@ impl SetupWizard {
         for back in [
             &*imp.vault_back_button,
             &*imp.sync_back_button,
+            &*imp.online_back_button,
+            &*imp.folder_back_button,
             &*imp.review_back_button,
         ] {
             back.connect_clicked(glib::clone!(
@@ -150,29 +147,6 @@ impl SetupWizard {
             #[weak(rename_to = wizard)]
             self,
             move |_| wizard.imp().navigation.push_by_tag("sync")
-        ));
-
-        imp.provider_row.connect_selected_notify(glib::clone!(
-            #[weak(rename_to = wizard)]
-            self,
-            move |row| {
-                let sync_enabled = row.selected() != PROVIDER_NONE;
-                wizard.imp().remote_row.set_sensitive(sync_enabled);
-                wizard.update_sync_next();
-            }
-        ));
-        imp.remote_row.connect_changed(glib::clone!(
-            #[weak(rename_to = wizard)]
-            self,
-            move |_| wizard.update_sync_next()
-        ));
-        imp.sync_next_button.connect_clicked(glib::clone!(
-            #[weak(rename_to = wizard)]
-            self,
-            move |_| {
-                wizard.prepare_review();
-                wizard.imp().navigation.push_by_tag("review");
-            }
         ));
 
         imp.apply_button.connect_clicked(glib::clone!(
@@ -237,14 +211,6 @@ impl SetupWizard {
             .set_sensitive(!path.is_empty() && folder_problem.is_none() && has_recipient);
     }
 
-    fn update_sync_next(&self) {
-        let imp = self.imp();
-        let needs_remote = imp.provider_row.selected() != PROVIDER_NONE;
-        let has_remote = !imp.remote_row.text().trim().is_empty();
-        imp.sync_next_button
-            .set_sensitive(!needs_remote || has_remote);
-    }
-
     fn selected_recipient(&self) -> Option<(String, String)> {
         let imp = self.imp();
         imp.recipients
@@ -255,18 +221,20 @@ impl SetupWizard {
 
     fn build_plan(&self) -> SetupPlan {
         let imp = self.imp();
-        let remote_url = (imp.provider_row.selected() != PROVIDER_NONE)
-            .then(|| imp.remote_row.text().trim().to_string())
-            .filter(|url| !url.is_empty());
         SetupPlan {
             store_dir: PathBuf::from(imp.path_row.text().trim()),
             recipient: self
                 .selected_recipient()
                 .map(|(id, _)| id)
                 .unwrap_or_default(),
-            remote_url,
+            sync: self.sync_target(),
             autopush: imp.autopush.get(),
         }
+    }
+
+    fn go_to_review(&self) {
+        self.prepare_review();
+        self.imp().navigation.push_by_tag("review");
     }
 
     /// Lists the plan's steps on the review page. A run that already got
@@ -417,8 +385,8 @@ impl SetupWizard {
         imp.error_label.set_label(message);
         imp.error_label.set_visible(true);
         imp.apply_button.set_label("Retry");
-        let can_skip = matches!(step, Some(SetupStep::ConnectRemote | SetupStep::Upload));
-        imp.skip_button.set_visible(can_skip);
+        imp.skip_button
+            .set_visible(step.is_some_and(SetupStep::is_sync));
     }
 
     fn set_row_state(&self, index: usize, state: StepState) {
@@ -463,26 +431,40 @@ fn flatten(
 
 /// Review-page wording for a step. Avoids git vocabulary on purpose.
 fn step_text(step: SetupStep, plan: &SetupPlan, key_label: Option<&str>) -> (String, String) {
-    match step {
+    let to_folder = matches!(plan.sync, Some(SyncTarget::Folder(_)));
+    let (title, subtitle) = match step {
         SetupStep::CreateFolder => (
-            "Create the vault folder".to_string(),
+            "Create the vault folder",
             plan.store_dir.to_string_lossy().into_owned(),
         ),
         SetupStep::StartHistory => (
-            "Turn on history".to_string(),
+            "Turn on history",
             "Record every change so it can be undone".to_string(),
         ),
         SetupStep::SaveRecipient => (
-            "Encrypt entries with your key".to_string(),
+            "Encrypt entries with your key",
             key_label.unwrap_or(plan.recipient.as_str()).to_string(),
         ),
+        SetupStep::CreateCopy => (
+            "Create the copy",
+            plan.remote_url().unwrap_or_default().to_string(),
+        ),
+        SetupStep::ConnectRemote if to_folder => (
+            "Link the vault to its copy",
+            "Changes will be copied there".to_string(),
+        ),
         SetupStep::ConnectRemote => (
-            "Connect to the remote".to_string(),
+            "Connect to the online copy",
             plan.remote_url().unwrap_or_default().to_string(),
         ),
         SetupStep::Upload => (
-            "Upload the vault".to_string(),
-            "Send the first version to the remote".to_string(),
+            if to_folder {
+                "Fill the copy"
+            } else {
+                "Upload the vault"
+            },
+            "Send the first version".to_string(),
         ),
-    }
+    };
+    (title.to_string(), subtitle)
 }

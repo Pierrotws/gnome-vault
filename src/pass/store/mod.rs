@@ -16,6 +16,7 @@ use crate::{
     pass::model::{EntryData, PassNode, PassNodeKind},
 };
 
+pub use crate::helpers::git::RemoteCheck;
 pub use crate::helpers::pgp::GpgRecipient;
 pub use store_error::StoreError;
 
@@ -24,8 +25,20 @@ pub use store_error::StoreError;
 pub struct SetupPlan {
     pub store_dir: PathBuf,
     pub recipient: String,
-    pub remote_url: Option<String>,
+    /// Where the vault is copied to, or `None` to keep it on this
+    /// computer only.
+    pub sync: Option<SyncTarget>,
     pub autopush: bool,
+}
+
+/// Where a new vault keeps its copy.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SyncTarget {
+    /// An existing (empty) repository on a server, by address.
+    Remote(String),
+    /// A bare repository Passel creates at this path, e.g. on a USB drive
+    /// or in a Nextcloud/Syncthing folder.
+    Folder(PathBuf),
 }
 
 /// One unit of work in a [`SetupPlan`], run in order by [`run_setup_step`].
@@ -38,8 +51,21 @@ pub enum SetupStep {
     CreateFolder,
     StartHistory,
     SaveRecipient,
+    /// Create the bare repository of a [`SyncTarget::Folder`].
+    CreateCopy,
     ConnectRemote,
     Upload,
+}
+
+impl SetupStep {
+    /// Steps that only concern the copy: when they fail, the vault itself
+    /// already works and the rest can be skipped.
+    pub fn is_sync(self) -> bool {
+        matches!(
+            self,
+            SetupStep::CreateCopy | SetupStep::ConnectRemote | SetupStep::Upload
+        )
+    }
 }
 
 impl SetupPlan {
@@ -51,6 +77,9 @@ impl SetupPlan {
             SetupStep::SaveRecipient,
         ];
         if self.remote_url().is_some() {
+            if matches!(self.sync, Some(SyncTarget::Folder(_))) {
+                steps.push(SetupStep::CreateCopy);
+            }
             steps.push(SetupStep::ConnectRemote);
             if self.autopush {
                 steps.push(SetupStep::Upload);
@@ -59,12 +88,14 @@ impl SetupPlan {
         steps
     }
 
-    /// The trimmed remote URL, or `None` when sync is off.
+    /// The address the vault is pushed to: the trimmed remote URL or the
+    /// copy folder's path. `None` when sync is off (or the path is not
+    /// UTF-8, which git config cannot store).
     pub fn remote_url(&self) -> Option<&str> {
-        self.remote_url
-            .as_deref()
-            .map(str::trim)
-            .filter(|url| !url.is_empty())
+        match self.sync.as_ref()? {
+            SyncTarget::Remote(url) => Some(url.trim()).filter(|url| !url.is_empty()),
+            SyncTarget::Folder(path) => path.to_str(),
+        }
     }
 }
 
@@ -171,7 +202,30 @@ pub fn check_setup_plan(plan: &SetupPlan) -> Result<(), StoreError> {
         return Err(StoreError::InvalidRecipient);
     }
 
-    check_no_recipient_file(&plan.store_dir)
+    check_no_recipient_file(&plan.store_dir)?;
+    if let Some(SyncTarget::Folder(copy_dir)) = &plan.sync {
+        check_copy_dir(&plan.store_dir, copy_dir)?;
+    }
+    Ok(())
+}
+
+/// Connects read-only to a remote address and reports whether a new
+/// vault can be uploaded there.
+pub fn check_remote(remote_url: &str) -> RemoteCheck {
+    git::check_remote(remote_url.trim())
+}
+
+/// A copy folder must be new (or an empty copy left by an earlier
+/// attempt), and must not sit inside the vault, where it would be
+/// committed into itself.
+pub fn check_copy_dir(store_dir: &Path, copy_dir: &Path) -> Result<(), StoreError> {
+    if copy_dir.starts_with(store_dir) {
+        return Err(StoreError::InvalidFolderPath(copy_dir.to_path_buf()));
+    }
+    if copy_dir.exists() && !git::is_empty_bare_repository(copy_dir) {
+        return Err(StoreError::DestinationExists(copy_dir.to_path_buf()));
+    }
+    Ok(())
 }
 
 /// Refuses to silently overwrite an existing .gpg-id: doing so would
@@ -196,6 +250,14 @@ pub fn run_setup_step(plan: &SetupPlan, step: SetupStep) -> Result<(), StoreErro
             }
         }
         SetupStep::SaveRecipient => save_recipient(store_dir, plan.recipient.trim())?,
+        SetupStep::CreateCopy => {
+            if let Some(SyncTarget::Folder(copy_dir)) = &plan.sync {
+                check_copy_dir(store_dir, copy_dir)?;
+                if !copy_dir.exists() {
+                    git::init_bare(copy_dir)?;
+                }
+            }
+        }
         SetupStep::ConnectRemote => {
             if let Some(remote_url) = plan.remote_url() {
                 git::set_origin(store_dir, remote_url)?;
@@ -1115,8 +1177,15 @@ mod tests {
         SetupPlan {
             store_dir: store_dir.to_path_buf(),
             recipient: "ABCDEF0123456789".to_string(),
-            remote_url: remote_url.map(str::to_string),
+            sync: remote_url.map(|url| SyncTarget::Remote(url.to_string())),
             autopush,
+        }
+    }
+
+    fn folder_plan(store_dir: &Path, copy_dir: &Path) -> SetupPlan {
+        SetupPlan {
+            sync: Some(SyncTarget::Folder(copy_dir.to_path_buf())),
+            ..plan(store_dir, None, true)
         }
     }
 
@@ -1141,6 +1210,81 @@ mod tests {
             plan(dir, Some(" git@host:vault "), true).remote_url(),
             Some("git@host:vault")
         );
+    }
+
+    #[test]
+    fn folder_plan_creates_the_copy_before_connecting() {
+        let plan = folder_plan(Path::new("/vault"), Path::new("/media/usb/passwords.git"));
+        assert_eq!(
+            plan.steps(),
+            [
+                SetupStep::CreateFolder,
+                SetupStep::StartHistory,
+                SetupStep::SaveRecipient,
+                SetupStep::CreateCopy,
+                SetupStep::ConnectRemote,
+                SetupStep::Upload,
+            ]
+        );
+        assert_eq!(plan.remote_url(), Some("/media/usb/passwords.git"));
+        assert!(SetupStep::CreateCopy.is_sync());
+        assert!(!SetupStep::SaveRecipient.is_sync());
+    }
+
+    #[test]
+    fn setup_steps_copy_a_vault_to_a_folder() {
+        let root = temp_dir("setup-folder");
+        let store_dir = root.join("store");
+        let copy_dir = root.join("usb/passwords.git");
+        let plan = folder_plan(&store_dir, &copy_dir);
+
+        for step in plan.steps() {
+            run_setup_step(&plan, step).unwrap();
+            if step == SetupStep::StartHistory {
+                set_local_identity(&store_dir, "Passel Tests").unwrap();
+            }
+        }
+
+        let head = git2::Repository::open(&store_dir)
+            .unwrap()
+            .head()
+            .unwrap()
+            .target();
+        let copy = git2::Repository::open_bare(&copy_dir).unwrap();
+        assert_eq!(copy.head().unwrap().target(), head);
+
+        // Retrying the copy step after it succeeded must not wipe it, but
+        // a copy that already holds a vault is refused up front.
+        assert!(matches!(
+            check_copy_dir(&store_dir, &copy_dir),
+            Err(StoreError::DestinationExists(_))
+        ));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn copy_dir_must_be_new_or_an_empty_copy_outside_the_vault() {
+        let root = temp_dir("setup-copy-dir");
+        let store_dir = root.join("store");
+        assert!(check_copy_dir(&store_dir, &root.join("new.git")).is_ok());
+
+        let empty_copy = root.join("empty.git");
+        git2::Repository::init_bare(&empty_copy).unwrap();
+        assert!(check_copy_dir(&store_dir, &empty_copy).is_ok());
+
+        let unrelated = root.join("photos");
+        fs::create_dir_all(&unrelated).unwrap();
+        assert!(matches!(
+            check_copy_dir(&store_dir, &unrelated),
+            Err(StoreError::DestinationExists(_))
+        ));
+        assert!(matches!(
+            check_copy_dir(&store_dir, &store_dir.join("copy.git")),
+            Err(StoreError::InvalidFolderPath(_))
+        ));
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

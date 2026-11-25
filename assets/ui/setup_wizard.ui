@@ -123,13 +123,14 @@ pill</property>
                         <property name="spacing">18</property>
                         <child>
                           <object class="GtkLabel">
-                            <property name="label">Sync</property>
+                            <property name="label">Use It on Other Devices?</property>
+                            <property name="wrap">true</property>
                             <property name="css-classes">title-1</property>
                           </object>
                         </child>
                         <child>
                           <object class="GtkLabel">
-                            <property name="label">Optionally keep a copy of the vault on a remote, to use it from other devices.</property>
+                            <property name="label">Passel can keep an encrypted copy of your vault somewhere else, so you can use it from another computer or your phone.</property>
                             <property name="wrap">true</property>
                             <property name="xalign">0</property>
                             <property name="css-classes">dim-label</property>
@@ -138,14 +139,42 @@ pill</property>
                         <child>
                           <object class="AdwPreferencesGroup">
                             <child>
-                              <object class="AdwComboRow" id="provider_row">
-                                <property name="title">Provider</property>
+                              <object class="AdwActionRow" id="online_row">
+                                <property name="title">Keep an online copy</property>
+                                <property name="subtitle">In a private repository on a free service like GitHub. Works from anywhere.</property>
+                                <property name="activatable-widget">online_check</property>
+                                <child type="prefix">
+                                  <object class="GtkCheckButton" id="online_check">
+                                    <property name="valign">3</property>
+                                    <property name="active">true</property>
+                                  </object>
+                                </child>
                               </object>
                             </child>
                             <child>
-                              <object class="AdwEntryRow" id="remote_row">
-                                <property name="title">Remote URL</property>
-                                <property name="sensitive">false</property>
+                              <object class="AdwActionRow" id="folder_row">
+                                <property name="title">Copy to a folder or drive</property>
+                                <property name="subtitle">A USB drive, or a folder synced by Nextcloud or Syncthing. No account needed.</property>
+                                <property name="activatable-widget">folder_check</property>
+                                <child type="prefix">
+                                  <object class="GtkCheckButton" id="folder_check">
+                                    <property name="valign">3</property>
+                                    <property name="group">online_check</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwActionRow" id="local_row">
+                                <property name="title">Only on this computer</property>
+                                <property name="subtitle">Entries never leave this computer.</property>
+                                <property name="activatable-widget">local_check</property>
+                                <child type="prefix">
+                                  <object class="GtkCheckButton" id="local_check">
+                                    <property name="valign">3</property>
+                                    <property name="group">online_check</property>
+                                  </object>
+                                </child>
                               </object>
                             </child>
                           </object>
@@ -161,6 +190,218 @@ pill</property>
                             </child>
                             <child>
                               <object class="GtkButton" id="sync_next_button">
+                                <property name="label">Next</property>
+                                <property name="css-classes">suggested-action</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwNavigationPage">
+            <property name="tag">online</property>
+            <property name="title">Online Copy</property>
+            <property name="child">
+              <object class="GtkScrolledWindow">
+                <property name="hscrollbar-policy">2</property>
+                <property name="child">
+                  <object class="AdwClamp">
+                    <property name="maximum-size">560</property>
+                    <property name="valign">3</property>
+                    <property name="margin-top">24</property>
+                    <property name="margin-bottom">24</property>
+                    <property name="margin-start">24</property>
+                    <property name="margin-end">24</property>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">1</property>
+                        <property name="spacing">18</property>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label">Online Copy</property>
+                            <property name="wrap">true</property>
+                            <property name="css-classes">title-1</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label">Any of these services offers free private repositories. If you have no account yet, pick one and create it on the service’s website.</property>
+                            <property name="wrap">true</property>
+                            <property name="xalign">0</property>
+                            <property name="css-classes">dim-label</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox">
+                            <property name="spacing">12</property>
+                            <property name="css-classes">card</property>
+                            <child>
+                              <object class="GtkImage">
+                                <property name="icon-name">dialog-warning-symbolic</property>
+                                <property name="valign">1</property>
+                                <property name="margin-top">12</property>
+                                <property name="margin-start">12</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label">Entries are encrypted, but their names (like “Bank/mybank”) are not. Always keep the repository private.</property>
+                                <property name="wrap">true</property>
+                                <property name="xalign">0</property>
+                                <property name="hexpand">true</property>
+                                <property name="margin-top">12</property>
+                                <property name="margin-bottom">12</property>
+                                <property name="margin-end">12</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPreferencesGroup">
+                            <child>
+                              <object class="AdwComboRow" id="host_row">
+                                <property name="title">Service</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPreferencesGroup" id="host_steps_group">
+                            <property name="title">Create an Empty Private Repository</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPreferencesGroup" id="address_group">
+                            <property name="title">Repository Address</property>
+                            <child>
+                              <object class="AdwEntryRow" id="address_row">
+                                <property name="title">SSH address</property>
+                                <child type="suffix">
+                                  <object class="GtkButton" id="check_button">
+                                    <property name="label">Check</property>
+                                    <property name="valign">3</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox" id="check_box">
+                            <property name="spacing">8</property>
+                            <property name="visible">false</property>
+                            <child>
+                              <object class="GtkSpinner" id="check_spinner">
+                                <property name="valign">1</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkImage" id="check_icon">
+                                <property name="valign">1</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="check_label">
+                                <property name="wrap">true</property>
+                                <property name="xalign">0</property>
+                                <property name="hexpand">true</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox">
+                            <property name="halign">2</property>
+                            <property name="spacing">12</property>
+                            <child>
+                              <object class="GtkButton" id="online_back_button">
+                                <property name="label">Back</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="online_next_button">
+                                <property name="label">Next</property>
+                                <property name="css-classes">suggested-action</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwNavigationPage">
+            <property name="tag">folder</property>
+            <property name="title">Folder Copy</property>
+            <property name="child">
+              <object class="GtkScrolledWindow">
+                <property name="hscrollbar-policy">2</property>
+                <property name="child">
+                  <object class="AdwClamp">
+                    <property name="maximum-size">560</property>
+                    <property name="valign">3</property>
+                    <property name="margin-top">24</property>
+                    <property name="margin-bottom">24</property>
+                    <property name="margin-start">24</property>
+                    <property name="margin-end">24</property>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">1</property>
+                        <property name="spacing">18</property>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label">Copy to a Folder or Drive</property>
+                            <property name="wrap">true</property>
+                            <property name="css-classes">title-1</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label">Passel creates an encrypted copy named “passwords.git” in the folder you choose, and keeps it up to date as you save changes.</property>
+                            <property name="wrap">true</property>
+                            <property name="xalign">0</property>
+                            <property name="css-classes">dim-label</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPreferencesGroup" id="copy_group">
+                            <child>
+                              <object class="AdwActionRow" id="copy_row">
+                                <property name="title">Folder</property>
+                                <property name="subtitle">No folder chosen</property>
+                                <child type="suffix">
+                                  <object class="GtkButton" id="choose_copy_button">
+                                    <property name="label">Choose…</property>
+                                    <property name="valign">3</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox">
+                            <property name="halign">2</property>
+                            <property name="spacing">12</property>
+                            <child>
+                              <object class="GtkButton" id="folder_back_button">
+                                <property name="label">Back</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="folder_next_button">
                                 <property name="label">Next</property>
                                 <property name="css-classes">suggested-action</property>
                               </object>
