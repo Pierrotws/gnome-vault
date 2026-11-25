@@ -14,5 +14,6 @@
 // whether the current entry is dirty
 // whether the save button should be enabled
 
+pub mod import;
 pub mod model;
 pub mod store;

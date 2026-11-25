@@ -321,6 +321,8 @@ impl MainWindow {
         imp.window_title
             .set_title(list.active().map_or("Passel", |vault| vault.name.as_str()));
         imp.vault_list.set_visible(!list.is_empty());
+        imp.import_button
+            .set_sensitive(self.controller().borrow().store_dir().is_ok());
 
         for vault in list.vaults() {
             let info = AppController::vault_info(&vault.path);

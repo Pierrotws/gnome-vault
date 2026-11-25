@@ -33,6 +33,7 @@ passel/
 |   |   `-- pgp.rs                     # GPGME encryption/decryption and recipients
 |   |-- pass/                          # password-store domain and persistence boundary
 |   |   |-- model/                     # EntryData, EntryField, PassNode
+|   |   |-- import/                    # Readers for KeePassXC (.kdbx) and Buttercup (.bcup) vaults
 |   |   `-- store/                     # File, GPG, and Git-backed store operations
 |   `-- ui/                            # GTK/Adwaita widgets and templates
 |       |-- window/                    # Main window orchestration
@@ -42,6 +43,7 @@ passel/
 |       |   |-- group_content.rs       # Right-pane group/search-results rendering
 |       |   |-- new_entry_dialog.rs    # New-entry creation dialog
 |       |   |-- preferences.rs         # Preferences dialog wiring
+|       |   |-- import_dialog.rs       # Import Passwords dialog
 |       |   |-- setup.rs               # Setup wizard dialog, turn-on-history page
 |       |   |-- unsaved.rs             # "Discard changes?" before leaving an edited entry
 |       |   `-- vaults.rs              # Vault list, switcher, vault settings, add folder
@@ -106,6 +108,7 @@ Primary files:
 | `src/main.rs` | Initializes logging, GResources, local schema lookup, and the Adwaita application. |
 | `src/ui/window/mod.rs` | Main UI orchestration and signal wiring. Edit mode belongs to the entry view. |
 | `src/ui/window/setup.rs` | The setup wizard's dialog with the "No Vault Yet" page behind it, and the "Turn On History" page for a pass store without git. |
+| `src/ui/window/import_dialog.rs` | "Import Passwords" dialog (vault menu): source, file, master password, destination folder; preview, then import in one commit. |
 | `src/ui/window/vaults.rs` | The vault list in GSettings (with the one-time migration from `store-dir`), opening and switching vaults, the header-bar switcher, each vault's settings dialog (name, history, remote, branch, auto-push, remove), and adding an existing folder. |
 | `src/ui/setup_wizard/` | First-run wizard (`Adw.NavigationView`): collects a `SetupPlan`, then runs its steps on a worker with per-step progress, retry and skip. `key.rs` holds the encryption key page (use, create or import a GPG key, save a backup); `sync.rs` holds the sync pages (online copy, folder/drive copy, this computer only); `hosts.rs` lists the hosting services with free private repositories and how to create an empty one on each. |
 | `src/ui/window/preferences.rs` | Preferences dialog (autoload, group view, Markdown, tree size). |
@@ -133,6 +136,7 @@ Primary files:
 | --- | --- |
 | `src/app/controller.rs` | Use-case methods for loading trees, opening entries, saving, creating, deleting, renaming, search filter, and cache warmup. |
 | `src/app/changes.rs` | Worker-safe free functions for revert / rollback / push (called from `gio::spawn_blocking`). |
+| `src/app/import.rs` | Worker-safe wrappers for importing: decrypt a KeePassXC/Buttercup file, write its entries into the open vault. |
 | `src/app/vaults.rs` | `VaultList` / `VaultConfig`: the listed vaults, the active one, unique names and folders for new vaults. |
 | `src/app/cache_warmup.rs` | Spawns the autoload decrypt worker and streams results back to the main loop. |
 | `src/app/group_preview.rs` | Spawns the per-group decrypt worker that fills missing subtitle previews. |
@@ -158,6 +162,8 @@ Primary files:
 | `src/pass/model/pass_node.rs` | Vault tree nodes for groups and `.gpg` entries. |
 | `src/pass/store/mod.rs` | Store facade: load, store status check, setup plan and steps, enable history, save, create, rename, delete, history, push, revert, rollback. |
 | `src/pass/store/store_error.rs` | Store-level error type. |
+| `src/pass/store/import.rs` | Writes imported entries under a destination folder (valid, unique names) in one commit. |
+| `src/pass/import/` | Decrypts and maps other password managers' vaults to pass entries (`keepass.rs`, `buttercup.rs`); the trash is skipped. |
 
 ### 3.4. Infrastructure Helpers
 
@@ -226,6 +232,8 @@ Purpose: Avoids reopening and decrypting a `.gpg` file after an entry has alread
 | Git remote | Optional synchronization with GitHub, GitLab, or custom remotes. | Git remote configured as `origin`; push through git2. |
 | pass file format | Compatibility with the standard Unix password manager layout. | Filesystem layout plus `.gpg-id` and encrypted `.gpg` files. |
 | GSettings | GNOME-standard preference storage. | `gio::Settings`. |
+| KeePassXC / KeePass files | Import entries from `.kdbx` (KDBX 3/4) with the master password. | `keepass` crate (`pass::import::keepass`). |
+| Buttercup files | Import entries from `.bcup` (formats a and b, iocane AES-256-CBC+HMAC or GCM, PBKDF2-SHA256). | Own reader following buttercup-core and iocane sources (`pass::import::buttercup`). |
 | gtk-markdown widget | Renders multiline fields as styled Markdown blocks. | Published crate `gtk-markdown` from crates.io. |
 
 ## 6. Deployment & Infrastructure

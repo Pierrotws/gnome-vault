@@ -11,6 +11,7 @@ pub mod cache_warmup;
 pub mod changes;
 pub mod controller;
 pub mod group_preview;
+pub mod import;
 pub mod setup;
 pub mod state;
 pub mod vaults;
