@@ -4,6 +4,7 @@ mod imp;
 mod new_entry_dialog;
 mod preferences;
 mod setup;
+mod unsaved;
 mod vaults;
 
 use std::cell::RefCell;
@@ -76,6 +77,16 @@ impl MainWindow {
     pub fn setup_callbacks(&self) {
         let imp = self.imp();
 
+        // Closing with unsaved edits asks first; once they are
+        // discarded the window closes for real.
+        self.connect_close_request(|window| {
+            if !window.controller().borrow().has_unsaved_changes() {
+                return glib::Propagation::Proceed;
+            }
+            window.discard_changes_then(|window| window.close());
+            glib::Propagation::Stop
+        });
+
         imp.new_entry_button.connect_clicked(glib::clone!(
             #[weak(rename_to = window)]
             self,
@@ -141,18 +152,13 @@ impl MainWindow {
             #[weak(rename_to = window)]
             self,
             move |_| {
-                if window.controller().borrow().has_unsaved_changes() {
-                    window
-                        .imp()
-                        .entry_view
-                        .show_error_dialog("Save or cancel current changes before viewing changes");
-                    return;
-                }
-                if let Err(err) = window.reload_changes_view() {
-                    window.imp().entry_view.show_error_dialog(&err.to_string());
-                    return;
-                }
-                window.show_changes_content();
+                window.discard_changes_then(|window| {
+                    if let Err(err) = window.reload_changes_view() {
+                        window.imp().entry_view.show_error_dialog(&err.to_string());
+                        return;
+                    }
+                    window.show_changes_content();
+                });
             }
         ));
 
@@ -205,17 +211,11 @@ impl MainWindow {
                     return;
                 };
 
-                // Refuse to switch entries while the open one has unsaved
-                // edits; otherwise the dirty session is silently overwritten
-                // when open_entry_node replaces the current EntrySession.
-                if window.controller().borrow().has_unsaved_changes() {
-                    window.imp().entry_view.show_error_dialog(
-                        "Save or cancel current changes before opening another entry",
-                    );
-                    return;
-                }
-
-                window.open_entry_node(node);
+                // open_entry_node replaces the current EntrySession: ask
+                // before dropping its unsaved edits.
+                window.discard_changes_then_or_restore_selection(move |window| {
+                    window.open_entry_node(node);
+                });
             }
         ));
 
@@ -231,13 +231,6 @@ impl MainWindow {
                     return;
                 };
 
-                if window.controller().borrow().has_unsaved_changes() {
-                    window.imp().entry_view.show_error_dialog(
-                        "Save or cancel current changes before selecting a group",
-                    );
-                    return;
-                }
-
                 // While searching, the right pane belongs to the search
                 // results; programmatic and manual group selection both
                 // leave it untouched.
@@ -252,7 +245,10 @@ impl MainWindow {
                     return;
                 }
 
-                window.show_group_content(&node);
+                // Showing the group closes the open entry.
+                window.discard_changes_then_or_restore_selection(move |window| {
+                    window.show_group_content(&node);
+                });
             }
         ));
 
@@ -264,16 +260,12 @@ impl MainWindow {
                     return;
                 }
 
-                if window.controller().borrow().has_unsaved_changes() {
-                    window.imp().entry_view.show_error_dialog(
-                        "Save or cancel current changes before selecting a group",
-                    );
-                    return;
-                }
-
                 // No group selected: the right pane shows the vault's top
-                // level, or the search results while searching.
-                window.show_root_group_content();
+                // level, or the search results while searching. Either
+                // closes the open entry.
+                window.discard_changes_then_or_restore_selection(|window| {
+                    window.show_root_group_content();
+                });
             }
         ));
 
@@ -307,33 +299,17 @@ impl MainWindow {
             #[weak(rename_to = window)]
             self,
             move |_, node| {
-                let search_active = !window
-                    .imp()
-                    .vault_view
-                    .search_entry()
-                    .text()
-                    .trim()
-                    .is_empty();
-                // Path::parent yields Some("") for top-level entries, so filter
-                // out the empty path — there's no parent group to select.
-                let parent_path = node
-                    .path
-                    .parent()
-                    .filter(|p| !p.as_os_str().is_empty())
-                    .map(|p| p.to_path_buf());
-                window.open_entry_node(node);
-                if search_active {
-                    if let Some(parent) = parent_path {
-                        // The parent group may have been filtered out of the
-                        // current tree by the active search; in that case the
-                        // previous selection silently persists. Log so the
-                        // mismatch is debuggable without spamming on the happy
-                        // path.
-                        if !window.imp().vault_view.select_node_by_path(&parent) {
-                            log::debug!("select_node_by_path: parent not in filtered tree");
-                        }
-                    }
+                let already_open = window
+                    .controller()
+                    .borrow()
+                    .current_session()
+                    .is_some_and(|session| session.node().path == node.path);
+                if already_open && window.controller().borrow().has_unsaved_changes() {
+                    return;
                 }
+                // open_entry_node replaces the current EntrySession: ask
+                // before dropping its unsaved edits.
+                window.discard_changes_then(move |window| window.open_group_entry(node));
             }
         ));
 
@@ -432,7 +408,8 @@ impl MainWindow {
             self,
             move |_| {
                 window.imp().vault_popover.popdown();
-                window.present_setup_wizard();
+                // The new vault opens once created.
+                window.discard_changes_then(|window| window.present_setup_wizard());
             }
         ));
         imp.add_vault_button.connect_clicked(glib::clone!(
@@ -447,6 +424,38 @@ impl MainWindow {
 
     pub fn get_entry_view(&self) -> EntryView {
         self.imp().entry_view.clone()
+    }
+
+    /// Opens an entry picked in the group view's list. While searching,
+    /// its folder is also selected in the tree.
+    fn open_group_entry(&self, node: PassNode) {
+        let search_active = !self
+            .imp()
+            .vault_view
+            .search_entry()
+            .text()
+            .trim()
+            .is_empty();
+        // Path::parent yields Some("") for top-level entries, so filter
+        // out the empty path — there's no parent group to select.
+        let parent_path = node
+            .path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(|p| p.to_path_buf());
+        self.open_entry_node(node);
+        if search_active {
+            if let Some(parent) = parent_path {
+                // The parent group may have been filtered out of the
+                // current tree by the active search; in that case the
+                // previous selection silently persists. Log so the
+                // mismatch is debuggable without spamming on the happy
+                // path.
+                if !self.imp().vault_view.select_node_by_path(&parent) {
+                    log::debug!("select_node_by_path: parent not in filtered tree");
+                }
+            }
+        }
     }
 
     fn open_entry_node(&self, node: PassNode) {

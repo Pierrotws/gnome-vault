@@ -89,6 +89,20 @@ impl VaultView {
             .is_some_and(|selection| selection.selected() != gtk::INVALID_LIST_POSITION)
     }
 
+    /// Selects the row at `path` (none when `None`, empty or not in the
+    /// tree) without emitting a signal or toggling a folder: puts back a
+    /// selection the window did not follow.
+    pub fn select_quietly(&self, path: Option<&Path>) {
+        self.imp().quiet.set(true);
+        let selected = path
+            .filter(|path| !path.as_os_str().is_empty())
+            .is_some_and(|path| self.select_node_by_path(path));
+        if !selected {
+            self.clear_selection();
+        }
+        self.imp().quiet.set(false);
+    }
+
     /// Unselects the selected row, if any; emits `selection-cleared`.
     pub fn clear_selection(&self) {
         if let Some(selection) = self.selection() {
@@ -108,6 +122,9 @@ impl VaultView {
             #[weak(rename_to = obj)]
             self,
             move |selection| {
+                if obj.imp().quiet.get() {
+                    return;
+                }
                 let position = selection.selected();
                 if position == gtk::INVALID_LIST_POSITION {
                     obj.emit_by_name::<()>("selection-cleared", &[]);

@@ -170,15 +170,14 @@ impl MainWindow {
 
     /// Switches to another listed vault.
     pub(super) fn switch_to_vault(&self, path: &Path) {
-        if self.controller().borrow().has_unsaved_changes() {
-            self.show_error_dialog("Save or cancel the current changes before switching vaults");
-            return;
-        }
-        if !self.imp().vaults.borrow_mut().set_active(path) {
-            return;
-        }
-        self.save_vault_list();
-        self.open_active_vault();
+        let path = path.to_path_buf();
+        self.discard_changes_then(move |window| {
+            if !window.imp().vaults.borrow_mut().set_active(&path) {
+                return;
+            }
+            window.save_vault_list();
+            window.open_active_vault();
+        });
     }
 
     /// Adds the vault the setup wizard created and opens it. Returns
@@ -235,11 +234,16 @@ impl MainWindow {
     }
 
     fn remove_vault_from_list(&self, path: &Path) {
-        let was_active = self.active_vault_path().as_deref() == Some(path);
-        if was_active && self.controller().borrow().has_unsaved_changes() {
-            self.show_error_dialog("Save or cancel the current changes first");
-            return;
+        if self.active_vault_path().as_deref() == Some(path) {
+            let path = path.to_path_buf();
+            self.discard_changes_then(move |window| window.remove_listed_vault(&path));
+        } else {
+            self.remove_listed_vault(path);
         }
+    }
+
+    fn remove_listed_vault(&self, path: &Path) {
+        let was_active = self.active_vault_path().as_deref() == Some(path);
         self.imp().vaults.borrow_mut().remove(path);
         self.save_vault_list();
         if was_active {
@@ -415,21 +419,21 @@ impl MainWindow {
     fn add_vault_folder(&self, path: &Path) {
         match AppController::store_status(path) {
             StoreStatus::Ready | StoreStatus::PassWithoutGit => {
-                if self.controller().borrow().has_unsaved_changes() {
-                    self.show_error_dialog(
-                        "Save or cancel the current changes before switching vaults",
-                    );
-                    return;
-                }
-                {
-                    let mut list = self.imp().vaults.borrow_mut();
-                    list.add(path);
-                    list.set_active(path);
-                }
-                self.save_vault_list();
-                self.open_active_vault();
+                let path = path.to_path_buf();
+                self.discard_changes_then(move |window| {
+                    {
+                        let mut list = window.imp().vaults.borrow_mut();
+                        list.add(&path);
+                        list.set_active(&path);
+                    }
+                    window.save_vault_list();
+                    window.open_active_vault();
+                });
             }
-            StoreStatus::Missing | StoreStatus::Empty => self.present_setup_wizard_in(path),
+            StoreStatus::Missing | StoreStatus::Empty => {
+                let path = path.to_path_buf();
+                self.discard_changes_then(move |window| window.present_setup_wizard_in(&path));
+            }
             StoreStatus::Unrelated => self.show_error_dialog(
                 "This folder does not hold a vault. Choose a folder created by Passel or pass, \
                  or an empty folder to create a new vault in it.",

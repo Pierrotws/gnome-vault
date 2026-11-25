@@ -1,4 +1,5 @@
 use std::cell::{Cell, RefCell};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -126,6 +127,9 @@ pub struct MainWindow {
     /// flag so the worker stops decrypting the rest of the queue
     /// instead of running to completion in the background.
     pub group_preview_cancel: RefCell<Option<Arc<AtomicBool>>>,
+    /// The folder whose entries the group view lists: empty for the
+    /// vault's top level, `None` for search results.
+    pub shown_group: RefCell<Option<PathBuf>>,
 }
 
 #[glib::object_subclass]

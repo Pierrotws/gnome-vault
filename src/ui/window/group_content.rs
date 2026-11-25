@@ -26,6 +26,7 @@ impl MainWindow {
     pub(super) fn show_group_content(&self, node: &PassNode) {
         let imp = self.imp();
         let entries = self.group_entries_for(node);
+        imp.shown_group.replace(Some(node.path.clone()));
         imp.group_view.set_group(node, &entries);
         imp.content_stack.set_visible_child_name("empty");
         self.start_group_subtitle_load(node);
@@ -66,6 +67,7 @@ impl MainWindow {
             })
             .collect();
 
+        imp.shown_group.replace(None);
         imp.group_view.set_group(&pseudo_group, &entries);
         imp.content_stack.set_visible_child_name("empty");
         // Bump the preview generation so any in-flight subtitle load from a
