@@ -1,16 +1,23 @@
+//! OpenPGP for the password store: encrypting and decrypting entries,
+//! the user's secret keys, and `.gpg-id` recipient files.
+//!
+//! The cryptography itself sits behind [`PgpBackend`], so the store works
+//! the same with GnuPG on the desktop and with a pure-Rust implementation
+//! on mobile.
+
 use std::{
     fs,
+    io::Write,
     path::{Path, PathBuf},
+    sync::OnceLock,
 };
 
-use std::io::Write;
-use std::time::Duration;
-
-use gpgme::{
-    Context, CreateKeyFlags, Data, ExportMode, InteractionStatus, Interactor, Key, Protocol,
-    Validity,
-};
 use zeroize::Zeroizing;
+
+#[cfg(feature = "gpgme")]
+pub mod gpgme;
+#[cfg(feature = "rpgp")]
+pub mod rpgp;
 
 /// Secret key identity that can decrypt password-store entries.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,7 +26,7 @@ pub struct GpgRecipient {
     pub label: String,
 }
 
-/// Errors raised by GPGME operations and `.gpg-id` handling.
+/// Errors raised by OpenPGP operations and `.gpg-id` handling.
 pub enum PgpError {
     ContextError(String),
     InvalidPath(PathBuf),
@@ -104,7 +111,7 @@ impl std::fmt::Debug for PgpError {
 
 // Display intentionally drops the upstream gpgme error string from the
 // variants that wrap one (ContextError, LoadingError, DecryptError,
-// EncryptError, NoKeys). gpgme stderr can echo key fingerprints,
+// EncryptError, NoKeys). gpgme stderr (or an rPGP error) can echo key fingerprints,
 // recipient identifiers, and absolute store paths — none of which
 // belong in a UI error toast. With Debug now redacted too (see above),
 // neither `{err}` nor `{err:?}` puts the upstream string anywhere a
@@ -112,7 +119,7 @@ impl std::fmt::Debug for PgpError {
 impl std::fmt::Display for PgpError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PgpError::ContextError(_) => f.write_str("Failed to initialize GPGME OpenPGP context"),
+            PgpError::ContextError(_) => f.write_str("Failed to initialize OpenPGP"),
             PgpError::InvalidPath(_) => f.write_str("Invalid path"),
             PgpError::ReadError { source, .. } => {
                 write!(f, "Error reading file ({})", source.kind())
@@ -139,24 +146,84 @@ impl std::fmt::Display for PgpError {
 
 impl std::error::Error for PgpError {}
 
+/// A secret key a backend can decrypt with.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SecretKeyInfo {
+    /// Uppercase hex fingerprint of the primary key.
+    pub fingerprint: String,
+    /// First user id, unsanitized (`available_recipients` cleans it).
+    pub user_id: Option<String>,
+}
+
+/// An OpenPGP implementation the store encrypts and decrypts with.
+///
+/// The free functions of this module ([`decrypt`], [`encrypt`], …) call
+/// the process-wide backend, so the store and the app layer never name an
+/// implementation. The desktop app uses GnuPG through GPGME (feature
+/// `gpgme`, the default backend when enabled); a mobile front end, which
+/// has no gpg-agent, installs [`rpgp::RpgpBackend`] (feature `rpgp`) with
+/// [`install_backend`] at startup.
+///
+/// Callers have already checked the inputs this module validates for
+/// every backend: `encrypt` gets a non-empty recipient list, and the
+/// plaintext from `decrypt` is checked for UTF-8 afterwards.
+pub trait PgpBackend: Send + Sync {
+    /// Decrypts an OpenPGP message (binary or armored).
+    fn decrypt(&self, ciphertext: &[u8]) -> Result<Zeroizing<Vec<u8>>, PgpError>;
+
+    /// Encrypts to every recipient, as `pass(1)` would: binary output, no
+    /// signature. Must refuse (not skip) a recipient whose key is unknown,
+    /// revoked, expired or cannot encrypt, so an entry is never written
+    /// that some recipient cannot read.
+    fn encrypt(&self, plaintext: &[u8], recipient_ids: &[String]) -> Result<Vec<u8>, PgpError>;
+
+    /// The usable secret keys that can decrypt (they have an encryption
+    /// subkey and are not revoked or expired).
+    fn secret_keys(&self) -> Result<Vec<SecretKeyInfo>, PgpError>;
+
+    /// Creates a key pair (certification primary key, encryption subkey,
+    /// no expiry) for `user_id` and returns its fingerprint.
+    fn create_key(&self, user_id: &str) -> Result<String, PgpError>;
+
+    /// Imports the secret keys in `data` (binary or armored) and returns
+    /// the fingerprints of those that can encrypt. Fails with
+    /// [`PgpError::NoSecretKey`] when there is none (e.g. a public key).
+    fn import_secret_keys(&self, data: &[u8]) -> Result<Vec<String>, PgpError>;
+
+    /// An armored backup of a secret key, still protected by its
+    /// passphrase.
+    fn export_secret_key(&self, fingerprint: &str) -> Result<Zeroizing<Vec<u8>>, PgpError>;
+}
+
+static BACKEND: OnceLock<Box<dyn PgpBackend>> = OnceLock::new();
+
+/// Sets the OpenPGP backend for the whole process. Call it once, before
+/// the first store operation; it fails (returning the backend) if a
+/// backend is already in use.
+pub fn install_backend(backend: Box<dyn PgpBackend>) -> Result<(), Box<dyn PgpBackend>> {
+    BACKEND.set(backend)
+}
+
+fn backend() -> Result<&'static dyn PgpBackend, PgpError> {
+    #[cfg(feature = "gpgme")]
+    let backend = Some(BACKEND.get_or_init(|| Box::new(gpgme::GpgmeBackend::default())));
+    #[cfg(not(feature = "gpgme"))]
+    let backend = BACKEND.get();
+    backend
+        .map(|backend| backend.as_ref())
+        .ok_or_else(|| PgpError::ContextError("no OpenPGP backend installed".to_string()))
+}
+
 /// Decrypts an encrypted password-store file into UTF-8 plaintext.
 ///
 /// The returned plaintext is wrapped in [`Zeroizing`] so its memory is wiped
 /// when dropped.
 pub fn decrypt(path: &Path) -> Result<Zeroizing<String>, PgpError> {
-    let mut ctx = Context::from_protocol(Protocol::OpenPgp)
-        .map_err(|e| PgpError::ContextError(e.to_string()))?;
-
-    let path_str = path
-        .to_str()
-        .ok_or_else(|| PgpError::InvalidPath(path.to_path_buf()))?;
-
-    let mut cipher = Data::load(path_str).map_err(|e| PgpError::LoadingError(e.to_string()))?;
-
-    let mut plain = Zeroizing::new(Vec::<u8>::new());
-
-    ctx.decrypt(&mut cipher, &mut *plain)
-        .map_err(|e| PgpError::DecryptError(e.to_string()))?;
+    let ciphertext = fs::read(path).map_err(|source| PgpError::ReadError {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let mut plain = backend()?.decrypt(&ciphertext)?;
 
     // Validate UTF-8 *in place* on the Zeroizing<Vec<u8>> so the
     // failure path drops `plain` (which wipes its bytes) rather than
@@ -173,80 +240,21 @@ pub fn decrypt(path: &Path) -> Result<Zeroizing<String>, PgpError> {
 
 /// Encrypts plaintext for the configured recipient key IDs.
 pub fn encrypt(plaintext: &str, recipient_ids: &[String]) -> Result<Vec<u8>, PgpError> {
-    // Refuse empty recipient lists explicitly: depending on GPGME flags
+    // Refuse empty recipient lists explicitly: depending on the backend
     // an empty key set can produce symmetric-only or even unencrypted
     // output. We never want to silently weaken encryption.
     if recipient_ids.is_empty() {
         return Err(PgpError::NoKeys("no recipients configured".to_string()));
     }
-
-    let mut ctx = Context::from_protocol(Protocol::OpenPgp)
-        .map_err(|e| PgpError::ContextError(e.to_string()))?;
-
-    let keys = recipient_ids
-        .iter()
-        .map(|id| ctx.get_key(id))
-        .collect::<std::result::Result<Vec<Key>, gpgme::Error>>()
-        .map_err(|e| PgpError::NoKeys(e.to_string()))?;
-
-    // Re-validate every fetched key. setup_vault checks at init time but
-    // a key can be revoked, expired, or otherwise marked bad after the
-    // vault was created. Without this, gpgme's behavior on a bad-but-
-    // resolvable key depends on the user's gpg.conf — and silently
-    // producing ciphertext encrypted to an unusable key is the worst
-    // failure mode (the entry only fails on next decrypt, when there
-    // is no path back).
-    if let Some(rejected) = keys.iter().find(|key| !key.can_encrypt() || key.is_bad()) {
-        let id = rejected
-            .fingerprint()
-            .ok()
-            .or_else(|| rejected.id().ok())
-            .unwrap_or("<unknown>")
-            .to_string();
-        return Err(PgpError::NoKeys(format!(
-            "recipient key {id} is unusable (revoked, expired, or disabled)"
-        )));
-    }
-
-    let key_refs = keys.iter().collect::<Vec<_>>();
-
-    let mut ciphertext = Vec::new();
-    ctx.encrypt(key_refs, plaintext.as_bytes(), &mut ciphertext)
-        .map_err(|e| PgpError::EncryptError(e.to_string()))?;
-
-    Ok(ciphertext)
+    backend()?.encrypt(plaintext.as_bytes(), recipient_ids)
 }
 
 /// Lists usable local secret keys that can decrypt password-store entries.
 pub fn available_recipients() -> Result<Vec<GpgRecipient>, PgpError> {
-    let mut ctx = Context::from_protocol(Protocol::OpenPgp)
-        .map_err(|e| PgpError::ContextError(e.to_string()))?;
-
-    let recipients = ctx
-        .secret_keys()
-        .map_err(|e| PgpError::NoKeys(e.to_string()))?
-        .filter_map(Result::ok)
-        .filter(|key| key.can_encrypt() && !key.is_bad())
-        .filter_map(|key| {
-            let id = key
-                .fingerprint()
-                .ok()
-                .or_else(|| key.id().ok())?
-                .to_string();
-            let user_id = key
-                .user_ids()
-                .next()
-                .and_then(|user_id| user_id.id().ok())
-                .map(sanitize_user_id)
-                .unwrap_or_else(|| id.clone());
-            let label = if user_id == id {
-                id.clone()
-            } else {
-                format!("{user_id} ({id})")
-            };
-
-            Some(GpgRecipient { id, label })
-        })
+    let recipients = backend()?
+        .secret_keys()?
+        .into_iter()
+        .map(recipient_from)
         .collect::<Vec<_>>();
 
     if recipients.is_empty() {
@@ -258,20 +266,19 @@ pub fn available_recipients() -> Result<Vec<GpgRecipient>, PgpError> {
     Ok(recipients)
 }
 
-fn openpgp_context() -> Result<Context, PgpError> {
-    Context::from_protocol(Protocol::OpenPgp).map_err(|e| PgpError::ContextError(e.to_string()))
-}
-
-/// Maps a gpgme failure, keeping a dismissed pinentry apart so the UI
-/// does not report it as an error.
-fn op_error(make: fn(String) -> PgpError) -> impl Fn(gpgme::Error) -> PgpError {
-    move |err| {
-        if err.code() == gpgme::Error::CANCELED.code() {
-            PgpError::Cancelled
-        } else {
-            make(err.to_string())
-        }
-    }
+fn recipient_from(key: SecretKeyInfo) -> GpgRecipient {
+    let id = key.fingerprint;
+    let user_id = key
+        .user_id
+        .as_deref()
+        .map(sanitize_user_id)
+        .unwrap_or_else(|| id.clone());
+    let label = if user_id == id {
+        id.clone()
+    } else {
+        format!("{user_id} ({id})")
+    };
+    GpgRecipient { id, label }
 }
 
 /// Builds the user id of a new key: `Name <email>`, or `Name` alone.
@@ -291,128 +298,33 @@ pub fn key_user_id(name: &str, email: &str) -> Result<String, PgpError> {
     })
 }
 
-/// Creates a key pair with gpg's default algorithms (a primary key and
-/// an encryption subkey) and no expiry, and returns its fingerprint.
+/// Creates a key pair (a primary key and an encryption subkey) with no
+/// expiry, and returns its fingerprint.
 ///
-/// gpg-agent asks for the passphrase through pinentry: Passel never sees
-/// it. No expiry because an expired key silently stops a password
-/// manager from saving entries, which non-expert users cannot recover
-/// from; the backup and the passphrase are what protect the key.
+/// No expiry because an expired key silently stops a password manager
+/// from saving entries, which non-expert users cannot recover from; the
+/// backup and the passphrase are what protect the key. The backend asks
+/// for the passphrase itself (pinentry for GnuPG).
 pub fn create_key(name: &str, email: &str) -> Result<String, PgpError> {
     let user_id = key_user_id(name, email)?;
-    create_key_in(&mut openpgp_context()?, &user_id, CreateKeyFlags::NOEXPIRE)
-}
-
-fn create_key_in(
-    ctx: &mut Context,
-    user_id: &str,
-    flags: CreateKeyFlags,
-) -> Result<String, PgpError> {
-    let result = ctx
-        .create_key_with_flags(user_id, "default", Duration::ZERO, flags)
-        .map_err(op_error(PgpError::KeyCreationError))?;
-    result
-        .fingerprint()
-        .map(str::to_string)
-        .map_err(|_| PgpError::KeyCreationError("no fingerprint returned".to_string()))
+    backend()?.create_key(&user_id)
 }
 
 /// Imports a key file and returns the fingerprints of the secret keys it
-/// held that can encrypt. They are marked as ultimately trusted, like a
-/// key created on this computer: otherwise gpg refuses to encrypt to them
-/// ("no assurance this key belongs to the named user").
+/// held that can encrypt.
 pub fn import_secret_keys(path: &Path) -> Result<Vec<String>, PgpError> {
-    let path_str = path
-        .to_str()
-        .ok_or_else(|| PgpError::InvalidPath(path.to_path_buf()))?;
-    let data = Data::load(path_str).map_err(|e| PgpError::LoadingError(e.to_string()))?;
-    import_secret_keys_in(&mut openpgp_context()?, data)
-}
-
-fn import_secret_keys_in(ctx: &mut Context, data: Data<'_>) -> Result<Vec<String>, PgpError> {
-    let result = ctx.import(data).map_err(op_error(PgpError::ImportError))?;
-    let mut fingerprints = result
-        .imports()
-        .filter(|import| import.result().is_ok())
-        .filter_map(|import| import.fingerprint().ok().map(str::to_string))
-        .collect::<Vec<_>>();
-    fingerprints.dedup();
-
-    let mut usable = Vec::new();
-    for fingerprint in fingerprints {
-        let Ok(key) = ctx.get_secret_key(fingerprint.as_str()) else {
-            continue;
-        };
-        if !key.can_encrypt() || key.is_bad() {
-            continue;
-        }
-        if key.owner_trust() != Validity::Ultimate {
-            ctx.interact(&key, UltimateTrust::default(), Vec::new())
-                .map_err(op_error(PgpError::ImportError))?;
-        }
-        usable.push(fingerprint);
-    }
-    if usable.is_empty() {
-        return Err(PgpError::NoSecretKey);
-    }
-    Ok(usable)
-}
-
-/// Answers gpg's `--edit-key` prompts to set a key's owner trust to
-/// ultimate (`trust`, `5`, `y`, `quit`).
-#[derive(Default)]
-struct UltimateTrust {
-    asked: bool,
-}
-
-impl Interactor for UltimateTrust {
-    fn interact(
-        &mut self,
-        status: InteractionStatus<'_>,
-        out: Option<&mut dyn Write>,
-    ) -> Result<(), gpgme::Error> {
-        let keyword = status.keyword().unwrap_or("");
-        let prompt = status.args().unwrap_or("");
-        let reply = match (keyword, prompt) {
-            ("GET_LINE", "keyedit.prompt") if self.asked => "quit",
-            ("GET_LINE", "keyedit.prompt") => {
-                self.asked = true;
-                "trust"
-            }
-            ("GET_LINE", "edit_ownertrust.value") => "5",
-            ("GET_BOOL", "edit_ownertrust.set_ultimate.okay" | "keyedit.save.okay") => "y",
-            _ => return Ok(()),
-        };
-        if let Some(out) = out {
-            writeln!(out, "{reply}")?;
-        }
-        Ok(())
-    }
+    let data = Zeroizing::new(fs::read(path).map_err(|source| PgpError::ReadError {
+        path: path.to_path_buf(),
+        source,
+    })?);
+    backend()?.import_secret_keys(&data)
 }
 
 /// Writes an armored backup of a secret key to `dest` (owner-only
-/// permissions). gpg-agent asks for the key's passphrase first.
+/// permissions).
 pub fn export_secret_key(fingerprint: &str, dest: &Path) -> Result<(), PgpError> {
-    let backup = export_secret_key_in(&mut openpgp_context()?, fingerprint)?;
+    let backup = backend()?.export_secret_key(fingerprint)?;
     write_private_file(dest, &backup).map_err(|e| PgpError::ExportError(e.to_string()))
-}
-
-fn export_secret_key_in(
-    ctx: &mut Context,
-    fingerprint: &str,
-) -> Result<Zeroizing<Vec<u8>>, PgpError> {
-    ctx.set_armor(true);
-    let key = ctx
-        .get_secret_key(fingerprint)
-        .map_err(|e| PgpError::NoKeys(e.to_string()))?;
-    let mut backup = Zeroizing::new(Vec::new());
-    ctx.export_keys([&key], ExportMode::SECRET, &mut *backup)
-        .map_err(op_error(PgpError::ExportError))?;
-    if backup.is_empty() {
-        // gpg exports nothing when the passphrase prompt is dismissed.
-        return Err(PgpError::Cancelled);
-    }
-    Ok(backup)
 }
 
 fn write_private_file(dest: &Path, contents: &[u8]) -> std::io::Result<()> {
@@ -554,35 +466,17 @@ fn read_gpg_id_file(gpg_id_path: &Path) -> Result<Vec<String>, PgpError> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
 
-    fn temp_dir(name: &str) -> PathBuf {
+    pub(crate) fn temp_dir(name: &str) -> PathBuf {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("passel-{name}-{}-{unique}", std::process::id()))
-    }
-
-    /// A gpgme context on a throwaway GnuPG home.
-    fn context_in(home: &Path) -> Context {
-        use std::os::unix::fs::PermissionsExt;
-        fs::create_dir_all(home).unwrap();
-        fs::set_permissions(home, fs::Permissions::from_mode(0o700)).unwrap();
-        let mut ctx = Context::from_protocol(Protocol::OpenPgp).unwrap();
-        ctx.set_engine_home_dir(home.to_str().unwrap()).unwrap();
-        ctx
-    }
-
-    fn stop_agent(home: &Path) {
-        let _ = std::process::Command::new("gpgconf")
-            .arg("--homedir")
-            .arg(home)
-            .args(["--kill", "gpg-agent"])
-            .status();
     }
 
     #[test]
@@ -604,54 +498,6 @@ mod tests {
                 Err(PgpError::InvalidUserId)
             ));
         }
-    }
-
-    #[test]
-    fn created_key_survives_a_backup_and_restore() {
-        let root = temp_dir("gpg-keys");
-        let (home_a, home_b, home_c) = (root.join("a"), root.join("b"), root.join("c"));
-
-        let mut a = context_in(&home_a);
-        let flags = CreateKeyFlags::NOEXPIRE | CreateKeyFlags::NOPASSWD;
-        let fingerprint =
-            create_key_in(&mut a, "Passel Tests <tests@example.invalid>", flags).unwrap();
-        let key = a.get_secret_key(fingerprint.as_str()).unwrap();
-        assert!(
-            key.can_encrypt(),
-            "default algorithms add an encryption subkey"
-        );
-        assert!(key
-            .subkeys()
-            .all(|subkey| subkey.expiration_time().is_none()));
-
-        let backup = export_secret_key_in(&mut a, &fingerprint).unwrap();
-        assert!(backup.starts_with(b"-----BEGIN PGP PRIVATE KEY BLOCK-----"));
-
-        // Restoring the backup elsewhere yields a key gpg encrypts to.
-        let mut b = context_in(&home_b);
-        let imported =
-            import_secret_keys_in(&mut b, Data::from_bytes(&backup[..]).unwrap()).unwrap();
-        assert_eq!(imported, std::slice::from_ref(&fingerprint));
-        let restored = b.get_key(fingerprint.as_str()).unwrap();
-        assert_eq!(restored.owner_trust(), Validity::Ultimate);
-        let mut ciphertext = Vec::new();
-        b.encrypt([&restored], "secret", &mut ciphertext).unwrap();
-        assert!(!ciphertext.is_empty());
-
-        // A public key alone cannot open a vault.
-        let mut public = Vec::new();
-        a.export_keys([&key], ExportMode::empty(), &mut public)
-            .unwrap();
-        let mut c = context_in(&home_c);
-        assert!(matches!(
-            import_secret_keys_in(&mut c, Data::from_bytes(&public[..]).unwrap()),
-            Err(PgpError::NoSecretKey)
-        ));
-
-        for home in [&home_a, &home_b, &home_c] {
-            stop_agent(home);
-        }
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

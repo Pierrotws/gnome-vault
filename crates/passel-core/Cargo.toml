@@ -10,7 +10,7 @@ description = "Passel's password-store logic, without any UI: entries, vaults, e
 publish = false
 
 [dependencies]
-gpgme = "0.11"
+gpgme = { version = "0.11", optional = true }
 getrandom = "0.4.2"
 git2 = "0.20.4"
 log = "0.4.29"
@@ -26,6 +26,20 @@ sha2 = "0.11"
 flate2 = "1"
 pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
 serde_json = "1"
+pgp = { version = "0.21.1", optional = true, default-features = false }
+rand = { version = "0.8.6", optional = true }
 
 [dev-dependencies]
 keepass = { version = "0.17", features = ["save_kdbx4"] }
+
+[features]
+default = ["gpgme"]
+# OpenPGP through GnuPG (gpg-agent, pinentry, the user's keyring): the
+# desktop backend.
+gpgme = ["dep:gpgme"]
+# Pure-Rust OpenPGP (rPGP) with an app-managed keyring: for platforms
+# without GnuPG (Android, iOS). Installed with pgp::install_backend.
+rpgp = ["dep:pgp", "dep:rand"]
+# Build libgit2, OpenSSL and libssh2 from source instead of linking the
+# system's: needed when cross-compiling for Android/iOS.
+vendored = ["git2/vendored-libgit2", "git2/vendored-openssl"]

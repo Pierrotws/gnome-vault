@@ -36,7 +36,7 @@ passel/
 |   |   |-- otp.rs                     # TOTP parsing and generation
 |   |   |-- parser.rs                  # pass plaintext <-> EntryData parser/formatter
 |   |   |-- password.rs                # Password generation
-|   |   `-- pgp.rs                     # GPGME encryption/decryption and recipients
+|   |   `-- pgp/                       # OpenPGP: PgpBackend + gpgme.rs (desktop) / rpgp.rs (mobile)
 |   |-- pass/                          # [passel-core] password-store domain and persistence boundary
 |   |   |-- model/                     # EntryData, EntryField, PassNode
 |   |   |-- import/                    # Readers for KeePassXC (.kdbx) and Buttercup (.bcup) vaults
@@ -86,7 +86,7 @@ passel/
 [pass::store facade]
   |
   +--> [helpers::parser] <-> pass plaintext format
-  +--> [helpers::pgp]    <-> GPGME / local OpenPGP keyring
+  +--> [helpers::pgp]    <-> PgpBackend: GPGME + GnuPG keyring (desktop) or rPGP + app keyring (mobile)
   +--> [helpers::git]    <-> git2 repository and remote
   |
   v
@@ -184,7 +184,7 @@ Primary files:
 | File | Responsibility |
 | --- | --- |
 | `crates/passel-core/src/helpers/parser.rs` | Parses and formats the pass-compatible YAML subset for custom fields. |
-| `crates/passel-core/src/helpers/pgp.rs` | Decrypts/encrypts `.gpg` files and lists usable local recipients. |
+| `crates/passel-core/src/helpers/pgp/` | Decrypts/encrypts `.gpg` files, lists usable local recipients, reads `.gpg-id`. The crypto goes through the process-wide `PgpBackend`: `gpgme.rs` (feature `gpgme`, the default: GnuPG keyring, agent, pinentry) or `rpgp.rs` (feature `rpgp`: pure Rust, keyring in a folder the app picks, passphrases through a `PassphraseProvider` callback and cached until `lock()`), set with `pgp::install_backend`. Tests check rPGP against the real gpg in both directions. |
 | `crates/passel-core/src/helpers/git.rs` | Repository initialization, add/remove/rename, commit, push, history, revert, rollback. |
 | `crates/passel-core/src/helpers/otp.rs` | Validates `otpauth://` URLs and generates current TOTP values. |
 | `crates/passel-core/src/helpers/password.rs` | Generates passwords for the new-entry dialog. |
