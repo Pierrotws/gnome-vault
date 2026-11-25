@@ -67,7 +67,6 @@ impl MainWindow {
         } else {
             self.show_empty_content();
         }
-        self.set_edit_unlock_state(false, false, false);
         self.show_app_view();
         self.update_history_controls();
         self.refresh_changes_badge();
@@ -293,20 +292,11 @@ impl MainWindow {
 
                 match result {
                     Ok(()) => {
-                        // Snapshot the bools we need in a single borrow before
-                        // any widget setter runs, so a setter-driven signal
-                        // can never re-enter the controller while a borrow is
-                        // still live.
-                        let (is_dirty, is_valid) = {
-                            let controller = controller.borrow();
-                            (
-                                controller.has_unsaved_changes(),
-                                controller.has_valid_changes(),
-                            )
-                        };
-                        view.set_cancellable(is_dirty);
+                        // Snapshot before any widget setter runs, so a
+                        // setter-driven signal can never re-enter the
+                        // controller while a borrow is still live.
+                        let is_valid = controller.borrow().has_valid_changes();
                         view.set_saveable(is_valid);
-                        window.set_edit_unlock_state(true, view.is_editable_mode(), is_dirty);
                     }
                     Err(err) => view.show_error_dialog(&err.to_string()),
                 }
@@ -356,16 +346,10 @@ impl MainWindow {
 
                 match result {
                     Ok(()) => {
-                        // Snapshot bools before any widget setter runs;
-                        // setters can synchronously emit signals that
-                        // re-enter the controller and would otherwise panic.
-                        let (is_dirty, is_valid) = {
-                            let controller = controller.borrow();
-                            (
-                                controller.has_unsaved_changes(),
-                                controller.has_valid_changes(),
-                            )
-                        };
+                        // Snapshot before any widget setter runs; setters can
+                        // synchronously emit signals that re-enter the
+                        // controller and would otherwise panic.
+                        let is_valid = controller.borrow().has_valid_changes();
                         view.set_editable_mode(false);
                         if let Err(err) = window.reload_vault_tree() {
                             view.show_error_dialog(&err.to_string());
@@ -373,8 +357,6 @@ impl MainWindow {
                         if let Err(err) = window.reload_changes_view() {
                             view.show_error_dialog(&err.to_string());
                         }
-                        window.set_edit_unlock_state(true, false, false);
-                        view.set_cancellable(is_dirty);
                         view.set_saveable(is_valid);
                     }
                     Err(err) => view.show_error_dialog(&err.to_string()),
@@ -400,38 +382,13 @@ impl MainWindow {
 
                 match result {
                     Ok(entry_data) => {
-                        // Snapshot bools before any widget setter runs.
-                        let (is_dirty, is_valid) = {
-                            let controller = controller.borrow();
-                            (
-                                controller.has_unsaved_changes(),
-                                controller.has_valid_changes(),
-                            )
-                        };
+                        // Snapshot before any widget setter runs.
+                        let is_valid = controller.borrow().has_valid_changes();
                         entry_view.set_entry_data(&entry_data);
-                        window.set_edit_unlock_state(true, false, false);
-                        entry_view.set_cancellable(is_dirty);
                         entry_view.set_saveable(is_valid);
                     }
                     Err(err) => entry_view.show_error_dialog(&err.to_string()),
                 }
-            }
-        ));
-
-        imp.lock_vault_button.connect_clicked(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |_| {
-                let entry_view = window.imp().entry_view.clone();
-                let editing = !entry_view.is_editable_mode();
-                entry_view.set_editable_mode(editing);
-                // Read the live dirty flag rather than hard-coding `false`.
-                // The lock button is gated insensitive while dirty so this
-                // path is only reachable when has_unsaved_changes() is
-                // false, but threading the snapshot through avoids lying
-                // to set_edit_unlock_state if that gating ever loosens.
-                let is_dirty = window.controller().borrow().has_unsaved_changes();
-                window.set_edit_unlock_state(true, editing, is_dirty);
             }
         ));
 
@@ -498,19 +455,10 @@ impl MainWindow {
 
         match result {
             Ok(data) => {
-                // Snapshot bools before any widget setter runs.
-                let (is_dirty, is_valid) = {
-                    let controller = self.controller();
-                    let controller = controller.borrow();
-                    (
-                        controller.has_unsaved_changes(),
-                        controller.has_valid_changes(),
-                    )
-                };
+                // Snapshot before any widget setter runs.
+                let is_valid = self.controller().borrow().has_valid_changes();
                 entry_view.set_entry_data(&data);
                 self.show_entry_content();
-                self.set_edit_unlock_state(true, false, false);
-                entry_view.set_cancellable(is_dirty);
                 entry_view.set_saveable(is_valid);
             }
             Err(err) => entry_view.show_error_dialog(&err.to_string()),
@@ -555,7 +503,6 @@ impl MainWindow {
         if deleted_current {
             self.imp().entry_view.display_empty();
             self.show_empty_content();
-            self.set_edit_unlock_state(false, false, false);
         }
         if let Err(err) = self.reload_vault_tree() {
             self.imp().entry_view.show_error_dialog(&err.to_string());
@@ -615,7 +562,6 @@ impl MainWindow {
                     entry_view.show_error_dialog(&err.to_string());
                 }
                 self.show_empty_content();
-                self.set_edit_unlock_state(false, false, false);
             }
             Err(err) => entry_view.show_error_dialog(&err.to_string()),
         }
@@ -662,7 +608,6 @@ impl MainWindow {
         if closed_session {
             self.imp().entry_view.display_empty();
             self.show_empty_content();
-            self.set_edit_unlock_state(false, false, false);
         }
         if let Err(err) = self.reload_vault_tree() {
             self.imp().entry_view.show_error_dialog(&err.to_string());
@@ -741,7 +686,6 @@ impl MainWindow {
             window.controller().borrow_mut().clear_loaded_entry_state();
             window.imp().entry_view.display_empty();
             window.show_empty_content();
-            window.set_edit_unlock_state(false, false, false);
             if let Err(err) = window.reload_vault_tree() {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
             }
@@ -821,7 +765,6 @@ impl MainWindow {
             window.controller().borrow_mut().clear_loaded_entry_state();
             window.imp().entry_view.display_empty();
             window.show_empty_content();
-            window.set_edit_unlock_state(false, false, false);
             if let Err(err) = window.reload_vault_tree() {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
             }
@@ -986,22 +929,15 @@ impl MainWindow {
         imp.main_stack.set_visible_child_name("app");
         imp.new_entry_button.set_sensitive(true);
         imp.changes_button.set_sensitive(true);
-        imp.lock_vault_button.set_sensitive(false);
     }
 
     fn show_empty_content(&self) {
         let imp = self.imp();
         imp.content_stack.set_visible_child_name("empty");
-        imp.lock_vault_button.set_sensitive(false);
     }
 
     fn show_entry_content(&self) {
-        let imp = self.imp();
-        imp.content_stack.set_visible_child_name("entry");
-        let has_entry = self.controller().borrow().current_session().is_some();
-        let editing = imp.entry_view.is_editable_mode();
-        let is_dirty = self.controller().borrow().has_unsaved_changes();
-        self.set_edit_unlock_state(has_entry, editing, is_dirty);
+        self.imp().content_stack.set_visible_child_name("entry");
     }
 
     fn update_selection_layout(&self, reset_position: bool) {
@@ -1059,7 +995,6 @@ impl MainWindow {
     fn show_changes_content(&self) {
         let imp = self.imp();
         imp.content_stack.set_visible_child_name("changes");
-        imp.lock_vault_button.set_sensitive(false);
     }
 
     fn show_error_dialog(&self, message: &str) {
@@ -1104,21 +1039,6 @@ impl MainWindow {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
             }
         });
-    }
-
-    fn set_edit_unlock_state(&self, has_entry: bool, editing: bool, is_dirty: bool) {
-        let imp = self.imp();
-        imp.lock_vault_button.set_sensitive(has_entry && !is_dirty);
-        imp.lock_vault_button.set_icon_name(if editing {
-            "changes-allow-symbolic"
-        } else {
-            "system-lock-screen-symbolic"
-        });
-        imp.lock_vault_button.set_tooltip_text(Some(if editing {
-            "Editing unlocked"
-        } else {
-            "Unlock editing"
-        }));
     }
 }
 

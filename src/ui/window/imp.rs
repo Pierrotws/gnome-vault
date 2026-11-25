@@ -69,9 +69,6 @@ pub struct MainWindow {
     pub changes_badge: TemplateChild<gtk::Label>,
 
     #[template_child]
-    pub lock_vault_button: TemplateChild<gtk::Button>,
-
-    #[template_child]
     pub preferences_button: TemplateChild<gtk::Button>,
 
     #[template_child]

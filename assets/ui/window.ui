@@ -89,12 +89,6 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 <property name="tooltip-text">Preferences</property>
               </object>
             </child>
-            <child type="end">
-              <object class="GtkButton" id="lock_vault_button">
-                <property name="icon-name">system-lock-screen-symbolic</property>
-                <property name="tooltip-text">Unlock editing</property>
-              </object>
-            </child>
           </object>
         </child>
         <property name="content">

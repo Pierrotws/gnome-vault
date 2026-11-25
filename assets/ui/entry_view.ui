@@ -50,6 +50,55 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 <property name="margin-start">18</property>
                 <property name="margin-end">18</property>
                 <child>
+                  <object class="GtkStack" id="edit_actions_stack">
+                    <property name="halign">2</property>
+                    <property name="hhomogeneous">false</property>
+                    <child>
+                      <object class="GtkStackPage">
+                        <property name="name">view</property>
+                        <property name="child">
+                          <object class="GtkButton" id="edit_button">
+                            <property name="halign">2</property>
+                            <property name="tooltip-text">Edit this entry</property>
+                            <property name="child">
+                              <object class="AdwButtonContent">
+                                <property name="icon-name">document-edit-symbolic</property>
+                                <property name="label">_Edit</property>
+                                <property name="use-underline">true</property>
+                              </object>
+                            </property>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkStackPage">
+                        <property name="name">edit</property>
+                        <property name="child">
+                          <object class="GtkBox">
+                            <property name="orientation">0</property>
+                            <property name="spacing">12</property>
+                            <property name="halign">2</property>
+                            <child>
+                              <object class="GtkButton" id="cancel_button">
+                                <property name="label">_Cancel</property>
+                                <property name="use-underline">true</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="save_button">
+                                <property name="label">_Save</property>
+                                <property name="use-underline">true</property>
+                                <property name="css-classes">suggested-action</property>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
                   <object class="GtkEntry" id="title_entry">
                     <property name="placeholder-text">Entry name</property>
                     <property name="halign">3</property>
@@ -179,24 +228,6 @@ field-entry</property>
                           <object class="GtkButton" id="delete_button">
                             <property name="label">Delete Entry</property>
                             <property name="css-classes">destructive-action</property>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkBox">
-                        <property name="orientation">0</property>
-                        <property name="spacing">12</property>
-                        <property name="halign">2</property>
-                        <child>
-                          <object class="GtkButton" id="cancel_button">
-                            <property name="label">Cancel</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkButton" id="save_button">
-                            <property name="label">Save</property>
-                            <property name="css-classes">suggested-action</property>
                           </object>
                         </child>
                       </object>

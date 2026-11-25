@@ -265,7 +265,6 @@ impl MainWindow {
     pub(super) fn disable_vault_actions(&self) {
         let imp = self.imp();
         imp.new_entry_button.set_sensitive(false);
-        imp.lock_vault_button.set_sensitive(false);
         imp.changes_button.set_sensitive(false);
         imp.window_title.set_subtitle("");
     }
