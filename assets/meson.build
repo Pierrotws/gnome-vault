@@ -14,3 +14,18 @@ resources = gnome.compile_resources(
   install: true,
   install_dir: pkgdatadir,
 )
+
+# Launcher entry and icons (assets/icons/make-icons.py makes the icons
+# from logo.png). The file names match the application id, so the
+# desktop shell ties the running window to them.
+install_data(
+  'io.pierrotws.Passel.desktop',
+  install_dir: datadir / 'applications',
+)
+foreach size : [16, 24, 32, 48, 64, 128, 256, 512]
+  icon_dir = 'icons' / 'hicolor' / '@0@x@0@'.format(size) / 'apps'
+  install_data(
+    icon_dir / 'io.pierrotws.Passel.png',
+    install_dir: datadir / icon_dir,
+  )
+endforeach

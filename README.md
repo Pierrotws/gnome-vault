@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo-transparent.png" alt="Passel logo" width="160">
+</p>
+
 # Passel
 
 GTK4 + Adwaita app for [pass](https://www.passwordstore.org/).
