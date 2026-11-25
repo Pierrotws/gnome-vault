@@ -1,5 +1,5 @@
-//! Vault setup wizard: GSettings → env propagation, recipient lookup, and
-//! the first-run "create a vault here" form.
+//! Vault setup glue: GSettings → env propagation, the first-run wizard
+//! (see [`crate::ui::setup_wizard`]) and the "turn on history" page.
 
 use std::path::{Path, PathBuf};
 
@@ -9,10 +9,10 @@ use gtk::glib;
 
 use crate::app::app_error::AppError;
 use crate::app::controller::AppController;
-use crate::pass::store::{StoreError, StoreStatus, VaultSetup};
+use crate::pass::store::StoreError;
 use crate::ui::vault_view::{build_tree_factory, TreeViewSize};
 
-use super::{MainWindow, SETUP_PROVIDER_NONE};
+use super::MainWindow;
 
 impl MainWindow {
     pub(super) fn apply_store_dir_setting(&self) {
@@ -86,13 +86,6 @@ impl MainWindow {
     }
 
     pub(super) fn setup_vault_setup_view(&self) {
-        let imp = self.imp();
-        let provider_model = gtk::StringList::new(&["No Sync", "GitHub", "GitLab", "Custom"]);
-        imp.setup_provider_row.set_model(Some(&provider_model));
-        imp.setup_provider_row.set_selected(SETUP_PROVIDER_NONE);
-        imp.setup_remote_row.set_sensitive(false);
-        self.setup_recipient_model();
-
         // Debug builds ignore the shared store-dir setting, which names
         // the installed app's real vault.
         let configured_store_dir = if self.settings_has_key("store-dir")
@@ -107,9 +100,8 @@ impl MainWindow {
         } else {
             PathBuf::from(&configured_store_dir)
         };
-        imp.setup_path_row
-            .set_text(&default_store_dir.to_string_lossy());
-        self.update_create_vault_button();
+        let autopush = self.controller().borrow().autopush();
+        self.imp().setup_wizard.reset(&default_store_dir, autopush);
     }
 
     pub(super) fn show_setup_view(&self) {
@@ -151,75 +143,12 @@ impl MainWindow {
         }
     }
 
-    pub(super) fn update_create_vault_button(&self) {
-        let imp = self.imp();
-        let path = imp.setup_path_row.text();
-        let path = path.trim();
-        let has_path = !path.is_empty();
-        let folder_problem = if has_path {
-            match AppController::folder_status(Path::new(path)) {
-                StoreStatus::Missing | StoreStatus::Empty | StoreStatus::Ready => None,
-                StoreStatus::PassWithoutGit => {
-                    Some("This folder already holds a password store. Choose an empty folder.")
-                }
-                StoreStatus::Unrelated => {
-                    Some("This folder is not empty. Choose an empty or new folder.")
-                }
-            }
-        } else {
-            None
-        };
-        imp.setup_vault_group.set_description(folder_problem);
-        if folder_problem.is_some() {
-            imp.setup_path_row.add_css_class("error");
-        } else {
-            imp.setup_path_row.remove_css_class("error");
-        }
-        let has_recipient = imp
-            .setup_recipients
-            .borrow()
-            .get(imp.setup_recipient_row.selected() as usize)
-            .is_some();
-        let needs_remote = imp.setup_provider_row.selected() != SETUP_PROVIDER_NONE;
-        let has_remote = !imp.setup_remote_row.text().trim().is_empty();
-
-        imp.create_vault_button.set_sensitive(
-            has_path && folder_problem.is_none() && has_recipient && (!needs_remote || has_remote),
-        );
-    }
-
-    pub(super) fn create_vault_from_setup(&self) {
-        let imp = self.imp();
-        let store_dir = PathBuf::from(imp.setup_path_row.text().trim());
-        let Some(recipient) = imp
-            .setup_recipients
-            .borrow()
-            .get(imp.setup_recipient_row.selected() as usize)
-            .map(|recipient| recipient.id.clone())
-        else {
-            self.show_error_dialog("Select a GPG recipient before creating the vault");
-            return;
-        };
-        let remote_url = (imp.setup_provider_row.selected() != SETUP_PROVIDER_NONE)
-            .then(|| imp.setup_remote_row.text().trim().to_string())
-            .filter(|url| !url.is_empty());
-
-        let setup = VaultSetup {
-            store_dir: store_dir.clone(),
-            recipient,
-            remote_url,
-            autopush: self.controller().borrow().autopush(),
-        };
-
-        let setup_result = {
-            let controller = self.controller();
-            let mut controller = controller.borrow_mut();
-            controller.setup_vault(&setup)
-        };
-
-        match setup_result {
+    /// Opens the vault the setup wizard just created at `store_dir`.
+    pub(super) fn open_created_vault(&self, store_dir: &Path) {
+        let result = self.controller().borrow_mut().open_new_vault(store_dir);
+        match result {
             Ok(()) => {
-                if let Err(err) = self.persist_store_dir_setting(&store_dir) {
+                if let Err(err) = self.persist_store_dir_setting(store_dir) {
                     self.show_error_dialog(&err);
                     return;
                 }
@@ -237,7 +166,7 @@ impl MainWindow {
             // *previous* vault's tree, which would confuse the user
             // about whether the wizard succeeded.
             Err(AppError::Save(StoreError::RestartRequired)) => {
-                if let Err(err) = self.persist_store_dir_setting(&store_dir) {
+                if let Err(err) = self.persist_store_dir_setting(store_dir) {
                     self.show_error_dialog(&err);
                     return;
                 }
@@ -266,39 +195,5 @@ impl MainWindow {
         self.settings()
             .set_string("store-dir", &store_dir.to_string_lossy())
             .map_err(|err| err.to_string())
-    }
-
-    pub(super) fn setup_recipient_model(&self) {
-        let imp = self.imp();
-        let recipients = match self.controller().borrow().available_recipients() {
-            Ok(recipients) => recipients,
-            Err(err) => {
-                log::warn!("Failed to list GPG recipients: {err}");
-                Vec::new()
-            }
-        };
-
-        if recipients.is_empty() {
-            let model = gtk::StringList::new(&[]);
-            imp.setup_recipient_row.set_model(Some(&model));
-            imp.setup_recipient_row
-                .set_selected(gtk::INVALID_LIST_POSITION);
-            imp.setup_recipient_row
-                .set_subtitle("No usable local secret encryption key found");
-            imp.setup_recipient_row.set_sensitive(false);
-        } else {
-            let labels = recipients
-                .iter()
-                .map(|recipient| recipient.label.as_str())
-                .collect::<Vec<_>>();
-            let model = gtk::StringList::new(&labels);
-            imp.setup_recipient_row.set_model(Some(&model));
-            imp.setup_recipient_row.set_selected(0);
-            imp.setup_recipient_row.set_subtitle("");
-            imp.setup_recipient_row.set_sensitive(true);
-        }
-
-        imp.setup_recipients.replace(recipients);
-        self.update_create_vault_button();
     }
 }

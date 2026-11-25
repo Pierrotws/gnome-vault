@@ -19,6 +19,7 @@ passel/
 |   |   |-- cache_warmup.rs            # Background entry-cache decryption worker
 |   |   |-- changes.rs                 # Worker-safe wrappers for revert/rollback/push
 |   |   |-- group_preview.rs           # Worker-side decrypt for group-row subtitles
+|   |   |-- setup.rs                   # Worker-safe wrappers for the setup wizard
 |   |   `-- state/                     # Tree, selected entry, edit session, entry cache
 |   |-- helpers/                       # Focused infrastructure/domain helpers
 |   |   |-- clipboard.rs               # Centralized "copy secret" entry point
@@ -40,11 +41,12 @@ passel/
 |       |   |-- group_content.rs       # Right-pane group/search-results rendering
 |       |   |-- new_entry_dialog.rs    # New-entry creation dialog
 |       |   |-- preferences.rs         # Preferences dialog wiring
-|       |   `-- setup.rs               # Vault-setup view and env propagation
+|       |   `-- setup.rs               # Setup glue, env propagation, turn-on-history page
 |       |-- vault_view/                # Vault tree, search, programmatic selection
 |       |-- group_view/                # Right-pane list of entries in a group
 |       |-- entry_view/                # Entry display/editing and field rows
 |       |-- changes_view/              # Git history and change actions
+|       |-- setup_wizard/              # First-run wizard: pages, plan, step progress
 |       `-- generate_password_view/    # Password generator widget
 |-- packaging/
 |   |-- arch/passel/PKGBUILD      # Arch source build
@@ -100,7 +102,8 @@ Primary files:
 | --- | --- |
 | `src/main.rs` | Initializes logging, GResources, local schema lookup, and the Adwaita application. |
 | `src/ui/window/mod.rs` | Main UI orchestration, signal wiring, edit-mode state. |
-| `src/ui/window/setup.rs` | Vault-setup wizard and `PASSWORD_STORE_DIR` propagation. |
+| `src/ui/window/setup.rs` | Startup routing glue, `PASSWORD_STORE_DIR` propagation, and the "Turn On History" page for a pass store without git. |
+| `src/ui/setup_wizard/` | First-run wizard (`Adw.NavigationView`): collects a `SetupPlan`, then runs its steps on a worker with per-step progress, retry and skip. |
 | `src/ui/window/preferences.rs` | Preferences dialog (autopush, autoload, group view, store dir, branch). |
 | `src/ui/window/autoload.rs` | Background entry-cache warmup tick handler. |
 | `src/ui/window/group_content.rs` | Right-pane rendering for group browsing and flat search results. |
@@ -127,6 +130,7 @@ Primary files:
 | `src/app/changes.rs` | Worker-safe free functions for revert / rollback / push (called from `gio::spawn_blocking`). |
 | `src/app/cache_warmup.rs` | Spawns the autoload decrypt worker and streams results back to the main loop. |
 | `src/app/group_preview.rs` | Spawns the per-group decrypt worker that fills missing subtitle previews. |
+| `src/app/setup.rs` | Worker-safe wrappers the setup wizard calls: plan check, setup steps, key listing, folder status. |
 | `src/app/state/app_state.rs` | Current tree, selected node, current edit session, decrypted entry cache. |
 | `src/app/state/entry_session.rs` | Dirty tracking, validation, title changes, save/revert session state. |
 | `src/app/app_error.rs` | Error type surfaced to the UI. |
@@ -146,7 +150,7 @@ Primary files:
 | `src/pass/model/entry_data.rs` | Complete entry model: mandatory first field plus custom fields. |
 | `src/pass/model/entry_field.rs` | Typed entry values: password, plain, OTP, array, multiline. |
 | `src/pass/model/pass_node.rs` | Vault tree nodes for groups and `.gpg` entries. |
-| `src/pass/store/mod.rs` | Store facade: load, setup, save, create, rename, delete, history, push, revert, rollback. |
+| `src/pass/store/mod.rs` | Store facade: load, store status check, setup plan and steps, enable history, save, create, rename, delete, history, push, revert, rollback. |
 | `src/pass/store/store_error.rs` | Store-level error type. |
 
 ### 3.4. Infrastructure Helpers

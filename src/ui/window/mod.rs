@@ -22,7 +22,6 @@ use crate::ui::vault_view::{
 use crate::ui::EntryView;
 
 const CHANGES_PAGE_SIZE: usize = 50;
-const SETUP_PROVIDER_NONE: u32 = 0;
 const SIMPLE_SELECTION_WIDTH: i32 = 220;
 const GROUP_TREE_WIDTH: i32 = 170;
 
@@ -445,46 +444,11 @@ impl MainWindow {
             }
         ));
 
-        imp.setup_path_row.connect_changed(glib::clone!(
+        imp.setup_wizard.connect_vault_created(glib::clone!(
             #[weak(rename_to = window)]
             self,
-            move |_| {
-                window.update_create_vault_button();
-            }
-        ));
-
-        imp.setup_recipient_row
-            .connect_selected_notify(glib::clone!(
-                #[weak(rename_to = window)]
-                self,
-                move |_| {
-                    window.update_create_vault_button();
-                }
-            ));
-
-        imp.setup_remote_row.connect_changed(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |_| {
-                window.update_create_vault_button();
-            }
-        ));
-
-        imp.setup_provider_row.connect_selected_notify(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |row| {
-                let sync_enabled = row.selected() != SETUP_PROVIDER_NONE;
-                window.imp().setup_remote_row.set_sensitive(sync_enabled);
-                window.update_create_vault_button();
-            }
-        ));
-
-        imp.create_vault_button.connect_clicked(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |_| {
-                window.create_vault_from_setup();
+            move |_, store_dir| {
+                window.open_created_vault(&store_dir);
             }
         ));
 

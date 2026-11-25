@@ -12,7 +12,7 @@ use crate::{
     pass::{
         self,
         model::{EntryData, EntryField, PassNode},
-        store::{GpgRecipient, StoreStatus, VaultSetup},
+        store::StoreStatus,
     },
 };
 use std::path::{Path, PathBuf};
@@ -111,7 +111,8 @@ impl AppController {
         });
     }
 
-    /// Initializes a new password-store vault and reloads application state.
+    /// Points the app at a vault the setup wizard just created on disk and
+    /// reloads application state.
     ///
     /// Updates `PASSWORD_STORE_DIR` so subsequent store operations (which
     /// read it on every call) resolve to the freshly created vault. The
@@ -132,15 +133,14 @@ impl AppController {
     /// burned `set_password_store_dir_once`'s `OnceLock` with a
     /// *different* path (e.g. GSettings pointed at /a, no vault there,
     /// user typed /b in the wizard), the on-disk vault is created at
-    /// `setup.store_dir` but the env var still points at the previously
+    /// `store_dir` but the env var still points at the previously
     /// pinned path. We can't safely re-pin (env::set_var racing
     /// concurrent env::var on glibc is UB), so we surface
     /// `StoreError::RestartRequired` and let the wizard persist the new
     /// path to GSettings + prompt the user to restart.
-    pub fn setup_vault(&mut self, setup: &VaultSetup) -> Result<(), AppError> {
-        pass::store::setup_vault(setup)?;
-        if !pass::store::set_password_store_dir_once(&setup.store_dir)
-            && pass::store::password_store_dir() != setup.store_dir
+    pub fn open_new_vault(&mut self, store_dir: &Path) -> Result<(), AppError> {
+        if !pass::store::set_password_store_dir_once(store_dir)
+            && pass::store::password_store_dir() != store_dir
         {
             return Err(AppError::Save(pass::store::StoreError::RestartRequired));
         }
@@ -158,11 +158,6 @@ impl AppController {
         pass::store::check_store(&pass::store::password_store_dir())
     }
 
-    /// Classifies a folder typed into the setup form.
-    pub fn folder_status(dir: &Path) -> StoreStatus {
-        pass::store::check_store(dir)
-    }
-
     /// Puts the active pass store under git, then loads it.
     pub fn enable_history(&mut self) -> Result<(), AppError> {
         pass::store::enable_history(&pass::store::password_store_dir())?;
@@ -170,11 +165,6 @@ impl AppController {
         self.state.set_current_session(None);
         self.state.set_tree(tree);
         Ok(())
-    }
-
-    /// Lists usable GPG recipients for a newly created vault.
-    pub fn available_recipients(&self) -> Result<Vec<GpgRecipient>, AppError> {
-        Ok(pass::store::available_recipients()?)
     }
 
     /// Returns the active password-store directory (env var or default).

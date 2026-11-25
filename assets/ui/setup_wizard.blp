@@ -1,0 +1,209 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $SetupWizard : Adw.Bin {
+    child: Adw.NavigationView navigation {
+        Adw.NavigationPage {
+            tag: "welcome";
+            title: "Welcome";
+
+            child: Adw.StatusPage {
+                icon-name: "dialog-password-symbolic";
+                title: "Welcome to Passel";
+                description: "Passel keeps your passwords in an encrypted folder that works with pass. Let’s set one up.";
+
+                child: Button create_button {
+                    label: "Create a New Vault";
+                    halign: center;
+                    css-classes: ["suggested-action", "pill"];
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "vault";
+            title: "Vault";
+
+            child: ScrolledWindow {
+                hscrollbar-policy: never;
+
+                child: Adw.Clamp {
+                    maximum-size: 560;
+                    valign: center;
+                    margin-top: 24;
+                    margin-bottom: 24;
+                    margin-start: 24;
+                    margin-end: 24;
+
+                    child: Box {
+                        orientation: vertical;
+                        spacing: 18;
+
+                        Label {
+                            label: "Your Vault";
+                            css-classes: ["title-1"];
+                        }
+
+                        Label {
+                            label: "Choose where to store encrypted entries and which GPG key encrypts them.";
+                            wrap: true;
+                            xalign: 0;
+                            css-classes: ["dim-label"];
+                        }
+
+                        Adw.PreferencesGroup vault_group {
+                            Adw.EntryRow path_row {
+                                title: "Folder";
+                            }
+
+                            Adw.ComboRow recipient_row {
+                                title: "Encryption Key (GPG)";
+                            }
+                        }
+
+                        Box {
+                            halign: end;
+                            spacing: 12;
+
+                            Button vault_back_button {
+                                label: "Back";
+                            }
+
+                            Button vault_next_button {
+                                label: "Next";
+                                css-classes: ["suggested-action"];
+                            }
+                        }
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "sync";
+            title: "Sync";
+
+            child: ScrolledWindow {
+                hscrollbar-policy: never;
+
+                child: Adw.Clamp {
+                    maximum-size: 560;
+                    valign: center;
+                    margin-top: 24;
+                    margin-bottom: 24;
+                    margin-start: 24;
+                    margin-end: 24;
+
+                    child: Box {
+                        orientation: vertical;
+                        spacing: 18;
+
+                        Label {
+                            label: "Sync";
+                            css-classes: ["title-1"];
+                        }
+
+                        Label {
+                            label: "Optionally keep a copy of the vault on a remote, to use it from other devices.";
+                            wrap: true;
+                            xalign: 0;
+                            css-classes: ["dim-label"];
+                        }
+
+                        Adw.PreferencesGroup {
+                            Adw.ComboRow provider_row {
+                                title: "Provider";
+                            }
+
+                            Adw.EntryRow remote_row {
+                                title: "Remote URL";
+                                sensitive: false;
+                            }
+                        }
+
+                        Box {
+                            halign: end;
+                            spacing: 12;
+
+                            Button sync_back_button {
+                                label: "Back";
+                            }
+
+                            Button sync_next_button {
+                                label: "Next";
+                                css-classes: ["suggested-action"];
+                            }
+                        }
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage review_page {
+            tag: "review";
+            title: "Review";
+
+            child: ScrolledWindow {
+                hscrollbar-policy: never;
+
+                child: Adw.Clamp {
+                    maximum-size: 560;
+                    valign: center;
+                    margin-top: 24;
+                    margin-bottom: 24;
+                    margin-start: 24;
+                    margin-end: 24;
+
+                    child: Box {
+                        orientation: vertical;
+                        spacing: 18;
+
+                        Label {
+                            label: "Review";
+                            css-classes: ["title-1"];
+                        }
+
+                        Label {
+                            label: "Passel will:";
+                            wrap: true;
+                            xalign: 0;
+                            css-classes: ["dim-label"];
+                        }
+
+                        ListBox steps_list {
+                            selection-mode: none;
+                            css-classes: ["boxed-list"];
+                        }
+
+                        Label error_label {
+                            visible: false;
+                            wrap: true;
+                            xalign: 0;
+                            selectable: true;
+                            css-classes: ["error"];
+                        }
+
+                        Box {
+                            halign: end;
+                            spacing: 12;
+
+                            Button review_back_button {
+                                label: "Back";
+                            }
+
+                            Button skip_button {
+                                label: "Skip Sync";
+                                visible: false;
+                            }
+
+                            Button apply_button {
+                                label: "Create Vault";
+                                css-classes: ["suggested-action"];
+                            }
+                        }
+                    };
+                };
+            };
+        }
+    };
+}

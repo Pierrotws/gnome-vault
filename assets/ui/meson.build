@@ -51,6 +51,13 @@ if use_blueprint
     command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
   )
 
+  setup_wizard_ui = custom_target(
+    'setup-wizard-ui',
+    input: 'setup_wizard.blp',
+    output: 'setup_wizard.ui',
+    command: [blueprint, 'compile', '--output', '@OUTPUT@', '@INPUT@'],
+  )
+
   window_ui = custom_target(
     'window-ui',
     input: 'window.blp',
@@ -97,6 +104,12 @@ else
   new_entry_dialog_ui = configure_file(
     input: 'new_entry_dialog.ui',
     output: 'new_entry_dialog.ui',
+    copy: true,
+  )
+
+  setup_wizard_ui = configure_file(
+    input: 'setup_wizard.ui',
+    output: 'setup_wizard.ui',
     copy: true,
   )
 

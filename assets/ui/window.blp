@@ -36,65 +36,7 @@ template $MainWindow : Adw.ApplicationWindow {
         content: Stack main_stack {
             StackPage {
                 name: "setup";
-                child: Box {
-                    orientation: vertical;
-                    halign: center;
-                    valign: center;
-                    width-request: 560;
-                    spacing: 18;
-                    margin-top: 24;
-                    margin-bottom: 24;
-                    margin-start: 24;
-                    margin-end: 24;
-
-                    Label {
-                        label: "Create a Vault";
-                        css-classes: ["title-1"];
-                    }
-
-                    Label {
-                        label: "Choose where to store encrypted entries, configure your GPG recipient, and optionally connect a remote.";
-                        wrap: true;
-                        xalign: 0;
-                        css-classes: ["dim-label"];
-                    }
-
-                    Adw.PreferencesGroup setup_vault_group {
-                        title: "Vault";
-
-                        Adw.EntryRow setup_path_row {
-                            title: "Folder";
-                        }
-
-                        Adw.ComboRow setup_recipient_row {
-                            title: "Signature Key (GPG)";
-                        }
-                    }
-
-                    Adw.PreferencesGroup {
-                        title: "Sync";
-
-                        Adw.ComboRow setup_provider_row {
-                            title: "Provider";
-                        }
-
-                        Adw.EntryRow setup_remote_row {
-                            title: "Remote URL";
-                            sensitive: false;
-                        }
-                    }
-
-                    Box {
-                        orientation: horizontal;
-                        halign: end;
-                        spacing: 12;
-
-                        Button create_vault_button {
-                            label: "Create Vault";
-                            css-classes: ["suggested-action"];
-                        }
-                    }
-                };
+                child: $SetupWizard setup_wizard {};
             }
 
             StackPage {
