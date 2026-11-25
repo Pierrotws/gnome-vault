@@ -36,6 +36,12 @@ pub struct AppController {
     branch: Option<String>,
 }
 
+impl Default for AppController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppController {
     /// Creates a controller with empty application state.
     pub fn new() -> Self {

@@ -1,8 +1,5 @@
+// Everything but the clipboard lives in `passel-core`; re-exported here so
+// UI code keeps using `crate::helpers::…` paths.
 pub mod clipboard;
-pub mod entry_preview;
-pub mod git;
-pub mod macros;
-pub mod otp;
-pub mod parser;
-pub mod password;
-pub mod pgp;
+
+pub use passel_core::helpers::{entry_preview, git, otp, password};

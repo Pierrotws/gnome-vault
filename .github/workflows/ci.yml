@@ -41,11 +41,24 @@ jobs:
       - name: rustfmt
         run: cargo fmt --check
 
+      # passel-core/rpgp adds the mobile OpenPGP backend and its interop
+      # tests against the gpg installed above.
       - name: clippy
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets --features passel-core/rpgp -- -D warnings
 
       - name: Tests
-        run: cargo test --locked
+        run: cargo test --locked --workspace --features passel-core/rpgp
+
+      - name: passel-core has no UI dependency
+        shell: bash
+        run: |
+          # The core crate is shared with future front ends (mobile
+          # bindings); a GTK/GLib dependency there would make it unusable.
+          if cargo tree --locked -p passel-core -e normal,build --prefix none \
+              | grep -E '^(gtk4|libadwaita|glib|gio|gdk4|gtk-markdown)[ -]'; then
+            echo "::error::passel-core must not depend on GTK/GLib"
+            exit 1
+          fi
 
       - name: GSettings schema
         run: glib-compile-schemas --strict --dry-run assets/schemas
@@ -66,6 +79,36 @@ jobs:
             fi
           done < <(git ls-files 'assets/ui/*.blp')
           exit $status
+
+  android:
+    # passel-core must stay buildable for mobile: rPGP instead of GnuPG,
+    # libgit2/OpenSSL/libssh2 built from source, no GTK.
+    name: passel-core for Android (arm64)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rust Android target
+        run: rustup target add aarch64-linux-android
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: android
+
+      - name: Build
+        run: |
+          # The runner image ships the NDK; API 24 is Android 7.0.
+          ndk="$ANDROID_NDK_LATEST_HOME"
+          tc="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export PATH="$tc:$PATH" ANDROID_NDK_ROOT="$ndk" ANDROID_NDK_HOME="$ndk"
+          export CC_aarch64_linux_android="$tc/aarch64-linux-android24-clang"
+          export AR_aarch64_linux_android="$tc/llvm-ar"
+          export RANLIB_aarch64_linux_android="$tc/llvm-ranlib"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$tc/aarch64-linux-android24-clang"
+          cargo build --locked -p passel-core --target aarch64-linux-android \
+            --no-default-features --features rpgp,vendored
 
   ubuntu:
     # The .deb is built on Ubuntu 24.04 against its older GTK/libadwaita;

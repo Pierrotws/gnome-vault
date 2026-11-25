@@ -11,9 +11,15 @@ passel/
 |   |-- schemas/                       # GSettings schema and schema build rules
 |   `-- ui/                            # Blueprint UI sources and generated .ui fallbacks
 |       `-- fields/                    # Entry field row UI sources and generated fallbacks
-|-- src/
+|-- crates/passel-core/                # UI-free library: no GTK/GLib (CI checks)
+|   `-- src/
+|       |-- lib.rs                     # Re-exported by the app as crate::{app, pass, helpers}
+|       |-- app/                       # (tree below)
+|       |-- helpers/                   # (tree below, all but clipboard.rs)
+|       `-- pass/                      # (tree below)
+|-- src/                               # The GTK app (`passel` binary)
 |   |-- main.rs                        # Application startup, resources, schema lookup
-|   |-- app/                           # UI-facing application controller and state
+|   |-- app/                           # [passel-core] UI-facing application controller and state
 |   |   |-- controller.rs              # Main application use-case API
 |   |   |-- app_error.rs               # App-level error translation
 |   |   |-- cache_warmup.rs            # Background entry-cache decryption worker
@@ -22,7 +28,7 @@ passel/
 |   |   |-- group_preview.rs           # Worker-side decrypt for group-row subtitles
 |   |   |-- setup.rs                   # Worker-safe wrappers for the setup wizard
 |   |   `-- state/                     # Tree, selected entry, edit session, entry cache
-|   |-- helpers/                       # Focused infrastructure/domain helpers
+|   |-- helpers/                       # [passel-core] helpers; clipboard.rs stays in the app
 |   |   |-- clipboard.rs               # Centralized "copy secret" entry point
 |   |   |-- entry_preview.rs           # Subtitle formatting for group rows
 |   |   |-- git.rs                     # Git repository operations through git2
@@ -30,8 +36,8 @@ passel/
 |   |   |-- otp.rs                     # TOTP parsing and generation
 |   |   |-- parser.rs                  # pass plaintext <-> EntryData parser/formatter
 |   |   |-- password.rs                # Password generation
-|   |   `-- pgp.rs                     # GPGME encryption/decryption and recipients
-|   |-- pass/                          # password-store domain and persistence boundary
+|   |   `-- pgp/                       # OpenPGP: PgpBackend + gpgme.rs (desktop) / rpgp.rs (mobile)
+|   |-- pass/                          # [passel-core] password-store domain and persistence boundary
 |   |   |-- model/                     # EntryData, EntryField, PassNode
 |   |   |-- import/                    # Readers for KeePassXC (.kdbx) and Buttercup (.bcup) vaults
 |   |   `-- store/                     # File, GPG, and Git-backed store operations
@@ -72,7 +78,7 @@ passel/
 [GTK/Adwaita UI in src/ui]
   |
   v
-[AppController in src/app/controller.rs]
+[AppController in crates/passel-core/src/app/controller.rs]
   |
   +--> [AppState: selected node, edit session, decrypted cache]
   |
@@ -80,7 +86,7 @@ passel/
 [pass::store facade]
   |
   +--> [helpers::parser] <-> pass plaintext format
-  +--> [helpers::pgp]    <-> GPGME / local OpenPGP keyring
+  +--> [helpers::pgp]    <-> PgpBackend: GPGME + GnuPG keyring (desktop) or rPGP + app keyring (mobile)
   +--> [helpers::git]    <-> git2 repository and remote
   |
   v
@@ -134,16 +140,16 @@ Primary files:
 
 | File | Responsibility |
 | --- | --- |
-| `src/app/controller.rs` | Use-case methods for loading trees, opening entries, saving, creating, deleting, renaming, search filter, and cache warmup. |
-| `src/app/changes.rs` | Worker-safe free functions for revert / rollback / push (called from `gio::spawn_blocking`). |
-| `src/app/import.rs` | Worker-safe wrappers for importing: decrypt a KeePassXC/Buttercup file, write its entries into the open vault. |
-| `src/app/vaults.rs` | `VaultList` / `VaultConfig`: the listed vaults, the active one, unique names and folders for new vaults. |
-| `src/app/cache_warmup.rs` | Spawns the autoload decrypt worker and streams results back to the main loop. |
-| `src/app/group_preview.rs` | Spawns the per-group decrypt worker that fills missing subtitle previews. |
-| `src/app/setup.rs` | Worker-safe wrappers the setup wizard calls: plan check, setup steps, key listing, creation, import and backup, folder status, remote check, copy-folder status, public SSH keys. |
-| `src/app/state/app_state.rs` | Current tree, selected node, current edit session, decrypted entry cache. |
-| `src/app/state/entry_session.rs` | Dirty tracking, validation, title changes, save/revert session state. |
-| `src/app/app_error.rs` | Error type surfaced to the UI. |
+| `crates/passel-core/src/app/controller.rs` | Use-case methods for loading trees, opening entries, saving, creating, deleting, renaming, search filter, and cache warmup. |
+| `crates/passel-core/src/app/changes.rs` | Worker-safe free functions for revert / rollback / push (called from `gio::spawn_blocking`). |
+| `crates/passel-core/src/app/import.rs` | Worker-safe wrappers for importing: decrypt a KeePassXC/Buttercup file, write its entries into the open vault. |
+| `crates/passel-core/src/app/vaults.rs` | `VaultList` / `VaultConfig`: the listed vaults, the active one, unique names and folders for new vaults. |
+| `crates/passel-core/src/app/cache_warmup.rs` | Spawns the autoload decrypt worker and streams results back to the main loop. |
+| `crates/passel-core/src/app/group_preview.rs` | Spawns the per-group decrypt worker that fills missing subtitle previews. |
+| `crates/passel-core/src/app/setup.rs` | Worker-safe wrappers the setup wizard calls: plan check, setup steps, key listing, creation, import and backup, folder status, remote check, copy-folder status, public SSH keys. |
+| `crates/passel-core/src/app/state/app_state.rs` | Current tree, selected node, current edit session, decrypted entry cache. |
+| `crates/passel-core/src/app/state/entry_session.rs` | Dirty tracking, validation, title changes, save/revert session state. |
+| `crates/passel-core/src/app/app_error.rs` | Error type surfaced to the UI. |
 
 ### 3.3. Password Store Domain
 
@@ -157,13 +163,13 @@ Primary files:
 
 | File | Responsibility |
 | --- | --- |
-| `src/pass/model/entry_data.rs` | Complete entry model: mandatory first field plus custom fields. |
-| `src/pass/model/entry_field.rs` | Typed entry values: password, plain, OTP, array, multiline. |
-| `src/pass/model/pass_node.rs` | Vault tree nodes for groups and `.gpg` entries. |
-| `src/pass/store/mod.rs` | Store facade: load, store status check, setup plan and steps, enable history, save, create, rename, delete, history, push, revert, rollback. |
-| `src/pass/store/store_error.rs` | Store-level error type. |
-| `src/pass/store/import.rs` | Writes imported entries under a destination folder (valid, unique names) in one commit. |
-| `src/pass/import/` | Decrypts and maps other password managers' vaults to pass entries (`keepass.rs`, `buttercup.rs`); the trash is skipped. |
+| `crates/passel-core/src/pass/model/entry_data.rs` | Complete entry model: mandatory first field plus custom fields. |
+| `crates/passel-core/src/pass/model/entry_field.rs` | Typed entry values: password, plain, OTP, array, multiline. |
+| `crates/passel-core/src/pass/model/pass_node.rs` | Vault tree nodes for groups and `.gpg` entries. |
+| `crates/passel-core/src/pass/store/mod.rs` | Store facade: load, store status check, setup plan and steps, enable history, save, create, rename, delete, history, push, revert, rollback. |
+| `crates/passel-core/src/pass/store/store_error.rs` | Store-level error type. |
+| `crates/passel-core/src/pass/store/import.rs` | Writes imported entries under a destination folder (valid, unique names) in one commit. |
+| `crates/passel-core/src/pass/import/` | Decrypts and maps other password managers' vaults to pass entries (`keepass.rs`, `buttercup.rs`); the trash is skipped. |
 
 ### 3.4. Infrastructure Helpers
 
@@ -177,13 +183,14 @@ Primary files:
 
 | File | Responsibility |
 | --- | --- |
-| `src/helpers/parser.rs` | Parses and formats the pass-compatible YAML subset for custom fields. |
-| `src/helpers/pgp.rs` | Decrypts/encrypts `.gpg` files and lists usable local recipients. |
-| `src/helpers/git.rs` | Repository initialization, add/remove/rename, commit, push, history, revert, rollback. |
-| `src/helpers/otp.rs` | Validates `otpauth://` URLs and generates current TOTP values. |
-| `src/helpers/password.rs` | Generates passwords for the new-entry dialog. |
+| `crates/passel-core/src/helpers/parser.rs` | Parses and formats the pass-compatible YAML subset for custom fields. |
+| `crates/passel-core/src/helpers/pgp/` | Decrypts/encrypts `.gpg` files, lists usable local recipients, reads `.gpg-id`. The crypto goes through the process-wide `PgpBackend`: `gpgme.rs` (feature `gpgme`, the default: GnuPG keyring, agent, pinentry) or `rpgp.rs` (feature `rpgp`: pure Rust, keyring in a folder the app picks, passphrases through a `PassphraseProvider` callback and cached until `lock()`), set with `pgp::install_backend`. Tests check rPGP against the real gpg in both directions. |
+| `crates/passel-core/src/helpers/git.rs` | Repository initialization, add/remove/rename, commit, push, history, revert, rollback. |
+| `crates/passel-core/src/helpers/git_credentials.rs` | How remotes authenticate, through the process-wide `CredentialProvider`: `SystemCredentials` (default: ssh-agent, then git's credential helpers) or `StoredCredentials` (credentials the app keeps per host: HTTPS token or in-memory SSH key, offered once per operation), set with `install_credential_provider`. |
+| `crates/passel-core/src/helpers/otp.rs` | Validates `otpauth://` URLs and generates current TOTP values. |
+| `crates/passel-core/src/helpers/password.rs` | Generates passwords for the new-entry dialog. |
 | `src/helpers/clipboard.rs` | Single entry point for copying secrets into the GTK clipboard. |
-| `src/helpers/entry_preview.rs` | Formats the first-field preview shown as a group-row subtitle. |
+| `crates/passel-core/src/helpers/entry_preview.rs` | Formats the first-field preview shown as a group-row subtitle. |
 
 ## 4. Data Stores
 
@@ -282,7 +289,7 @@ Primary commands:
 ```bash
 meson setup build
 meson compile -C build
-cargo test
+cargo test --workspace
 cargo check
 cargo fmt -- --check
 ```
@@ -291,8 +298,8 @@ Testing strategy:
 
 | Area | Current approach |
 | --- | --- |
-| Parser | Unit tests in `src/helpers/parser.rs` cover scalar, array, multiline, folded block, OTP, and formatting roundtrips. |
-| Git helper | Unit tests in `src/helpers/git.rs` create temporary repositories and exercise commit, push, rename, delete, revert, rollback, paging, and author time. |
+| Parser | Unit tests in `crates/passel-core/src/helpers/parser.rs` cover scalar, array, multiline, folded block, OTP, and formatting roundtrips. |
+| Git helper | Unit tests in `crates/passel-core/src/helpers/git.rs` create temporary repositories and exercise commit, push, rename, delete, revert, rollback, paging, and author time. A local smart-HTTP server checks that a stored token reaches the remote and that a rejected one is not retried. |
 | PGP helper | Unit tests cover `.gpg-id` parsing and missing/empty recipient errors. |
 | OTP | Unit tests cover RFC-compatible TOTP generation and validation failures. |
 | App state/controller | Unit tests cover cache behavior, search, and edit session validation. |
@@ -301,7 +308,7 @@ Code quality tools:
 
 - `cargo fmt -- --check`
 - `cargo check`
-- `cargo test`
+- `cargo test --workspace`
 - `meson compile -C build`
 
 ## 9. Future Considerations / Roadmap

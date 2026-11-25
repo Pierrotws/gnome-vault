@@ -1,7 +1,9 @@
-mod app;
 mod helpers;
-mod pass;
 mod ui;
+
+// The application and store layers live in `passel-core`; re-exported at
+// the crate root so UI code keeps using `crate::app::…` / `crate::pass::…`.
+use passel_core::{app, pass};
 
 use std::cell::RefCell;
 use std::path::Path;
