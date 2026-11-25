@@ -50,6 +50,12 @@ pub struct EntryView {
     pub add_multiline_field_button: TemplateChild<gtk::Button>,
 
     #[template_child]
+    pub edit_actions_stack: TemplateChild<gtk::Stack>,
+
+    #[template_child]
+    pub edit_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
     pub cancel_button: TemplateChild<gtk::Button>,
 
     #[template_child]

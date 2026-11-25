@@ -170,15 +170,14 @@ impl MainWindow {
 
     /// Switches to another listed vault.
     pub(super) fn switch_to_vault(&self, path: &Path) {
-        if self.controller().borrow().has_unsaved_changes() {
-            self.show_error_dialog("Save or cancel the current changes before switching vaults");
-            return;
-        }
-        if !self.imp().vaults.borrow_mut().set_active(path) {
-            return;
-        }
-        self.save_vault_list();
-        self.open_active_vault();
+        let path = path.to_path_buf();
+        self.discard_changes_then(move |window| {
+            if !window.imp().vaults.borrow_mut().set_active(&path) {
+                return;
+            }
+            window.save_vault_list();
+            window.open_active_vault();
+        });
     }
 
     /// Adds the vault the setup wizard created and opens it. Returns
@@ -235,11 +234,16 @@ impl MainWindow {
     }
 
     fn remove_vault_from_list(&self, path: &Path) {
-        let was_active = self.active_vault_path().as_deref() == Some(path);
-        if was_active && self.controller().borrow().has_unsaved_changes() {
-            self.show_error_dialog("Save or cancel the current changes first");
-            return;
+        if self.active_vault_path().as_deref() == Some(path) {
+            let path = path.to_path_buf();
+            self.discard_changes_then(move |window| window.remove_listed_vault(&path));
+        } else {
+            self.remove_listed_vault(path);
         }
+    }
+
+    fn remove_listed_vault(&self, path: &Path) {
+        let was_active = self.active_vault_path().as_deref() == Some(path);
         self.imp().vaults.borrow_mut().remove(path);
         self.save_vault_list();
         if was_active {
@@ -259,29 +263,51 @@ impl MainWindow {
         imp.missing_vault_page.set_description(Some(&description));
         imp.main_stack.set_visible_child_name("missing");
         self.disable_vault_actions();
+        imp.window_title.set_subtitle("Folder not found");
     }
 
     pub(super) fn disable_vault_actions(&self) {
         let imp = self.imp();
         imp.new_entry_button.set_sensitive(false);
-        imp.lock_vault_button.set_sensitive(false);
         imp.changes_button.set_sensitive(false);
         imp.window_title.set_subtitle("");
     }
 
-    /// Without history there is nothing to show in Changes.
+    /// Without history there is nothing to show in Changes: the area
+    /// (button and separator) is hidden, and the changes page is left
+    /// if it was showing.
     pub(super) fn update_history_controls(&self) {
         let has_history = self.controller().borrow().has_history();
         let imp = self.imp();
-        imp.changes_button.set_sensitive(has_history);
-        imp.changes_button.set_tooltip_text(if has_history {
-            None
-        } else {
-            Some("History is off for this vault. Turn it on in the vault’s settings.")
-        });
+        imp.changes_area.set_visible(has_history);
         if !has_history {
             imp.changes_badge.set_visible(false);
+            self.update_vault_subtitle(0);
+            if imp.content_stack.visible_child_name().as_deref() == Some("changes") {
+                imp.entry_view.display_empty();
+                if self.show_group_view_enabled() {
+                    self.show_root_group_content();
+                } else {
+                    self.show_empty_content();
+                }
+            }
         }
+    }
+
+    /// The header's subtitle shows the open vault's state only, and
+    /// nothing when all is well. `unpushed` is the number of commits not
+    /// pushed yet.
+    pub(super) fn update_vault_subtitle(&self, unpushed: usize) {
+        let subtitle = if !self.controller().borrow().has_history() {
+            "No history".to_string()
+        } else {
+            match unpushed {
+                0 => String::new(),
+                1 => "1 change not pushed".to_string(),
+                n => format!("{n} changes not pushed"),
+            }
+        };
+        self.imp().window_title.set_subtitle(&subtitle);
     }
 
     /// Rebuilds the switcher's list and the window title.
@@ -393,21 +419,21 @@ impl MainWindow {
     fn add_vault_folder(&self, path: &Path) {
         match AppController::store_status(path) {
             StoreStatus::Ready | StoreStatus::PassWithoutGit => {
-                if self.controller().borrow().has_unsaved_changes() {
-                    self.show_error_dialog(
-                        "Save or cancel the current changes before switching vaults",
-                    );
-                    return;
-                }
-                {
-                    let mut list = self.imp().vaults.borrow_mut();
-                    list.add(path);
-                    list.set_active(path);
-                }
-                self.save_vault_list();
-                self.open_active_vault();
+                let path = path.to_path_buf();
+                self.discard_changes_then(move |window| {
+                    {
+                        let mut list = window.imp().vaults.borrow_mut();
+                        list.add(&path);
+                        list.set_active(&path);
+                    }
+                    window.save_vault_list();
+                    window.open_active_vault();
+                });
             }
-            StoreStatus::Missing | StoreStatus::Empty => self.present_setup_wizard_in(path),
+            StoreStatus::Missing | StoreStatus::Empty => {
+                let path = path.to_path_buf();
+                self.discard_changes_then(move |window| window.present_setup_wizard_in(&path));
+            }
             StoreStatus::Unrelated => self.show_error_dialog(
                 "This folder does not hold a vault. Choose a folder created by Passel or pass, \
                  or an empty folder to create a new vault in it.",

@@ -26,10 +26,9 @@ impl MainWindow {
     pub(super) fn show_group_content(&self, node: &PassNode) {
         let imp = self.imp();
         let entries = self.group_entries_for(node);
+        imp.shown_group.replace(Some(node.path.clone()));
         imp.group_view.set_group(node, &entries);
         imp.content_stack.set_visible_child_name("empty");
-        imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Group");
         self.start_group_subtitle_load(node);
     }
 
@@ -63,21 +62,14 @@ impl MainWindow {
             .into_iter()
             .map(|(node, parent)| GroupEntry {
                 node,
-                subtitle: parent.map(|p| {
-                    let path = p.path.to_string_lossy();
-                    if path.is_empty() {
-                        "Vault".to_string()
-                    } else {
-                        path.into_owned()
-                    }
-                }),
+                // Top-level entries have no parent group: no subtitle.
+                subtitle: parent.map(|p| p.path.to_string_lossy().into_owned()),
             })
             .collect();
 
+        imp.shown_group.replace(None);
         imp.group_view.set_group(&pseudo_group, &entries);
         imp.content_stack.set_visible_child_name("empty");
-        imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Search");
         // Bump the preview generation so any in-flight subtitle load from a
         // previous (non-search) group view doesn't overwrite parent-path
         // subtitles when its results trickle in. Also cancel its worker
@@ -89,11 +81,19 @@ impl MainWindow {
         }
     }
 
+    /// The vault's top level as a group, titled with the vault's name.
+    /// It has no row in the tree: it shows when no group is selected.
     fn root_group_node(&self) -> PassNode {
         let search_text = self.imp().vault_view.search_entry().text().to_string();
         let children = self.controller().borrow().filtered_tree(&search_text);
+        let name = self
+            .imp()
+            .vaults
+            .borrow()
+            .active()
+            .map_or_else(|| "Vault".to_string(), |vault| vault.name.clone());
         PassNode {
-            name: "Vault".to_string(),
+            name,
             path: PathBuf::new(),
             kind: PassNodeKind::Group(children),
         }

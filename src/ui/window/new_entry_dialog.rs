@@ -121,7 +121,6 @@ impl MainWindow {
                         }
                         entry_view.set_entry_data(&entry_data);
                         window.show_entry_content();
-                        window.set_edit_unlock_state(true, false, false);
                         dialog.close();
                     }
                     Err(err) => entry_view.show_error_dialog(&err.to_string()),

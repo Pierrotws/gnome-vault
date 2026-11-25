@@ -4,6 +4,7 @@ mod imp;
 mod new_entry_dialog;
 mod preferences;
 mod setup;
+mod unsaved;
 mod vaults;
 
 use std::cell::RefCell;
@@ -16,9 +17,7 @@ use gtk::{gio, glib};
 use crate::app::changes;
 use crate::app::controller::AppController;
 use crate::pass::model::{PassNode, PassNodeKind};
-use crate::ui::vault_view::{
-    build_group_selection_with_root, build_selection_from_nodes_with_autoexpand,
-};
+use crate::ui::vault_view::{build_group_selection, build_selection_from_nodes_with_autoexpand};
 use crate::ui::EntryView;
 
 const CHANGES_PAGE_SIZE: usize = 50;
@@ -69,7 +68,6 @@ impl MainWindow {
         } else {
             self.show_empty_content();
         }
-        self.set_edit_unlock_state(false, false, false);
         self.show_app_view();
         self.update_history_controls();
         self.refresh_changes_badge();
@@ -78,6 +76,16 @@ impl MainWindow {
 
     pub fn setup_callbacks(&self) {
         let imp = self.imp();
+
+        // Closing with unsaved edits asks first; once they are
+        // discarded the window closes for real.
+        self.connect_close_request(|window| {
+            if !window.controller().borrow().has_unsaved_changes() {
+                return glib::Propagation::Proceed;
+            }
+            window.discard_changes_then(|window| window.close());
+            glib::Propagation::Stop
+        });
 
         imp.new_entry_button.connect_clicked(glib::clone!(
             #[weak(rename_to = window)]
@@ -144,18 +152,13 @@ impl MainWindow {
             #[weak(rename_to = window)]
             self,
             move |_| {
-                if window.controller().borrow().has_unsaved_changes() {
-                    window
-                        .imp()
-                        .entry_view
-                        .show_error_dialog("Save or cancel current changes before viewing changes");
-                    return;
-                }
-                if let Err(err) = window.reload_changes_view() {
-                    window.imp().entry_view.show_error_dialog(&err.to_string());
-                    return;
-                }
-                window.show_changes_content();
+                window.discard_changes_then(|window| {
+                    if let Err(err) = window.reload_changes_view() {
+                        window.imp().entry_view.show_error_dialog(&err.to_string());
+                        return;
+                    }
+                    window.show_changes_content();
+                });
             }
         ));
 
@@ -208,17 +211,11 @@ impl MainWindow {
                     return;
                 };
 
-                // Refuse to switch entries while the open one has unsaved
-                // edits; otherwise the dirty session is silently overwritten
-                // when open_entry_node replaces the current EntrySession.
-                if window.controller().borrow().has_unsaved_changes() {
-                    window.imp().entry_view.show_error_dialog(
-                        "Save or cancel current changes before opening another entry",
-                    );
-                    return;
-                }
-
-                window.open_entry_node(node);
+                // open_entry_node replaces the current EntrySession: ask
+                // before dropping its unsaved edits.
+                window.discard_changes_then_or_restore_selection(move |window| {
+                    window.open_entry_node(node);
+                });
             }
         ));
 
@@ -234,13 +231,6 @@ impl MainWindow {
                     return;
                 };
 
-                if window.controller().borrow().has_unsaved_changes() {
-                    window.imp().entry_view.show_error_dialog(
-                        "Save or cancel current changes before selecting a group",
-                    );
-                    return;
-                }
-
                 // While searching, the right pane belongs to the search
                 // results; programmatic and manual group selection both
                 // leave it untouched.
@@ -255,7 +245,27 @@ impl MainWindow {
                     return;
                 }
 
-                window.show_group_content(&node);
+                // Showing the group closes the open entry.
+                window.discard_changes_then_or_restore_selection(move |window| {
+                    window.show_group_content(&node);
+                });
+            }
+        ));
+
+        imp.vault_view.connect_selection_cleared(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
+                if !window.show_group_view_enabled() {
+                    return;
+                }
+
+                // No group selected: the right pane shows the vault's top
+                // level, or the search results while searching. Either
+                // closes the open entry.
+                window.discard_changes_then_or_restore_selection(|window| {
+                    window.show_root_group_content();
+                });
             }
         ));
 
@@ -274,20 +284,11 @@ impl MainWindow {
 
                 match result {
                     Ok(()) => {
-                        // Snapshot the bools we need in a single borrow before
-                        // any widget setter runs, so a setter-driven signal
-                        // can never re-enter the controller while a borrow is
-                        // still live.
-                        let (is_dirty, is_valid) = {
-                            let controller = controller.borrow();
-                            (
-                                controller.has_unsaved_changes(),
-                                controller.has_valid_changes(),
-                            )
-                        };
-                        view.set_cancellable(is_dirty);
+                        // Snapshot before any widget setter runs, so a
+                        // setter-driven signal can never re-enter the
+                        // controller while a borrow is still live.
+                        let is_valid = controller.borrow().has_valid_changes();
                         view.set_saveable(is_valid);
-                        window.set_edit_unlock_state(true, view.is_editable_mode(), is_dirty);
                     }
                     Err(err) => view.show_error_dialog(&err.to_string()),
                 }
@@ -298,33 +299,17 @@ impl MainWindow {
             #[weak(rename_to = window)]
             self,
             move |_, node| {
-                let search_active = !window
-                    .imp()
-                    .vault_view
-                    .search_entry()
-                    .text()
-                    .trim()
-                    .is_empty();
-                // Path::parent yields Some("") for top-level entries, so filter
-                // out the empty path — there's no parent group to select.
-                let parent_path = node
-                    .path
-                    .parent()
-                    .filter(|p| !p.as_os_str().is_empty())
-                    .map(|p| p.to_path_buf());
-                window.open_entry_node(node);
-                if search_active {
-                    if let Some(parent) = parent_path {
-                        // The parent group may have been filtered out of the
-                        // current tree by the active search; in that case the
-                        // previous selection silently persists. Log so the
-                        // mismatch is debuggable without spamming on the happy
-                        // path.
-                        if !window.imp().vault_view.select_node_by_path(&parent) {
-                            log::debug!("select_node_by_path: parent not in filtered tree");
-                        }
-                    }
+                let already_open = window
+                    .controller()
+                    .borrow()
+                    .current_session()
+                    .is_some_and(|session| session.node().path == node.path);
+                if already_open && window.controller().borrow().has_unsaved_changes() {
+                    return;
                 }
+                // open_entry_node replaces the current EntrySession: ask
+                // before dropping its unsaved edits.
+                window.discard_changes_then(move |window| window.open_group_entry(node));
             }
         ));
 
@@ -337,16 +322,10 @@ impl MainWindow {
 
                 match result {
                     Ok(()) => {
-                        // Snapshot bools before any widget setter runs;
-                        // setters can synchronously emit signals that
-                        // re-enter the controller and would otherwise panic.
-                        let (is_dirty, is_valid) = {
-                            let controller = controller.borrow();
-                            (
-                                controller.has_unsaved_changes(),
-                                controller.has_valid_changes(),
-                            )
-                        };
+                        // Snapshot before any widget setter runs; setters can
+                        // synchronously emit signals that re-enter the
+                        // controller and would otherwise panic.
+                        let is_valid = controller.borrow().has_valid_changes();
                         view.set_editable_mode(false);
                         if let Err(err) = window.reload_vault_tree() {
                             view.show_error_dialog(&err.to_string());
@@ -354,8 +333,6 @@ impl MainWindow {
                         if let Err(err) = window.reload_changes_view() {
                             view.show_error_dialog(&err.to_string());
                         }
-                        window.set_edit_unlock_state(true, false, false);
-                        view.set_cancellable(is_dirty);
                         view.set_saveable(is_valid);
                     }
                     Err(err) => view.show_error_dialog(&err.to_string()),
@@ -381,38 +358,13 @@ impl MainWindow {
 
                 match result {
                     Ok(entry_data) => {
-                        // Snapshot bools before any widget setter runs.
-                        let (is_dirty, is_valid) = {
-                            let controller = controller.borrow();
-                            (
-                                controller.has_unsaved_changes(),
-                                controller.has_valid_changes(),
-                            )
-                        };
+                        // Snapshot before any widget setter runs.
+                        let is_valid = controller.borrow().has_valid_changes();
                         entry_view.set_entry_data(&entry_data);
-                        window.set_edit_unlock_state(true, false, false);
-                        entry_view.set_cancellable(is_dirty);
                         entry_view.set_saveable(is_valid);
                     }
                     Err(err) => entry_view.show_error_dialog(&err.to_string()),
                 }
-            }
-        ));
-
-        imp.lock_vault_button.connect_clicked(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |_| {
-                let entry_view = window.imp().entry_view.clone();
-                let editing = !entry_view.is_editable_mode();
-                entry_view.set_editable_mode(editing);
-                // Read the live dirty flag rather than hard-coding `false`.
-                // The lock button is gated insensitive while dirty so this
-                // path is only reachable when has_unsaved_changes() is
-                // false, but threading the snapshot through avoids lying
-                // to set_edit_unlock_state if that gating ever loosens.
-                let is_dirty = window.controller().borrow().has_unsaved_changes();
-                window.set_edit_unlock_state(true, editing, is_dirty);
             }
         ));
 
@@ -456,7 +408,8 @@ impl MainWindow {
             self,
             move |_| {
                 window.imp().vault_popover.popdown();
-                window.present_setup_wizard();
+                // The new vault opens once created.
+                window.discard_changes_then(|window| window.present_setup_wizard());
             }
         ));
         imp.add_vault_button.connect_clicked(glib::clone!(
@@ -473,25 +426,48 @@ impl MainWindow {
         self.imp().entry_view.clone()
     }
 
+    /// Opens an entry picked in the group view's list. While searching,
+    /// its folder is also selected in the tree.
+    fn open_group_entry(&self, node: PassNode) {
+        let search_active = !self
+            .imp()
+            .vault_view
+            .search_entry()
+            .text()
+            .trim()
+            .is_empty();
+        // Path::parent yields Some("") for top-level entries, so filter
+        // out the empty path — there's no parent group to select.
+        let parent_path = node
+            .path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(|p| p.to_path_buf());
+        self.open_entry_node(node);
+        if search_active {
+            if let Some(parent) = parent_path {
+                // The parent group may have been filtered out of the
+                // current tree by the active search; in that case the
+                // previous selection silently persists. Log so the
+                // mismatch is debuggable without spamming on the happy
+                // path.
+                if !self.imp().vault_view.select_node_by_path(&parent) {
+                    log::debug!("select_node_by_path: parent not in filtered tree");
+                }
+            }
+        }
+    }
+
     fn open_entry_node(&self, node: PassNode) {
         let result = self.controller().borrow_mut().open_node(node);
         let entry_view = self.imp().entry_view.clone();
 
         match result {
             Ok(data) => {
-                // Snapshot bools before any widget setter runs.
-                let (is_dirty, is_valid) = {
-                    let controller = self.controller();
-                    let controller = controller.borrow();
-                    (
-                        controller.has_unsaved_changes(),
-                        controller.has_valid_changes(),
-                    )
-                };
+                // Snapshot before any widget setter runs.
+                let is_valid = self.controller().borrow().has_valid_changes();
                 entry_view.set_entry_data(&data);
                 self.show_entry_content();
-                self.set_edit_unlock_state(true, false, false);
-                entry_view.set_cancellable(is_dirty);
                 entry_view.set_saveable(is_valid);
             }
             Err(err) => entry_view.show_error_dialog(&err.to_string()),
@@ -536,7 +512,6 @@ impl MainWindow {
         if deleted_current {
             self.imp().entry_view.display_empty();
             self.show_empty_content();
-            self.set_edit_unlock_state(false, false, false);
         }
         if let Err(err) = self.reload_vault_tree() {
             self.imp().entry_view.show_error_dialog(&err.to_string());
@@ -596,7 +571,6 @@ impl MainWindow {
                     entry_view.show_error_dialog(&err.to_string());
                 }
                 self.show_empty_content();
-                self.set_edit_unlock_state(false, false, false);
             }
             Err(err) => entry_view.show_error_dialog(&err.to_string()),
         }
@@ -643,7 +617,6 @@ impl MainWindow {
         if closed_session {
             self.imp().entry_view.display_empty();
             self.show_empty_content();
-            self.set_edit_unlock_state(false, false, false);
         }
         if let Err(err) = self.reload_vault_tree() {
             self.imp().entry_view.show_error_dialog(&err.to_string());
@@ -722,7 +695,6 @@ impl MainWindow {
             window.controller().borrow_mut().clear_loaded_entry_state();
             window.imp().entry_view.display_empty();
             window.show_empty_content();
-            window.set_edit_unlock_state(false, false, false);
             if let Err(err) = window.reload_vault_tree() {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
             }
@@ -802,7 +774,6 @@ impl MainWindow {
             window.controller().borrow_mut().clear_loaded_entry_state();
             window.imp().entry_view.display_empty();
             window.show_empty_content();
-            window.set_edit_unlock_state(false, false, false);
             if let Err(err) = window.reload_vault_tree() {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
             }
@@ -847,7 +818,7 @@ impl MainWindow {
         let nodes = self.controller().borrow().filtered_tree(&search_text);
         let group_view = self.show_group_view_enabled();
         let selection = if group_view {
-            build_group_selection_with_root(&nodes, true)
+            build_group_selection(&nodes, true)
         } else {
             build_selection_from_nodes_with_autoexpand(&nodes, !search_text.trim().is_empty())
         };
@@ -891,10 +862,10 @@ impl MainWindow {
             Ok(n) => n,
             Err(err) => {
                 log::debug!("unable to compute unpushed count: {err}");
-                badge.set_visible(false);
-                return;
+                0
             }
         };
+        self.update_vault_subtitle(count);
         if count == 0 {
             badge.set_visible(false);
         } else {
@@ -967,24 +938,15 @@ impl MainWindow {
         imp.main_stack.set_visible_child_name("app");
         imp.new_entry_button.set_sensitive(true);
         imp.changes_button.set_sensitive(true);
-        imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Read-only");
     }
 
     fn show_empty_content(&self) {
         let imp = self.imp();
         imp.content_stack.set_visible_child_name("empty");
-        imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Read-only");
     }
 
     fn show_entry_content(&self) {
-        let imp = self.imp();
-        imp.content_stack.set_visible_child_name("entry");
-        let has_entry = self.controller().borrow().current_session().is_some();
-        let editing = imp.entry_view.is_editable_mode();
-        let is_dirty = self.controller().borrow().has_unsaved_changes();
-        self.set_edit_unlock_state(has_entry, editing, is_dirty);
+        self.imp().content_stack.set_visible_child_name("entry");
     }
 
     fn update_selection_layout(&self, reset_position: bool) {
@@ -1042,8 +1004,6 @@ impl MainWindow {
     fn show_changes_content(&self) {
         let imp = self.imp();
         imp.content_stack.set_visible_child_name("changes");
-        imp.lock_vault_button.set_sensitive(false);
-        imp.window_title.set_subtitle("Changes");
     }
 
     fn show_error_dialog(&self, message: &str) {
@@ -1088,23 +1048,6 @@ impl MainWindow {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
             }
         });
-    }
-
-    fn set_edit_unlock_state(&self, has_entry: bool, editing: bool, is_dirty: bool) {
-        let imp = self.imp();
-        imp.lock_vault_button.set_sensitive(has_entry && !is_dirty);
-        imp.lock_vault_button.set_icon_name(if editing {
-            "changes-allow-symbolic"
-        } else {
-            "system-lock-screen-symbolic"
-        });
-        imp.lock_vault_button.set_tooltip_text(Some(if editing {
-            "Editing unlocked"
-        } else {
-            "Unlock editing"
-        }));
-        imp.window_title
-            .set_subtitle(if editing { "Editing" } else { "Read-only" });
     }
 }
 

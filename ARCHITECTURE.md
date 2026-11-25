@@ -43,6 +43,7 @@ passel/
 |       |   |-- new_entry_dialog.rs    # New-entry creation dialog
 |       |   |-- preferences.rs         # Preferences dialog wiring
 |       |   |-- setup.rs               # Setup wizard dialog, turn-on-history page
+|       |   |-- unsaved.rs             # "Discard changes?" before leaving an edited entry
 |       |   `-- vaults.rs              # Vault list, switcher, vault settings, add folder
 |       |-- vault_view/                # Vault tree, search, programmatic selection
 |       |-- group_view/                # Right-pane list of entries in a group
@@ -103,7 +104,7 @@ Primary files:
 | File | Responsibility |
 | --- | --- |
 | `src/main.rs` | Initializes logging, GResources, local schema lookup, and the Adwaita application. |
-| `src/ui/window/mod.rs` | Main UI orchestration, signal wiring, edit-mode state. |
+| `src/ui/window/mod.rs` | Main UI orchestration and signal wiring. Edit mode belongs to the entry view. |
 | `src/ui/window/setup.rs` | The setup wizard's dialog with the "No Vault Yet" page behind it, and the "Turn On History" page for a pass store without git. |
 | `src/ui/window/vaults.rs` | The vault list in GSettings (with the one-time migration from `store-dir`), opening and switching vaults, the header-bar switcher, each vault's settings dialog (name, history, remote, branch, auto-push, remove), and adding an existing folder. |
 | `src/ui/setup_wizard/` | First-run wizard (`Adw.NavigationView`): collects a `SetupPlan`, then runs its steps on a worker with per-step progress, retry and skip. `key.rs` holds the encryption key page (use, create or import a GPG key, save a backup); `sync.rs` holds the sync pages (online copy, folder/drive copy, this computer only); `hosts.rs` lists the hosting services with free private repositories and how to create an empty one on each. |
@@ -111,6 +112,7 @@ Primary files:
 | `src/ui/window/autoload.rs` | Background entry-cache warmup tick handler. |
 | `src/ui/window/group_content.rs` | Right-pane rendering for group browsing and flat search results. |
 | `src/ui/window/new_entry_dialog.rs` | New-entry creation dialog. |
+| `src/ui/window/unsaved.rs` | Asks "Discard changes?" before selecting another entry or group, switching vault or closing the window with unsaved edits, and puts the tree's selection back when they are kept. |
 | `assets/ui/window.blp` | Main window layout and stack structure. |
 | `src/ui/entry_view/` | Entry display/editing and field row integration. |
 | `src/ui/vault_view/` | Vault tree rendering, selection, search, and context actions. |

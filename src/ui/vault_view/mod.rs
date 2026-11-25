@@ -40,6 +40,74 @@ impl VaultView {
                 obj.emit_by_name::<()>("search-changed", &[]);
             }
         ));
+
+        // The vault has no row of its own: clicking below the rows or
+        // pressing Escape clears the selection, which brings back the
+        // vault's top level (see `connect_selection_cleared`).
+        let click = gtk::GestureClick::new();
+        click.connect_pressed(glib::clone!(
+            #[weak(rename_to = obj)]
+            self,
+            move |_, _, x, y| {
+                let tree_view = obj.imp().tree_view.get();
+                let on_row = tree_view
+                    .pick(x, y, gtk::PickFlags::DEFAULT)
+                    .is_some_and(|picked| picked != *tree_view.upcast_ref::<gtk::Widget>());
+                if !on_row {
+                    obj.clear_selection();
+                }
+            }
+        ));
+        imp.tree_view.add_controller(click);
+
+        let keys = gtk::EventControllerKey::new();
+        keys.connect_key_pressed(glib::clone!(
+            #[weak(rename_to = obj)]
+            self,
+            #[upgrade_or]
+            glib::Propagation::Proceed,
+            move |_, key, _, _| {
+                if key == gdk::Key::Escape && obj.has_selection() {
+                    obj.clear_selection();
+                    return glib::Propagation::Stop;
+                }
+                glib::Propagation::Proceed
+            }
+        ));
+        imp.tree_view.add_controller(keys);
+    }
+
+    fn selection(&self) -> Option<gtk::SingleSelection> {
+        self.imp()
+            .tree_view
+            .model()
+            .and_then(|model| model.downcast::<gtk::SingleSelection>().ok())
+    }
+
+    fn has_selection(&self) -> bool {
+        self.selection()
+            .is_some_and(|selection| selection.selected() != gtk::INVALID_LIST_POSITION)
+    }
+
+    /// Selects the row at `path` (none when `None`, empty or not in the
+    /// tree) without emitting a signal or toggling a folder: puts back a
+    /// selection the window did not follow.
+    pub fn select_quietly(&self, path: Option<&Path>) {
+        self.imp().quiet.set(true);
+        let selected = path
+            .filter(|path| !path.as_os_str().is_empty())
+            .is_some_and(|path| self.select_node_by_path(path));
+        if !selected {
+            self.clear_selection();
+        }
+        self.imp().quiet.set(false);
+    }
+
+    /// Unselects the selected row, if any; emits `selection-cleared`.
+    pub fn clear_selection(&self) {
+        if let Some(selection) = self.selection() {
+            selection.set_selected(gtk::INVALID_LIST_POSITION);
+        }
     }
 
     /// Convenience method if parent code constructs the selection model
@@ -54,8 +122,12 @@ impl VaultView {
             #[weak(rename_to = obj)]
             self,
             move |selection| {
+                if obj.imp().quiet.get() {
+                    return;
+                }
                 let position = selection.selected();
                 if position == gtk::INVALID_LIST_POSITION {
+                    obj.emit_by_name::<()>("selection-cleared", &[]);
                     return;
                 }
 
@@ -112,6 +184,21 @@ impl VaultView {
             let obj = values[0]
                 .get::<VaultView>()
                 .expect("group-activated: first arg should be VaultView");
+            f(&obj);
+            None
+        })
+    }
+
+    /// The selection went away (cleared by the user, not by a new
+    /// model): in the group view, the vault's top level is showing again.
+    pub fn connect_selection_cleared<F>(&self, f: F) -> glib::SignalHandlerId
+    where
+        F: Fn(&Self) + 'static,
+    {
+        self.connect_local("selection-cleared", false, move |values| {
+            let obj = values[0]
+                .get::<VaultView>()
+                .expect("selection-cleared: first arg should be VaultView");
             f(&obj);
             None
         })
@@ -562,16 +649,11 @@ pub fn build_selection_from_nodes_with_autoexpand(
     selection
 }
 
-pub fn build_group_selection_with_root(
-    nodes: &[PassNode],
-    autoexpand: bool,
-) -> gtk::SingleSelection {
-    let root = PassNode {
-        name: "Vault".to_string(),
-        path: PathBuf::new(),
-        kind: PassNodeKind::Group(nodes.to_vec()),
-    };
-    let root_store = build_store_from_nodes(&[root]);
+/// The group view's tree: folders only, the vault's top-level folders as
+/// roots. The vault itself has no row: with nothing selected, the window
+/// shows the top level's entries.
+pub fn build_group_selection(nodes: &[PassNode], autoexpand: bool) -> gtk::SingleSelection {
+    let root_store = build_store_from_nodes(&child_groups(nodes));
 
     let tree_model = gtk::TreeListModel::new(root_store.clone(), false, autoexpand, |obj| {
         let boxed = obj.downcast_ref::<glib::BoxedAnyObject>()?;
@@ -581,13 +663,7 @@ pub fn build_group_selection_with_root(
             return None;
         }
 
-        let child_groups = node
-            .children()
-            .iter()
-            .filter(|child| child.is_group())
-            .cloned()
-            .collect::<Vec<_>>();
-        let child_store = build_store_from_nodes(&child_groups);
+        let child_store = build_store_from_nodes(&child_groups(node.children()));
         Some(child_store.upcast::<gio::ListModel>())
     });
 
@@ -596,4 +672,12 @@ pub fn build_group_selection_with_root(
     selection.set_autoselect(false);
     selection.set_selected(gtk::INVALID_LIST_POSITION);
     selection
+}
+
+fn child_groups(nodes: &[PassNode]) -> Vec<PassNode> {
+    nodes
+        .iter()
+        .filter(|node| node.is_group())
+        .cloned()
+        .collect()
 }

@@ -30,7 +30,6 @@ impl Default for EntryView {
     fn default() -> Self {
         let r = Self::new();
         r.set_editable_mode(false);
-        r.set_cancellable(false);
         r.set_saveable(false);
         r
     }
@@ -85,6 +84,15 @@ impl EntryView {
             move |_| {
                 let row = MultilineFieldRow::new(&this, "Notes", "");
                 this.append_custom_field_row(&row);
+            }
+        ));
+        imp.edit_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                this.set_editable_mode(true);
+                // Edit is hidden now; keep keyboard focus in the same row.
+                this.imp().cancel_button.grab_focus();
             }
         ));
         imp.cancel_button.connect_clicked(glib::clone!(
@@ -149,7 +157,6 @@ impl EntryView {
         self.clear_listbox();
         self.set_editable_mode(false);
         self.set_saveable(false);
-        self.set_cancellable(false);
         imp.is_updating_ui.set(false);
     }
 
@@ -172,7 +179,6 @@ impl EntryView {
 
         self.set_editable_mode(false);
         self.set_saveable(false);
-        self.set_cancellable(false);
         imp.is_updating_ui.set(false);
     }
 
@@ -199,17 +205,10 @@ impl EntryView {
         }
     }
 
+    /// Save is shown throughout edit mode, enabled once there are valid
+    /// changes to save.
     pub fn set_saveable(&self, val: bool) {
-        let imp = self.imp();
-        //imp.save_button.set_visible(val);
-        let save = imp.save_button.get();
-        save.set_opacity(if val { 1.0 } else { 0.0 });
-        save.set_sensitive(val);
-    }
-
-    pub fn set_cancellable(&self, val: bool) {
-        let imp = self.imp();
-        imp.cancel_button.set_visible(val);
+        self.imp().save_button.set_sensitive(val);
     }
 
     pub fn set_editable_mode(&self, editable: bool) {
@@ -219,6 +218,8 @@ impl EntryView {
 
         let imp = self.imp();
         imp.is_editable.set(editable);
+        imp.edit_actions_stack
+            .set_visible_child_name(if editable { "edit" } else { "view" });
         // The title is one always-visible frameless entry, so the only
         // thing that changes here is whether it takes input.
         fields::set_entry_editable(&imp.title_entry, editable);

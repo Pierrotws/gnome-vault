@@ -1,4 +1,5 @@
 use std::cell::{Cell, RefCell};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -60,13 +61,13 @@ pub struct MainWindow {
     pub new_entry_button: TemplateChild<gtk::Button>,
 
     #[template_child]
+    pub changes_area: TemplateChild<gtk::Box>,
+
+    #[template_child]
     pub changes_button: TemplateChild<gtk::Button>,
 
     #[template_child]
     pub changes_badge: TemplateChild<gtk::Label>,
-
-    #[template_child]
-    pub lock_vault_button: TemplateChild<gtk::Button>,
 
     #[template_child]
     pub preferences_button: TemplateChild<gtk::Button>,
@@ -126,6 +127,9 @@ pub struct MainWindow {
     /// flag so the worker stops decrypting the rest of the queue
     /// instead of running to completion in the background.
     pub group_preview_cancel: RefCell<Option<Arc<AtomicBool>>>,
+    /// The folder whose entries the group view lists: empty for the
+    /// vault's top level, `None` for search results.
+    pub shown_group: RefCell<Option<PathBuf>>,
 }
 
 #[glib::object_subclass]

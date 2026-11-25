@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{
@@ -13,6 +15,10 @@ pub struct VaultView {
 
     #[template_child]
     pub tree_view: TemplateChild<gtk::ListView>,
+
+    /// Set while `select_quietly` moves the selection: no signal, no
+    /// folder expanded or collapsed.
+    pub quiet: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -38,6 +44,7 @@ impl ObjectImpl for VaultView {
             vec![
                 Signal::builder("entry-selected").build(),
                 Signal::builder("group-activated").build(),
+                Signal::builder("selection-cleared").build(),
                 Signal::builder("create-entry-requested")
                     .param_types([String::static_type()])
                     .build(),

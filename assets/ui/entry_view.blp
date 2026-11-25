@@ -38,6 +38,48 @@ template $EntryView : Adw.Bin {
                 margin-start: 18;
                 margin-end: 18;
 
+                // Read-only by default: Edit opens edit mode, which
+                // Cancel or Save close (the GNOME Contacts pattern). A
+                // stack keeps the row's size between the two.
+                Stack edit_actions_stack {
+                    halign: end;
+                    hhomogeneous: false;
+
+                    StackPage {
+                        name: "view";
+                        child: Button edit_button {
+                            halign: end;
+                            tooltip-text: "Edit this entry";
+
+                            child: Adw.ButtonContent {
+                                icon-name: "document-edit-symbolic";
+                                label: "_Edit";
+                                use-underline: true;
+                            };
+                        };
+                    }
+
+                    StackPage {
+                        name: "edit";
+                        child: Box {
+                            orientation: horizontal;
+                            spacing: 12;
+                            halign: end;
+
+                            Button cancel_button {
+                                label: "_Cancel";
+                                use-underline: true;
+                            }
+
+                            Button save_button {
+                                label: "_Save";
+                                use-underline: true;
+                                css-classes: [ "suggested-action"];
+                            }
+                        };
+                    }
+                }
+
                 // One widget for both modes: a frameless entry that is
                 // simply not editable outside edit mode. The previous
                 // Label/Entry pair had to be swapped on every mode
@@ -156,21 +198,6 @@ template $EntryView : Adw.Bin {
                         Button delete_button {
                             label: "Delete Entry";
                             css-classes: [ "destructive-action"];
-                        }
-                    }
-
-                    Box {
-                        orientation: horizontal;
-                        spacing: 12;
-                        halign: end;
-
-                        Button cancel_button {
-                            label: "Cancel";
-                        }
-
-                        Button save_button {
-                            label: "Save";
-                            css-classes: [ "suggested-action"];
                         }
                     }
                 }
