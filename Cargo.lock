@@ -1505,23 +1505,33 @@ dependencies = [
 name = "passel"
 version = "0.2.0"
 dependencies = [
+ "env_logger",
+ "getrandom 0.4.2",
+ "glib-build-tools",
+ "gtk-markdown",
+ "gtk4",
+ "libadwaita",
+ "log",
+ "once_cell",
+ "passel-core",
+ "zeroize",
+]
+
+[[package]]
+name = "passel-core"
+version = "0.0.0"
+dependencies = [
  "aes",
  "aes-gcm",
  "cbc",
  "data-encoding",
- "env_logger",
  "flate2",
  "getrandom 0.4.2",
  "git2",
- "glib-build-tools",
  "gpgme",
- "gtk-markdown",
- "gtk4",
  "hmac 0.12.1",
  "keepass",
- "libadwaita",
  "log",
- "once_cell",
  "pbkdf2",
  "serde_json",
  "sha1",

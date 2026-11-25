@@ -42,10 +42,21 @@ jobs:
         run: cargo fmt --check
 
       - name: clippy
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Tests
-        run: cargo test --locked
+        run: cargo test --locked --workspace
+
+      - name: passel-core has no UI dependency
+        shell: bash
+        run: |
+          # The core crate is shared with future front ends (mobile
+          # bindings); a GTK/GLib dependency there would make it unusable.
+          if cargo tree --locked -p passel-core -e normal,build --prefix none \
+              | grep -E '^(gtk4|libadwaita|glib|gio|gdk4|gtk-markdown)[ -]'; then
+            echo "::error::passel-core must not depend on GTK/GLib"
+            exit 1
+          fi
 
       - name: GSettings schema
         run: glib-compile-schemas --strict --dry-run assets/schemas

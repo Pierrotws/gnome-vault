@@ -1,0 +1,31 @@
+[package]
+name = "passel-core"
+# Internal crate, never published: release-please only bumps the app's
+# version, so this one stays fixed (a bumped one would leave Cargo.lock
+# stale and break `--locked` builds).
+version = "0.0.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Passel's password-store logic, without any UI: entries, vaults, encryption, git sync and imports."
+publish = false
+
+[dependencies]
+gpgme = "0.11"
+getrandom = "0.4.2"
+git2 = "0.20.4"
+log = "0.4.29"
+hmac = "0.12.1"
+sha1 = "0.10.6"
+data-encoding = "2.8.0"
+zeroize = { version = "1.8", features = ["derive"] }
+keepass = "0.17"
+aes = "0.9"
+cbc = { version = "0.2", features = ["alloc"] }
+aes-gcm = "0.11"
+sha2 = "0.11"
+flate2 = "1"
+pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
+serde_json = "1"
+
+[dev-dependencies]
+keepass = { version = "0.17", features = ["save_kdbx4"] }

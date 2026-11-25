@@ -83,7 +83,7 @@ opens the setup wizard to create it.
 
 ```bash
 cd build
-cargo test
+cargo test --workspace
 ```
 
 ### Doc
