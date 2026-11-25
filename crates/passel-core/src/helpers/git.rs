@@ -10,6 +10,12 @@ use git2::{
     Repository, ResetType, Sort,
 };
 
+use super::git_credentials::credential_provider;
+pub use super::git_credentials::{
+    install_credential_provider, remote_host, Credential, CredentialProvider, CredentialRequest,
+    StoredCredentials, SystemCredentials,
+};
+
 /// Maximum number of times the credential callback is allowed to fire for a
 /// single push before we give up. libgit2 invokes the callback in a loop until
 /// authentication succeeds or the callback returns an error, so without a cap
@@ -141,7 +147,7 @@ pub enum RemoteCheck {
 /// Connects to a remote address read-only, with the same credentials as
 /// a push, and reports whether a new vault can be uploaded there.
 pub fn check_remote(remote_url: &str) -> RemoteCheck {
-    match remote_has_history(remote_url) {
+    match remote_has_history(remote_url, credential_provider()) {
         Ok(false) => RemoteCheck::Empty,
         Ok(true) => RemoteCheck::NotEmpty,
         Err(err) => {
@@ -160,10 +166,13 @@ pub fn check_remote(remote_url: &str) -> RemoteCheck {
 /// empty (exactly the empty-repository case), which is undefined
 /// behaviour. `default_branch` stays in C: it fails with `NotFound` when
 /// HEAD is unborn or not advertised.
-fn remote_has_history(remote_url: &str) -> Result<bool, git2::Error> {
+fn remote_has_history(
+    remote_url: &str,
+    provider: &dyn CredentialProvider,
+) -> Result<bool, git2::Error> {
     let config = git2::Config::open_default()?;
     let mut callbacks = RemoteCallbacks::new();
-    install_remote_callbacks(&mut callbacks, &config);
+    install_remote_callbacks(&mut callbacks, &config, provider);
     let mut remote = git2::Remote::create_detached(remote_url)?;
     let connection = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)?;
     match connection.default_branch() {
@@ -671,7 +680,7 @@ fn push_refspec_verified(
 ) -> Result<Option<String>, GitError> {
     let config = repo.config()?;
     let mut callbacks = RemoteCallbacks::new();
-    install_remote_callbacks(&mut callbacks, &config);
+    install_remote_callbacks(&mut callbacks, &config, credential_provider());
 
     // libgit2's `Remote::push` does not surface per-ref rejections in its
     // return value; it only reports transport errors. Capture rejection
@@ -759,7 +768,11 @@ fn is_published_host_key(host: &str, sha256: &[u8; 32]) -> bool {
 
 /// Wires up the callbacks used for every network operation: host key
 /// checks and credentials.
-fn install_remote_callbacks<'a>(callbacks: &mut RemoteCallbacks<'a>, config: &'a git2::Config) {
+fn install_remote_callbacks<'a>(
+    callbacks: &mut RemoteCallbacks<'a>,
+    config: &'a git2::Config,
+    provider: &'a dyn CredentialProvider,
+) {
     // A first connection to github.com & co. would otherwise fail until
     // the user ran `ssh` once in a terminal to fill `known_hosts`. Their
     // published keys are accepted directly; any other host, or a key that
@@ -775,38 +788,93 @@ fn install_remote_callbacks<'a>(callbacks: &mut RemoteCallbacks<'a>, config: &'a
             git2::CertificateCheckStatus::CertificatePassthrough
         })
     });
-    install_credentials_callback(callbacks, config);
+    install_credentials_callback(callbacks, config, provider);
 }
 
-/// Wires up the credential callback used for every push.
+/// Wires up the credential callback used for every network operation.
 ///
-/// Tries SSH agent credentials first, then falls back to libgit2's configured
-/// credential helpers for HTTPS or custom credential setups. libgit2 invokes
-/// this callback in a tight loop until it returns `Err` or auth succeeds, so a
-/// permanently-rejected key from `ssh-agent` would otherwise hang the app —
-/// cap the number of attempts to fail fast in that case.
-fn install_credentials_callback<'a>(callbacks: &mut RemoteCallbacks<'a>, config: &'a git2::Config) {
+/// What to answer comes from `provider` (by default the ssh-agent, then
+/// git's credential helpers). libgit2 invokes this callback in a tight loop
+/// until it returns `Err` or auth succeeds, so a permanently-rejected key
+/// from `ssh-agent` would otherwise hang the app — cap the number of
+/// attempts to fail fast in that case.
+fn install_credentials_callback<'a>(
+    callbacks: &mut RemoteCallbacks<'a>,
+    config: &'a git2::Config,
+    provider: &'a dyn CredentialProvider,
+) {
     let attempts = Cell::new(0u32);
     callbacks.credentials(move |url, username_from_url, allowed_types| {
+        // libgit2 first asks for a bare username when an SSH address has
+        // none; that is not an authentication attempt.
+        let username_only = allowed_types == CredentialType::USERNAME;
         let attempt = attempts.get();
-        attempts.set(attempt + 1);
-        if attempt >= MAX_CREDENTIAL_ATTEMPTS {
-            return Err(git2::Error::from_str(
-                "Authentication failed after repeated credential attempts; \
-                 check your SSH agent or stored credentials",
-            ));
+        if !username_only {
+            if attempt >= MAX_CREDENTIAL_ATTEMPTS {
+                return Err(git2::Error::from_str(
+                    "Authentication failed after repeated credential attempts; \
+                     check your SSH agent or stored credentials",
+                ));
+            }
+            attempts.set(attempt + 1);
         }
 
-        if allowed_types.contains(CredentialType::SSH_KEY) {
-            if let Some(username) = username_from_url {
-                if let Ok(cred) = Cred::ssh_key_from_agent(username) {
-                    return Ok(cred);
-                }
+        let request = CredentialRequest {
+            url,
+            username_from_url,
+            ssh_key: allowed_types.intersects(CredentialType::SSH_KEY | CredentialType::SSH_MEMORY),
+            user_password: allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT),
+            attempt,
+        };
+        let Some(credential) = provider.credential(&request) else {
+            return Err(git2::Error::new(
+                ErrorCode::Auth,
+                git2::ErrorClass::Net,
+                "No credentials for this remote",
+            ));
+        };
+        if username_only {
+            if let Some(username) = credential_username(&credential) {
+                return Cred::username(username);
             }
         }
-
-        Cred::credential_helper(config, url, username_from_url)
+        git_credential(credential, config, url, username_from_url)
     });
+}
+
+fn credential_username(credential: &Credential) -> Option<&str> {
+    match credential {
+        Credential::SshAgent { username }
+        | Credential::SshKey { username, .. }
+        | Credential::UserPassword { username, .. } => Some(username),
+        Credential::CredentialHelper => None,
+    }
+}
+
+fn git_credential(
+    credential: Credential,
+    config: &git2::Config,
+    url: &str,
+    username_from_url: Option<&str>,
+) -> Result<Cred, git2::Error> {
+    match credential {
+        Credential::SshAgent { username } => Cred::ssh_key_from_agent(&username)
+            .or_else(|_| Cred::credential_helper(config, url, username_from_url)),
+        Credential::CredentialHelper => Cred::credential_helper(config, url, username_from_url),
+        Credential::SshKey {
+            username,
+            private_key,
+            passphrase,
+        } => Cred::ssh_key_from_memory(
+            &username,
+            None,
+            &private_key,
+            passphrase.as_deref().map(String::as_str),
+        ),
+        Credential::UserPassword { username, password } => {
+            Cred::userpass_plaintext(&username, &password)
+        }
+    }
 }
 
 fn update_tracking_ref(
@@ -914,6 +982,123 @@ mod tests {
         );
         assert!(!is_empty_bare_repository(&missing));
         assert!(!is_empty_bare_repository(&work_dir));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// A smart-HTTP git server for one empty repository that requires
+    /// Basic authentication with `expected`. Returns its address and the
+    /// `Authorization` headers it received (`None` when absent).
+    fn http_remote_requiring(
+        expected: &str,
+        root: &Path,
+    ) -> (
+        String,
+        std::sync::Arc<std::sync::Mutex<Vec<Option<String>>>>,
+    ) {
+        use std::io::{BufRead, BufReader, Write};
+        use std::sync::{Arc, Mutex};
+
+        let bare = root.join("vault.git");
+        init_bare(&bare).unwrap();
+        let advertisement = std::process::Command::new("git")
+            .args(["upload-pack", "--stateless-rpc", "--advertise-refs"])
+            .arg(&bare)
+            .output()
+            .expect("git is installed")
+            .stdout;
+        let mut body = b"001e# service=git-upload-pack\n0000".to_vec();
+        body.extend_from_slice(&advertisement);
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/vault.git", listener.local_addr().unwrap());
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let (expected, seen_by_server) = (expected.to_string(), Arc::clone(&seen));
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { continue };
+                let mut authorization = None;
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut line = String::new();
+                while reader.read_line(&mut line).is_ok_and(|n| n > 0) && line != "\r\n" {
+                    if let Some((name, value)) = line.split_once(':') {
+                        if name.eq_ignore_ascii_case("authorization") {
+                            authorization = Some(value.trim().to_string());
+                        }
+                    }
+                    line.clear();
+                }
+                let authorized = authorization.as_deref() == Some(expected.as_str());
+                seen_by_server.lock().unwrap().push(authorization);
+                let _ = if authorized {
+                    write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\n\
+                         Content-Type: application/x-git-upload-pack-advertisement\r\n\
+                         Content-Length: {}\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    )
+                    .and_then(|()| stream.write_all(&body))
+                } else {
+                    stream.write_all(
+                        b"HTTP/1.1 401 Unauthorized\r\n\
+                          WWW-Authenticate: Basic realm=\"passel\"\r\n\
+                          Content-Length: 0\r\nConnection: close\r\n\r\n",
+                    )
+                };
+            }
+        });
+        (url, seen)
+    }
+
+    fn check_remote_with(url: &str, provider: &dyn CredentialProvider) -> RemoteCheck {
+        match remote_has_history(url, provider) {
+            Ok(false) => RemoteCheck::Empty,
+            Ok(true) => RemoteCheck::NotEmpty,
+            Err(err) => classify_remote_error(&err),
+        }
+    }
+
+    #[test]
+    fn sends_a_stored_token_to_an_https_remote() {
+        let root = temp_dir("git-http-token");
+        let basic = |user_pass: &str| {
+            format!(
+                "Basic {}",
+                data_encoding::BASE64.encode(user_pass.as_bytes())
+            )
+        };
+        let (url, seen) = http_remote_requiring(&basic("me:ghp_token"), &root);
+        let stored = StoredCredentials::new();
+        stored.set(
+            "127.0.0.1",
+            Credential::UserPassword {
+                username: "me".into(),
+                password: zeroize::Zeroizing::new("ghp_token".into()),
+            },
+        );
+
+        assert_eq!(check_remote_with(&url, &stored), RemoteCheck::Empty);
+        assert!(seen.lock().unwrap().contains(&Some(basic("me:ghp_token"))));
+
+        // A revoked token is refused once, then reported, without looping.
+        seen.lock().unwrap().clear();
+        stored.set(
+            "127.0.0.1",
+            Credential::UserPassword {
+                username: "me".into(),
+                password: zeroize::Zeroizing::new("revoked".into()),
+            },
+        );
+        assert_eq!(check_remote_with(&url, &stored), RemoteCheck::AccessDenied);
+        let attempts = seen.lock().unwrap().iter().flatten().count();
+        assert_eq!(attempts, 1, "the rejected token is not retried");
+
+        // No credential for this host: access denied, nothing sent.
+        seen.lock().unwrap().clear();
+        stored.remove("127.0.0.1");
+        assert_eq!(check_remote_with(&url, &stored), RemoteCheck::AccessDenied);
+        assert!(seen.lock().unwrap().iter().all(Option::is_none));
 
         fs::remove_dir_all(root).unwrap();
     }

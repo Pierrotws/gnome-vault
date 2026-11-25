@@ -186,6 +186,7 @@ Primary files:
 | `crates/passel-core/src/helpers/parser.rs` | Parses and formats the pass-compatible YAML subset for custom fields. |
 | `crates/passel-core/src/helpers/pgp/` | Decrypts/encrypts `.gpg` files, lists usable local recipients, reads `.gpg-id`. The crypto goes through the process-wide `PgpBackend`: `gpgme.rs` (feature `gpgme`, the default: GnuPG keyring, agent, pinentry) or `rpgp.rs` (feature `rpgp`: pure Rust, keyring in a folder the app picks, passphrases through a `PassphraseProvider` callback and cached until `lock()`), set with `pgp::install_backend`. Tests check rPGP against the real gpg in both directions. |
 | `crates/passel-core/src/helpers/git.rs` | Repository initialization, add/remove/rename, commit, push, history, revert, rollback. |
+| `crates/passel-core/src/helpers/git_credentials.rs` | How remotes authenticate, through the process-wide `CredentialProvider`: `SystemCredentials` (default: ssh-agent, then git's credential helpers) or `StoredCredentials` (credentials the app keeps per host: HTTPS token or in-memory SSH key, offered once per operation), set with `install_credential_provider`. |
 | `crates/passel-core/src/helpers/otp.rs` | Validates `otpauth://` URLs and generates current TOTP values. |
 | `crates/passel-core/src/helpers/password.rs` | Generates passwords for the new-entry dialog. |
 | `src/helpers/clipboard.rs` | Single entry point for copying secrets into the GTK clipboard. |
@@ -298,7 +299,7 @@ Testing strategy:
 | Area | Current approach |
 | --- | --- |
 | Parser | Unit tests in `crates/passel-core/src/helpers/parser.rs` cover scalar, array, multiline, folded block, OTP, and formatting roundtrips. |
-| Git helper | Unit tests in `crates/passel-core/src/helpers/git.rs` create temporary repositories and exercise commit, push, rename, delete, revert, rollback, paging, and author time. |
+| Git helper | Unit tests in `crates/passel-core/src/helpers/git.rs` create temporary repositories and exercise commit, push, rename, delete, revert, rollback, paging, and author time. A local smart-HTTP server checks that a stored token reaches the remote and that a rejected one is not retried. |
 | PGP helper | Unit tests cover `.gpg-id` parsing and missing/empty recipient errors. |
 | OTP | Unit tests cover RFC-compatible TOTP generation and validation failures. |
 | App state/controller | Unit tests cover cache behavior, search, and edit session validation. |
