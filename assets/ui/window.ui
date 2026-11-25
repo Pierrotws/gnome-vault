@@ -56,6 +56,18 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                             </property>
                           </object>
                         </child>
+                        <child>
+                          <object class="GtkButton" id="import_button">
+                            <property name="css-classes">flat</property>
+                            <property name="tooltip-text">Import entries from KeePassXC or Buttercup into this vault</property>
+                            <property name="child">
+                              <object class="GtkLabel">
+                                <property name="label">Import Passwords…</property>
+                                <property name="xalign">0</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
                       </object>
                     </property>
                   </object>

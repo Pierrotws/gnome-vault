@@ -102,6 +102,9 @@ pub struct MainWindow {
     pub add_vault_button: TemplateChild<gtk::Button>,
 
     #[template_child]
+    pub import_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
     pub enable_history_page: TemplateChild<adw::StatusPage>,
 
     #[template_child]

@@ -1,6 +1,7 @@
 mod autoload;
 mod group_content;
 mod imp;
+mod import_dialog;
 mod new_entry_dialog;
 mod preferences;
 mod setup;
@@ -457,6 +458,14 @@ impl MainWindow {
             move |_| {
                 window.imp().vault_popover.popdown();
                 window.present_setup_wizard();
+            }
+        ));
+        imp.import_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
+                window.imp().vault_popover.popdown();
+                window.show_import_dialog();
             }
         ));
         imp.add_vault_button.connect_clicked(glib::clone!(

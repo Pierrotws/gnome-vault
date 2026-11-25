@@ -43,6 +43,16 @@ template $MainWindow : Adw.ApplicationWindow {
                                 xalign: 0;
                             };
                         }
+
+                        Button import_button {
+                            css-classes: ["flat"];
+                            tooltip-text: "Import entries from KeePassXC or Buttercup into this vault";
+
+                            child: Label {
+                                label: "Import Passwords…";
+                                xalign: 0;
+                            };
+                        }
                     };
                 };
 
