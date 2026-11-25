@@ -3,6 +3,7 @@
 
 mod hosts;
 mod imp;
+mod key;
 mod sync;
 
 use std::path::{Path, PathBuf};
@@ -84,7 +85,7 @@ impl SetupWizard {
         imp.autopush.set(autopush);
         imp.run.replace(None);
         imp.path_row.set_text(&store_dir.to_string_lossy());
-        self.load_recipients();
+        self.reset_key_page();
         imp.navigation.pop_to_tag("welcome");
         self.update_vault_next();
         self.reset_sync();
@@ -108,6 +109,7 @@ impl SetupWizard {
 
     fn setup(&self) {
         let imp = self.imp();
+        self.setup_key_page();
         self.setup_sync();
 
         // Every handler captures the wizard weakly: its template children
@@ -119,6 +121,7 @@ impl SetupWizard {
         ));
         for back in [
             &*imp.vault_back_button,
+            &*imp.key_back_button,
             &*imp.sync_back_button,
             &*imp.online_back_button,
             &*imp.folder_back_button,
@@ -138,15 +141,10 @@ impl SetupWizard {
             self,
             move |_| wizard.update_vault_next()
         ));
-        imp.recipient_row.connect_selected_notify(glib::clone!(
-            #[weak(rename_to = wizard)]
-            self,
-            move |_| wizard.update_vault_next()
-        ));
         imp.vault_next_button.connect_clicked(glib::clone!(
             #[weak(rename_to = wizard)]
             self,
-            move |_| wizard.imp().navigation.push_by_tag("sync")
+            move |_| wizard.imp().navigation.push_by_tag("key")
         ));
 
         imp.apply_button.connect_clicked(glib::clone!(
@@ -159,28 +157,6 @@ impl SetupWizard {
             self,
             move |_| wizard.skip_remaining()
         ));
-    }
-
-    fn load_recipients(&self) {
-        let imp = self.imp();
-        let recipients = setup::available_recipients();
-        let labels = recipients
-            .iter()
-            .map(|recipient| recipient.label.as_str())
-            .collect::<Vec<_>>();
-        imp.recipient_row
-            .set_model(Some(&gtk::StringList::new(&labels)));
-        if recipients.is_empty() {
-            imp.recipient_row.set_selected(gtk::INVALID_LIST_POSITION);
-            imp.recipient_row
-                .set_subtitle("No usable local secret encryption key found");
-            imp.recipient_row.set_sensitive(false);
-        } else {
-            imp.recipient_row.set_selected(0);
-            imp.recipient_row.set_subtitle("");
-            imp.recipient_row.set_sensitive(true);
-        }
-        imp.recipients.replace(recipients);
     }
 
     fn update_vault_next(&self) {
@@ -206,9 +182,8 @@ impl SetupWizard {
         } else {
             imp.path_row.remove_css_class("error");
         }
-        let has_recipient = self.selected_recipient().is_some();
         imp.vault_next_button
-            .set_sensitive(!path.is_empty() && folder_problem.is_none() && has_recipient);
+            .set_sensitive(!path.is_empty() && folder_problem.is_none());
     }
 
     fn selected_recipient(&self) -> Option<(String, String)> {

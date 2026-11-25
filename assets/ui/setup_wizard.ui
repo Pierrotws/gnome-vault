@@ -57,7 +57,7 @@ pill</property>
                         </child>
                         <child>
                           <object class="GtkLabel">
-                            <property name="label">Choose where to store encrypted entries and which GPG key encrypts them.</property>
+                            <property name="label">Choose the folder that will hold your encrypted entries.</property>
                             <property name="wrap">true</property>
                             <property name="xalign">0</property>
                             <property name="css-classes">dim-label</property>
@@ -68,11 +68,6 @@ pill</property>
                             <child>
                               <object class="AdwEntryRow" id="path_row">
                                 <property name="title">Folder</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwComboRow" id="recipient_row">
-                                <property name="title">Encryption Key (GPG)</property>
                               </object>
                             </child>
                           </object>
@@ -88,6 +83,186 @@ pill</property>
                             </child>
                             <child>
                               <object class="GtkButton" id="vault_next_button">
+                                <property name="label">Next</property>
+                                <property name="css-classes">suggested-action</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwNavigationPage">
+            <property name="tag">key</property>
+            <property name="title">Encryption Key</property>
+            <property name="child">
+              <object class="GtkScrolledWindow">
+                <property name="hscrollbar-policy">2</property>
+                <property name="child">
+                  <object class="AdwClamp">
+                    <property name="maximum-size">560</property>
+                    <property name="valign">3</property>
+                    <property name="margin-top">24</property>
+                    <property name="margin-bottom">24</property>
+                    <property name="margin-start">24</property>
+                    <property name="margin-end">24</property>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">1</property>
+                        <property name="spacing">18</property>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label">Your Encryption Key</property>
+                            <property name="wrap">true</property>
+                            <property name="css-classes">title-1</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label">Passel encrypts every entry with a GPG key. Only this key, unlocked with its passphrase, can open them.</property>
+                            <property name="wrap">true</property>
+                            <property name="xalign">0</property>
+                            <property name="css-classes">dim-label</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPreferencesGroup">
+                            <child>
+                              <object class="AdwActionRow" id="use_key_row">
+                                <property name="title">Use a key from this computer</property>
+                                <property name="activatable-widget">use_key_check</property>
+                                <child type="prefix">
+                                  <object class="GtkCheckButton" id="use_key_check">
+                                    <property name="valign">3</property>
+                                    <property name="active">true</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwActionRow">
+                                <property name="title">Create a new key</property>
+                                <property name="subtitle">The usual choice if you have never used GPG.</property>
+                                <property name="activatable-widget">create_key_check</property>
+                                <child type="prefix">
+                                  <object class="GtkCheckButton" id="create_key_check">
+                                    <property name="valign">3</property>
+                                    <property name="group">use_key_check</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwActionRow">
+                                <property name="title">Import a key from a backup file</property>
+                                <property name="subtitle">A secret key saved from another computer, e.g. a .asc file.</property>
+                                <property name="activatable-widget">import_key_check</property>
+                                <child type="prefix">
+                                  <object class="GtkCheckButton" id="import_key_check">
+                                    <property name="valign">3</property>
+                                    <property name="group">use_key_check</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPreferencesGroup" id="existing_key_group">
+                            <child>
+                              <object class="AdwComboRow" id="recipient_row">
+                                <property name="title">Key</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPreferencesGroup" id="create_key_group">
+                            <property name="description">GPG will then ask you to choose a passphrase. Pick one you will remember: without it, nobody can open your entries, not even you.</property>
+                            <child>
+                              <object class="AdwEntryRow" id="key_name_row">
+                                <property name="title">Your name</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwEntryRow" id="key_email_row">
+                                <property name="title">Email (optional)</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPreferencesGroup" id="import_key_group">
+                            <child>
+                              <object class="AdwActionRow" id="key_file_row">
+                                <property name="title">Backup file</property>
+                                <property name="subtitle">No file chosen</property>
+                                <child type="suffix">
+                                  <object class="GtkButton" id="choose_key_file_button">
+                                    <property name="label">Choose…</property>
+                                    <property name="valign">3</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox" id="key_status_box">
+                            <property name="spacing">8</property>
+                            <property name="visible">false</property>
+                            <child>
+                              <object class="GtkSpinner" id="key_spinner">
+                                <property name="valign">1</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkImage" id="key_status_icon">
+                                <property name="valign">1</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="key_status_label">
+                                <property name="wrap">true</property>
+                                <property name="xalign">0</property>
+                                <property name="hexpand">true</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPreferencesGroup" id="backup_group">
+                            <child>
+                              <object class="AdwActionRow" id="backup_row">
+                                <property name="title">Save a backup of this key</property>
+                                <property name="subtitle">If this computer is lost or breaks, the backup is the only way to open your entries. Keep it on a USB drive or in another safe place.</property>
+                                <child type="suffix">
+                                  <object class="GtkButton" id="backup_button">
+                                    <property name="label">Save Backup…</property>
+                                    <property name="valign">3</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox">
+                            <property name="halign">2</property>
+                            <property name="spacing">12</property>
+                            <child>
+                              <object class="GtkButton" id="key_back_button">
+                                <property name="label">Back</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="key_next_button">
                                 <property name="label">Next</property>
                                 <property name="css-classes">suggested-action</property>
                               </object>

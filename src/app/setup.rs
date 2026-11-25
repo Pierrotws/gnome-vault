@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use crate::app::app_error::AppError;
 use crate::pass::store::{
-    self, GpgRecipient, RemoteCheck, SetupPlan, SetupStep, StoreError, StoreStatus,
+    self, GpgRecipient, PgpError, RemoteCheck, SetupPlan, SetupStep, StoreError, StoreStatus,
 };
 
 pub fn check_plan(plan: &SetupPlan) -> Result<(), AppError> {
@@ -24,10 +24,16 @@ pub fn run_step(plan: &SetupPlan, step: SetupStep) -> Result<(), AppError> {
 /// Lists usable local encryption keys; an empty list when there are none
 /// or gpgme cannot be reached (the reason is logged).
 pub fn available_recipients() -> Vec<GpgRecipient> {
-    store::available_recipients().unwrap_or_else(|err| {
-        log::warn!("Failed to list GPG recipients: {err}");
-        Vec::new()
-    })
+    match store::available_recipients() {
+        Ok(recipients) => recipients,
+        // No key yet is the normal first-run case: the key page offers
+        // to create or import one.
+        Err(StoreError::Pgp(PgpError::NoKeys(_))) => Vec::new(),
+        Err(err) => {
+            log::warn!("Failed to list GPG recipients: {err}");
+            Vec::new()
+        }
+    }
 }
 
 /// Classifies a folder typed into the wizard.
@@ -85,4 +91,47 @@ pub fn ssh_public_keys() -> Vec<SshPublicKey> {
             (!text.is_empty()).then_some(SshPublicKey { path, text })
         })
         .collect()
+}
+
+/// Why a key action did not complete.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum KeyActionError {
+    /// The passphrase prompt was dismissed: nothing to report.
+    Cancelled,
+    /// A message for the user.
+    Failed(String),
+}
+
+impl From<PgpError> for KeyActionError {
+    fn from(err: PgpError) -> Self {
+        match err {
+            PgpError::Cancelled => KeyActionError::Cancelled,
+            other => {
+                log::warn!("GPG key action failed: {other}");
+                KeyActionError::Failed(other.to_string())
+            }
+        }
+    }
+}
+
+/// True when a name and email can form the user id of a new key.
+pub fn is_valid_key_identity(name: &str, email: &str) -> bool {
+    store::key_user_id(name, email).is_ok()
+}
+
+/// Creates a key; gpg-agent asks for the passphrase. Returns its
+/// fingerprint.
+pub fn create_key(name: &str, email: &str) -> Result<String, KeyActionError> {
+    Ok(store::create_key(name, email)?)
+}
+
+/// Imports a secret key backup. Returns the usable fingerprints.
+pub fn import_key(path: &Path) -> Result<Vec<String>, KeyActionError> {
+    Ok(store::import_secret_keys(path)?)
+}
+
+/// Saves an armored backup of a secret key; gpg-agent asks for the
+/// passphrase.
+pub fn export_key(fingerprint: &str, dest: &Path) -> Result<(), KeyActionError> {
+    Ok(store::export_secret_key(fingerprint, dest)?)
 }

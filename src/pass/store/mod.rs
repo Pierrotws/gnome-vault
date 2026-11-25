@@ -17,7 +17,9 @@ use crate::{
 };
 
 pub use crate::helpers::git::RemoteCheck;
-pub use crate::helpers::pgp::GpgRecipient;
+pub use crate::helpers::pgp::{
+    create_key, export_secret_key, import_secret_keys, key_user_id, GpgRecipient, PgpError,
+};
 pub use store_error::StoreError;
 
 /// Everything the setup wizard collected, before anything touches disk.

@@ -27,13 +27,70 @@ pub struct SetupWizard {
     pub path_row: TemplateChild<adw::EntryRow>,
 
     #[template_child]
-    pub recipient_row: TemplateChild<adw::ComboRow>,
-
-    #[template_child]
     pub vault_back_button: TemplateChild<gtk::Button>,
 
     #[template_child]
     pub vault_next_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub use_key_row: TemplateChild<adw::ActionRow>,
+
+    #[template_child]
+    pub use_key_check: TemplateChild<gtk::CheckButton>,
+
+    #[template_child]
+    pub create_key_check: TemplateChild<gtk::CheckButton>,
+
+    #[template_child]
+    pub import_key_check: TemplateChild<gtk::CheckButton>,
+
+    #[template_child]
+    pub existing_key_group: TemplateChild<adw::PreferencesGroup>,
+
+    #[template_child]
+    pub recipient_row: TemplateChild<adw::ComboRow>,
+
+    #[template_child]
+    pub create_key_group: TemplateChild<adw::PreferencesGroup>,
+
+    #[template_child]
+    pub key_name_row: TemplateChild<adw::EntryRow>,
+
+    #[template_child]
+    pub key_email_row: TemplateChild<adw::EntryRow>,
+
+    #[template_child]
+    pub import_key_group: TemplateChild<adw::PreferencesGroup>,
+
+    #[template_child]
+    pub key_file_row: TemplateChild<adw::ActionRow>,
+
+    #[template_child]
+    pub choose_key_file_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub key_status_box: TemplateChild<gtk::Box>,
+
+    #[template_child]
+    pub key_spinner: TemplateChild<gtk::Spinner>,
+
+    #[template_child]
+    pub key_status_icon: TemplateChild<gtk::Image>,
+
+    #[template_child]
+    pub key_status_label: TemplateChild<gtk::Label>,
+
+    #[template_child]
+    pub backup_group: TemplateChild<adw::PreferencesGroup>,
+
+    #[template_child]
+    pub backup_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub key_back_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub key_next_button: TemplateChild<gtk::Button>,
 
     #[template_child]
     pub local_check: TemplateChild<gtk::CheckButton>,
@@ -114,6 +171,10 @@ pub struct SetupWizard {
     pub apply_button: TemplateChild<gtk::Button>,
 
     pub recipients: RefCell<Vec<GpgRecipient>>,
+    /// A key is being created, imported or exported (pinentry may be up).
+    pub key_busy: Cell<bool>,
+    /// Backup file chosen on the import option.
+    pub key_file: RefCell<Option<PathBuf>>,
     /// Rows of `host_steps_group`, rebuilt when the service changes.
     pub host_step_rows: RefCell<Vec<gtk::Widget>>,
     /// The last remote check and the address it was for.

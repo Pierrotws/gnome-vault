@@ -103,7 +103,7 @@ Primary files:
 | `src/main.rs` | Initializes logging, GResources, local schema lookup, and the Adwaita application. |
 | `src/ui/window/mod.rs` | Main UI orchestration, signal wiring, edit-mode state. |
 | `src/ui/window/setup.rs` | Startup routing glue, `PASSWORD_STORE_DIR` propagation, and the "Turn On History" page for a pass store without git. |
-| `src/ui/setup_wizard/` | First-run wizard (`Adw.NavigationView`): collects a `SetupPlan`, then runs its steps on a worker with per-step progress, retry and skip. `sync.rs` holds the sync pages (online copy, folder/drive copy, this computer only); `hosts.rs` lists the hosting services with free private repositories and how to create an empty one on each. |
+| `src/ui/setup_wizard/` | First-run wizard (`Adw.NavigationView`): collects a `SetupPlan`, then runs its steps on a worker with per-step progress, retry and skip. `key.rs` holds the encryption key page (use, create or import a GPG key, save a backup); `sync.rs` holds the sync pages (online copy, folder/drive copy, this computer only); `hosts.rs` lists the hosting services with free private repositories and how to create an empty one on each. |
 | `src/ui/window/preferences.rs` | Preferences dialog (autopush, autoload, group view, store dir, branch). |
 | `src/ui/window/autoload.rs` | Background entry-cache warmup tick handler. |
 | `src/ui/window/group_content.rs` | Right-pane rendering for group browsing and flat search results. |
@@ -130,7 +130,7 @@ Primary files:
 | `src/app/changes.rs` | Worker-safe free functions for revert / rollback / push (called from `gio::spawn_blocking`). |
 | `src/app/cache_warmup.rs` | Spawns the autoload decrypt worker and streams results back to the main loop. |
 | `src/app/group_preview.rs` | Spawns the per-group decrypt worker that fills missing subtitle previews. |
-| `src/app/setup.rs` | Worker-safe wrappers the setup wizard calls: plan check, setup steps, key listing, folder status, remote check, copy-folder status, public SSH keys. |
+| `src/app/setup.rs` | Worker-safe wrappers the setup wizard calls: plan check, setup steps, key listing, creation, import and backup, folder status, remote check, copy-folder status, public SSH keys. |
 | `src/app/state/app_state.rs` | Current tree, selected node, current edit session, decrypted entry cache. |
 | `src/app/state/entry_session.rs` | Dirty tracking, validation, title changes, save/revert session state. |
 | `src/app/app_error.rs` | Error type surfaced to the UI. |
