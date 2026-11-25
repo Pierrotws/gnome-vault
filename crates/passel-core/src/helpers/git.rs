@@ -140,11 +140,12 @@ pub fn init(project_dir: &Path) -> Result<(), GitError> {
 
 /// Creates an empty bare repository, used as a vault copy on a folder or
 /// drive.
-pub fn init_bare(dir: &Path) -> Result<(), GitError> {
-    // Same first branch as `init`, so the copy's HEAD names the branch
-    // the vault pushes.
+///
+/// Its HEAD names `branch`, the branch the vault will push there, so a
+/// clone of the copy checks it out.
+pub fn init_bare(dir: &Path, branch: &str) -> Result<(), GitError> {
     let mut options = git2::RepositoryInitOptions::new();
-    options.bare(true).initial_head("main");
+    options.bare(true).initial_head(branch);
     Repository::init_opts(dir, &options)?;
     Ok(())
 }
@@ -152,8 +153,17 @@ pub fn init_bare(dir: &Path) -> Result<(), GitError> {
 /// Returns true for a bare repository with no commits yet: a copy that
 /// was created but never received the vault.
 pub fn is_empty_bare_repository(dir: &Path) -> bool {
+    // No reference at all. libgit2's `is_empty` would also require HEAD to
+    // name the configured default branch, which a copy made for a vault
+    // on another branch does not.
     Repository::open_bare(dir)
-        .map(|repo| repo.is_bare() && repo.is_empty().unwrap_or(false))
+        .map(|repo| {
+            repo.is_bare()
+                && repo
+                    .references()
+                    .map(|mut refs| refs.next().is_none())
+                    .unwrap_or(false)
+        })
         .unwrap_or(false)
 }
 
@@ -1263,8 +1273,11 @@ mod tests {
         std::env::temp_dir().join(format!("passel-{name}-{}-{unique}", std::process::id()))
     }
 
+    /// A working repository on `main` (not on the machine's git default,
+    /// so tests behave the same everywhere) with its own identity.
     fn init_repo(dir: &PathBuf) -> Repository {
-        let repo = Repository::init(dir).unwrap();
+        init(dir).unwrap();
+        let repo = Repository::open(dir).unwrap();
         let mut config = repo.config().unwrap();
         config
             .set_str("user.email", "test@example.invalid")
@@ -1278,7 +1291,7 @@ mod tests {
     fn checks_whether_a_remote_can_receive_a_vault() {
         let root = temp_dir("git-check-remote");
         let remote_dir = root.join("remote.git");
-        init_bare(&remote_dir).unwrap();
+        init_bare(&remote_dir, "main").unwrap();
         let url = remote_dir.to_str().unwrap();
         assert!(is_empty_bare_repository(&remote_dir));
         assert_eq!(check_remote(url), RemoteCheck::Empty);
@@ -1317,7 +1330,7 @@ mod tests {
         fn new(name: &str) -> Self {
             let root = temp_dir(name);
             let remote = root.join("remote.git");
-            init_bare(&remote).unwrap();
+            init_bare(&remote, "main").unwrap();
             let desktop = root.join("desktop");
             init_repo(&desktop)
                 .remote("origin", remote.to_str().unwrap())
@@ -1382,7 +1395,7 @@ mod tests {
 
         // Folder copies made by Passel name the same branch.
         let folder_copy = root.join("drive.git");
-        init_bare(&folder_copy).unwrap();
+        init_bare(&folder_copy, "main").unwrap();
         let head = Repository::open_bare(&folder_copy).unwrap();
         assert_eq!(
             head.find_reference("HEAD").unwrap().symbolic_target(),
@@ -1531,7 +1544,7 @@ mod tests {
     fn sync_starts_from_a_clone_of_an_empty_remote() {
         let root = temp_dir("git-sync-empty");
         let remote = root.join("remote.git");
-        init_bare(&remote).unwrap();
+        init_bare(&remote, "main").unwrap();
         let phone = root.join("phone");
         clone(remote.to_str().unwrap(), &phone).unwrap();
         set_identity(&phone, "Phone", "phone@example.invalid").unwrap();
@@ -1565,7 +1578,7 @@ mod tests {
         use std::sync::{Arc, Mutex};
 
         let bare = root.join("vault.git");
-        init_bare(&bare).unwrap();
+        init_bare(&bare, "main").unwrap();
         let advertisement = std::process::Command::new("git")
             .args(["upload-pack", "--stateless-rpc", "--advertise-refs"])
             .arg(&bare)

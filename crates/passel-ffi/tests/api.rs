@@ -92,7 +92,7 @@ fn desktop_password(desktop: &Path, path: &str) -> String {
 /// The desktop side: a working copy pushing to the bare remote.
 fn desktop_vault(root: &Path, recipient: &str) -> (PathBuf, String) {
     let remote = root.join("remote.git");
-    git::init_bare(&remote).unwrap();
+    git::init_bare(&remote, "main").unwrap();
     let desktop = root.join("desktop");
     git::init(&desktop).unwrap();
     git::set_identity(&desktop, "Desktop", "desktop@example.invalid").unwrap();
@@ -280,7 +280,7 @@ fn a_phone_and_a_desktop_share_a_vault() {
 
     // A second vault, created on the phone and sent to an empty remote.
     let empty_remote = dirs.root.join("new.git");
-    git::init_bare(&empty_remote).unwrap();
+    git::init_bare(&empty_remote, "main").unwrap();
     let empty_url = empty_remote.to_string_lossy().into_owned();
     assert_eq!(passel.check_remote(empty_url.clone()), RemoteState::Empty);
     let created = passel

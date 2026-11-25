@@ -258,7 +258,10 @@ pub fn run_setup_step(plan: &SetupPlan, step: SetupStep) -> Result<(), StoreErro
             if let Some(SyncTarget::Folder(copy_dir)) = &plan.sync {
                 check_copy_dir(store_dir, copy_dir)?;
                 if !copy_dir.exists() {
-                    git::init_bare(copy_dir)?;
+                    // The copy's HEAD names the branch the vault pushes.
+                    let branch =
+                        git::current_branch_name(store_dir).unwrap_or_else(|| "main".to_string());
+                    git::init_bare(copy_dir, &branch)?;
                 }
             }
         }
