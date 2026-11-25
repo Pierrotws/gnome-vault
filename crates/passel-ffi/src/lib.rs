@@ -400,7 +400,7 @@ impl Passel {
             .map_err(|e| PasselError::failed(e.to_string()))?;
         let mut entries = Vec::new();
         collect_entries(&nodes, &mut entries);
-        entries.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+        entries.sort_by_key(|entry| entry.path.to_lowercase());
         Ok(entries)
     }
 
