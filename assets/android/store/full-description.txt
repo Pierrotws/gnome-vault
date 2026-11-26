@@ -1,0 +1,32 @@
+Passel is a password manager built on pass, the standard Unix password store. Your passwords stay in a plain pass vault: one OpenPGP-encrypted file per entry, kept where you choose. No account, no Passel server, no lock-in: Passel on your phone and computer, the pass command line and every other pass app read and write the same vault.
+
+ENCRYPTED WITH YOUR OWN KEY
+• Every entry is encrypted with your OpenPGP key, on your phone, before it is stored or synced.
+• Create a key in the setup wizard, or import the one you already use with pass on a computer.
+• Save a backup of a new key right away, still protected by its passphrase.
+
+SYNCED YOUR WAY
+• Google Drive: keep your vault in your own Drive.
+• Git: any private repository (GitHub, GitLab, Gitea, your own server), over HTTPS.
+• Changes made on the phone and on the computer merge. When the same entry changed on both sides, nothing is lost.
+• Works offline: changes wait on the phone until the next sync.
+
+ORGANIZED
+• Several vaults: personal, work, shared with family or a team. Switch between them from the title bar.
+• Entries grouped by folder, with search.
+• Fields of your own next to the password: username, URL, notes, recovery codes…
+• One-time password (TOTP) codes with a countdown.
+• A password generator.
+
+CAREFUL WITH SECRETS
+• Unlock with your fingerprint or face, instead of typing your key's passphrase.
+• Locks by itself after 2 minutes in the background.
+• Copied passwords are cleared from the clipboard, secrets are hidden from the keyboard, and the app blocks screenshots.
+• No ads, no tracking, no analytics.
+
+ALSO ON YOUR COMPUTER
+Passel is also a desktop app for Linux and Windows, on the same vaults.
+
+In English, French, German, Spanish and Brazilian Portuguese.
+
+Free and open source, under the GNU GPL v3: https://github.com/Pierrotws/passel
