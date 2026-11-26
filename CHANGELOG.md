@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/Pierrotws/passel/compare/v0.3.0...v0.3.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* **ci:** gettext for the Google Play build, Node 24 actions ([#23](https://github.com/Pierrotws/passel/issues/23)) ([a05b4f5](https://github.com/Pierrotws/passel/commit/a05b4f566a817177e22c44b75d03e10ed8245099))
+
 ## [0.3.0](https://github.com/Pierrotws/passel/compare/v0.2.0...v0.3.0) (2026-11-26)
 
 
