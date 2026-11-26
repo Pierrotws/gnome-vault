@@ -3,7 +3,7 @@ name = "passel-core"
 # Internal crate, never published: release-please only bumps the app's
 # version, so this one stays fixed (a bumped one would leave Cargo.lock
 # stale and break `--locked` builds).
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 description = "Passel's password-store logic, without any UI: entries, vaults, encryption, git sync and imports."
