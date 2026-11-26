@@ -33,10 +33,16 @@ pixbuf_dir=lib/gdk-pixbuf-2.0/2.10.0
 pixbuf_loaders=(libpixbufloader-png.dll pixbufloader_svg.dll)
 
 # --- Programs besides passel.exe --------------------------------------
-# gpgme starts gpg through gpgme-w32spawn.exe, from its own folder; GLib
-# spawns through its helpers; gdbus.exe gives GApplication its session
-# bus (one window per launch otherwise).
-for exe in gpgme-w32spawn.exe gspawn-win64-helper.exe gspawn-win64-helper-console.exe gdbus.exe; do
+# GLib spawns through its helpers; gdbus.exe gives GApplication its
+# session bus (one window per launch otherwise).
+#
+# Not gpgme-w32spawn.exe: when it sits next to libgpgme, gpgme starts gpg
+# through it, and MSYS2's build garbles the pipe handles on the way
+# (written with printf's %p, which the UCRT prints without "0x", then read
+# back with strtoull base 0, which takes the leading 0 for octal), so gpg
+# gets a wrong --logger-fd and exits at once: every operation fails.
+# Without it, gpgme starts gpg itself and passes the handles in decimal.
+for exe in gspawn-win64-helper.exe gspawn-win64-helper-console.exe gdbus.exe; do
   install -m755 "$prefix/bin/$exe" "$dist/bin/$exe"
 done
 mkdir -p "$dist/$pixbuf_dir/loaders"

@@ -229,7 +229,11 @@ jobs:
           meson compile -C build
 
       - name: passel-core tests
-        run: cargo test --locked -p passel-core
+        run: |
+          # Like the installer (packaging/windows/bundle.sh): without its
+          # spawn helper, gpgme passes pipe handles to gpg correctly.
+          rm -f "$MINGW_PREFIX/bin/gpgme-w32spawn.exe"
+          cargo test --locked -p passel-core
 
   commits:
     # release-please builds versions and the changelog from these.
