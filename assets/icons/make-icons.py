@@ -1,30 +1,25 @@
 #!/usr/bin/env python3
-"""Builds every icon from assets/logo.png (1080x1080, white background).
+"""Builds every icon from assets/logo.svg.
 
-    python3 assets/icons/make-icons.py      # needs Pillow
+    python3 assets/icons/make-icons.py      # needs Pillow and rsvg-convert
 
 Writes, from the repository root:
-- assets/logo-transparent.png: the logo with its white background made
-  transparent (the README and the Linux icons use it);
 - assets/icons/hicolor/<N>x<N>/apps/io.pierrotws.Passel.png: Linux icons;
 - android/app/src/main/res/mipmap-*/ic_launcher_foreground.png: the
-  Android adaptive icon's foreground (its background is white, like the
-  logo's).
-
-Only the white connected to the image's border becomes transparent: the
-white "P" and the dots inside the logo stay opaque. Near the edge of
-that background, white is removed GIMP-style ("color to alpha"), so the
-antialiased outline and the soft shadow fade out instead of leaving a
-white fringe.
+  Android adaptive icon's foreground (its background is white).
 """
 
-from collections import deque
+import subprocess
+import tempfile
 from pathlib import Path
 
-from PIL import Image, ImageFilter
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
+SVG = ROOT / "assets/logo.svg"
 APP_ID = "io.pierrotws.Passel"
+# The SVG is rasterized once, at this size, then scaled down.
+RENDER_SIZE = 1024
 LINUX_SIZES = [16, 24, 32, 48, 64, 128, 256, 512]
 # Android adaptive icon: a 108 dp layer, the logo drawn in its central
 # 48 dp: the launcher's mask (circle, squircle…) never cuts it, and it
@@ -32,63 +27,16 @@ LINUX_SIZES = [16, 24, 32, 48, 64, 128, 256, 512]
 ANDROID_DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
 ANDROID_LAYER_DP, ANDROID_CONTENT_DP = 108, 48
 
-# A pixel this light belongs to the background if it touches it.
-BACKGROUND_MIN = 232
-# How far (px) around the background the edge is faded.
-EDGE_PX = 3
 
-
-def background_mask(img: Image.Image) -> Image.Image:
-    """The light pixels connected to the border, as an L mask (255 = background)."""
-    rgb = img.convert("RGB")
-    w, h = rgb.size
-    px = rgb.load()
-    light = lambda x, y: min(px[x, y]) >= BACKGROUND_MIN  # noqa: E731
-    seen = bytearray(w * h)
-    queue = deque()
-    for x in range(w):
-        queue.extend([(x, 0), (x, h - 1)])
-    for y in range(h):
-        queue.extend([(0, y), (w - 1, y)])
-    while queue:
-        x, y = queue.popleft()
-        i = y * w + x
-        if seen[i] or not light(x, y):
-            continue
-        seen[i] = 1
-        if x > 0:
-            queue.append((x - 1, y))
-        if x < w - 1:
-            queue.append((x + 1, y))
-        if y > 0:
-            queue.append((x, y - 1))
-        if y < h - 1:
-            queue.append((x, y + 1))
-    return Image.frombytes("L", (w, h), bytes(255 if s else 0 for s in seen))
-
-
-def transparent(img: Image.Image) -> Image.Image:
-    """Color-to-alpha against white, on the background and its edge only."""
-    rgb = img.convert("RGB")
-    zone = background_mask(rgb).filter(ImageFilter.MaxFilter(2 * EDGE_PX + 1))
-    out = rgb.convert("RGBA")
-    src, dst, mask = rgb.load(), out.load(), zone.load()
-    w, h = rgb.size
-    for y in range(h):
-        for x in range(w):
-            if not mask[x, y]:
-                continue
-            r, g, b = src[x, y]
-            alpha = max(255 - r, 255 - g, 255 - b) / 255
-            if alpha <= 0.02:
-                dst[x, y] = (0, 0, 0, 0)
-                continue
-            # Un-blend from white: c = a * color + (1 - a) * 255.
-            color = tuple(
-                max(0, min(255, round((c - 255 * (1 - alpha)) / alpha))) for c in (r, g, b)
-            )
-            dst[x, y] = color + (round(alpha * 255),)
-    return out
+def render(size: int) -> Image.Image:
+    """Rasterizes the SVG to a `size`x`size` image, transparent background."""
+    with tempfile.TemporaryDirectory() as tmp:
+        png = Path(tmp) / "logo.png"
+        subprocess.run(
+            ["rsvg-convert", "-w", str(size), "-h", str(size), "-o", str(png), str(SVG)],
+            check=True,
+        )
+        return Image.open(png).convert("RGBA")
 
 
 def trimmed_square(img: Image.Image, margin: float) -> Image.Image:
@@ -103,9 +51,7 @@ def trimmed_square(img: Image.Image, margin: float) -> Image.Image:
 
 
 def main() -> None:
-    logo = Image.open(ROOT / "assets/logo.png")
-    clear = transparent(logo)
-    clear.save(ROOT / "assets/logo-transparent.png", optimize=True)
+    clear = render(RENDER_SIZE)
 
     icon = trimmed_square(clear, margin=0.04)
     for size in LINUX_SIZES:

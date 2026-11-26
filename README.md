@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo-transparent.png" alt="Passel logo" width="160">
+  <img src="assets/logo.svg" alt="Passel logo" width="160">
 </p>
 
 # Passel

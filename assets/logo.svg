@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <title>Passel</title>
+  <defs>
+    <!-- Back sheets: violet, lighter toward the front. -->
+    <linearGradient id="sheet1" x1="200" y1="420" x2="700" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4a2fd6"/>
+      <stop offset="1" stop-color="#7d5ff9"/>
+    </linearGradient>
+    <linearGradient id="sheet2" x1="300" y1="380" x2="830" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a68cfc"/>
+      <stop offset="1" stop-color="#9a7cfb"/>
+    </linearGradient>
+    <linearGradient id="sheet3" x1="460" y1="400" x2="920" y2="290" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#cdbcfd"/>
+      <stop offset="1" stop-color="#ab91fb"/>
+    </linearGradient>
+    <!-- Folder front: one smooth navy gradient, top-left to bottom-right. -->
+    <linearGradient id="front" x1="180" y1="340" x2="900" y2="990" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2a4a8e"/>
+      <stop offset="0.55" stop-color="#17306a"/>
+      <stop offset="1" stop-color="#0d2149"/>
+    </linearGradient>
+    <linearGradient id="glyph" x1="0" y1="477" x2="0" y2="737" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ecebf8"/>
+    </linearGradient>
+    <!-- Light edges on the sheets' tops: bright at the right, fading left. -->
+    <linearGradient id="edge1" x1="250" y1="0" x2="720" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="edge2" x1="260" y1="0" x2="838" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.25"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.6"/>
+    </linearGradient>
+    <linearGradient id="edge3" x1="440" y1="0" x2="928" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.6"/>
+    </linearGradient>
+    <!-- Rim of the folder's top edge: lavender, brightest on the tab,
+         fading out before the right corner. -->
+    <linearGradient id="rim" x1="122" y1="0" x2="900" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b6a2fc"/>
+      <stop offset="0.2" stop-color="#f3efff"/>
+      <stop offset="0.38" stop-color="#e2d9fe"/>
+      <stop offset="0.55" stop-color="#cbbdfd"/>
+      <stop offset="0.9" stop-color="#bba8fc"/>
+      <stop offset="1" stop-color="#bba8fc" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rimline" x1="0" y1="470" x2="0" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.75"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sheet 1 (back) -->
+  <path fill="url(#sheet1)" d="M122 560 V420 C122 330 170 270 250 243 L645 112 C690 97 722 125 722 165 V560 Z"/>
+  <path fill="none" stroke="url(#edge1)" stroke-width="4" stroke-linecap="round"
+        d="M250 243 L645 112 C690 97 722 125 722 165 V240"/>
+  <!-- Sheet 2: its left side tucks under the folder's slanted edge -->
+  <path fill="url(#sheet2)" d="M140 560 V490 L247 322 L765 186 C805 176 838 204 838 244 V560 Z"/>
+  <path fill="none" stroke="url(#edge2)" stroke-width="5" stroke-linecap="round"
+        d="M262 318 L765 186 C805 176 838 204 838 244 V310"/>
+  <!-- Sheet 3 (front) -->
+  <path fill="url(#sheet3)" d="M420 560 V330 L860 272 C898 267 928 295 928 333 L926 560 Z"/>
+  <path fill="none" stroke="url(#edge3)" stroke-width="5" stroke-linecap="round"
+        d="M440 327 L860 272 C898 267 928 295 928 333 V460"/>
+
+  <!-- Rim along the folder's top edge: a band 13px wide, under the
+       folder, from its left side to the right corner -->
+  <path fill="url(#rim)" d="
+    M122 560
+    V476
+    L211 349
+    C226 328 252 313 290 313
+    H408
+    C438 313 457 324 472 341
+    L504 377
+    C515 389 528 393 548 393
+    H900
+    V560
+    Z"/>
+  <!-- Brighter line on the rim, along the tab -->
+  <path fill="none" stroke="url(#rimline)" stroke-width="4" stroke-linecap="round"
+        d="M128 474 L216 353 C230 333 254 319 290 319 H408 C434 319 451 328 466 345"/>
+
+  <!-- Folder front -->
+  <path fill="url(#front)" d="
+    M122 520
+    C122 505 126 494 134 482
+    L222 357
+    C236 337 258 326 290 326
+    H408
+    C432 326 448 334 462 350
+    L494 386
+    C506 399 522 406 548 406
+    H872
+    C922 406 958 440 958 490
+    V858
+    C958 922 908 974 842 974
+    H240
+    C174 974 122 922 122 858
+    Z"/>
+
+  <!-- "P" with a key bit -->
+  <path fill="url(#glyph)" fill-rule="evenodd" d="
+    M522 477
+    H590
+    C635 477 670 511 670 552
+    C670 593 635 627 590 627
+    H564
+    V662
+    H583
+    C587 662 589 664 589 668
+    V690
+    C589 694 587 696 583 696
+    H564
+    V729
+    C564 733 562 736 558 736
+    H522
+    C518 736 516 733 516 729
+    V483
+    C516 479 518 477 522 477
+    Z
+    M564 520
+    V586
+    H588
+    C608 586 622 572 622 553
+    C622 534 608 520 588 520
+    Z"/>
+
+  <!-- Git branches: three commits joined -->
+  <g fill="none" stroke="#25e475" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M307 690 V718 C307 760 340 786 388 786 C435 786 472 802 505 838"/>
+    <path d="M773 690 V718 C773 760 740 786 692 786 C645 786 608 802 575 838"/>
+  </g>
+  <g fill="#25e475">
+    <circle cx="307" cy="653" r="58"/>
+    <circle cx="773" cy="653" r="58"/>
+    <circle cx="540" cy="870" r="58"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="307" cy="653" r="26"/>
+    <circle cx="773" cy="653" r="26"/>
+    <circle cx="540" cy="870" r="26"/>
+  </g>
+</svg>

@@ -16,7 +16,7 @@ resources = gnome.compile_resources(
 )
 
 # Launcher entry and icons (assets/icons/make-icons.py makes the icons
-# from logo.png). The file names match the application id, so the
+# from logo.svg). The file names match the application id, so the
 # desktop shell ties the running window to them.
 i18n.merge_file(
   input: 'io.pierrotws.Passel.desktop.in',
