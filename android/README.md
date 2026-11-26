@@ -21,8 +21,17 @@ desktop app, opened with the same key.
   version is sent as a `passel-unmerged/<commit>` branch to merge on a
   computer; the next sync on the phone then catches up. Nothing is lost.
 
-Not there yet: biometric unlock, autofill, SSH remotes, and settings to
-change a vault's remote, token or name after setup.
+- A key created on the phone: right away, save a backup of it (still
+  protected by its passphrase) wherever the system's file picker offers,
+  e.g. Google Drive. Any key's backup can be saved again later (menu, or
+  the wizard's key page).
+- Biometric unlock: tick "Unlock with biometrics next time" when typing
+  a key's passphrase (or choosing a new one), and a fingerprint or face
+  unlocks it from then on.
+- Locks by itself after 2 minutes in the background.
+
+Not there yet: autofill, SSH remotes, and settings to change a vault's
+remote, token or name after setup.
 
 ## How it fits together
 
@@ -41,8 +50,17 @@ crates/passel-core (rpgp feature: keyring in the app's storage;
   are made with core's `SetupPlan`, like the desktop wizard). Every call
   blocks: the app calls it on `Dispatchers.IO`.
 - Key passphrases are asked from Rust through `PassphrasePrompt`;
-  `PromptBroker` shows the dialog and hands the answer back. They stay
-  cached until **Lock**.
+  `PromptBroker` shows the dialog (or a biometric prompt) and hands the
+  answer back. They stay cached until **Lock**, or until the app spent
+  2 minutes in the background (`PasselApp`'s auto-lock, also checked on
+  return since Android may freeze the process meanwhile).
+- Biometric unlock (`BiometricUnlock`, Android 11+, strong biometrics
+  only): the passphrase is encrypted with a Keystore AES key that needs
+  a biometric check for every use, and is invalidated when a new
+  fingerprint or face is enrolled. It is kept only after the call that
+  asked for it succeeded, so a wrong passphrase is never kept; if it
+  stops working (changed elsewhere), it is dropped and the dialog says
+  so.
 - Tokens (one per host) are stored encrypted with an Android Keystore
   key (`RemoteSecrets`) and given to Rust at each start.
 - The app excludes its data from backups, and release builds block

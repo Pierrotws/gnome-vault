@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-26 11:15+0100\n"
+"POT-Creation-Date: 2026-11-26 12:54+0100\n"
 "PO-Revision-Date: 2026-11-26 00:00+0100\n"
 "Last-Translator: Passel contributors\n"
 "Language-Team: Spanish\n"
@@ -116,6 +116,10 @@ msgid "Choose a passphrase"
 msgstr "Elige una frase de contraseña"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Confirm to unlock this key with biometrics next time"
+msgstr "Confirme para desbloquear esta clave con biometría la próxima vez"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 #: assets/ui/new_entry_dialog.ui
 msgid "Create"
@@ -126,6 +130,11 @@ msgid "It protects the key for {user} on this phone and in its backups."
 msgstr ""
 "Protege la clave de {user} en este teléfono y en sus copias de seguridad."
 
+#. Translators: button that skips saving the key backup for now.
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Later"
+msgstr "Más tarde"
+
 #: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
 msgid "Passphrase"
 msgstr "Frase de contraseña"
@@ -135,12 +144,52 @@ msgid "Repeat it"
 msgstr "Repítela"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Save a backup of your key"
+msgstr "Guardar una copia de su clave"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Save the backup"
+msgstr "Guardar la copia"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid ""
+"The passphrase kept for biometric unlock no longer works: enter the key's "
+"passphrase."
+msgstr ""
+"La frase de contraseña guardada para el desbloqueo biométrico ya no "
+"funciona: introduzca la frase de contraseña de la clave."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Turn on biometric unlock"
+msgstr "Activar el desbloqueo biométrico"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
 msgid "Unlock"
 msgstr "Desbloquear"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Unlock with biometrics next time"
+msgstr "Desbloquear con biometría la próxima vez"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
 msgid "Unlock your key"
 msgstr "Desbloquea tu clave"
+
+#. Translators: button of the biometric prompt, to type the passphrase instead.
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Use the passphrase"
+msgstr "Usar la frase de contraseña"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid ""
+"Without it, losing this phone loses access to your vaults. The backup stays "
+"protected by the key's passphrase: keep it somewhere safe, like Google Drive "
+"or a computer."
+msgstr ""
+"Sin ella, perder este teléfono le hace perder el acceso a sus bóvedas. La "
+"copia sigue protegida por la frase de contraseña de la clave: guárdela en un "
+"lugar seguro, como Google Drive o un ordenador."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
 msgid "Wrong passphrase, try again"
@@ -308,6 +357,10 @@ msgstr ""
 "bóveda queda respaldada y tus otros dispositivos se sincronizan con ella."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Save a backup"
+msgstr "Guardar una copia"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Set up Passel"
 msgstr "Configurar Passel"
 
@@ -430,6 +483,10 @@ msgid "Remove {name} from this phone?"
 msgstr "¿Quitar {name} de este teléfono?"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Save a backup of {key}"
+msgstr "Guardar una copia de {key}"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Search {n} entry"
 msgid_plural "Search {n} entries"
 msgstr[0] "Buscar en {n} entrada"
@@ -464,6 +521,24 @@ msgstr[1] ""
 "La copia en tu repositorio remoto se queda como está; puedes volver a "
 "descargarla. Se perderán {n} cambios aún no sincronizados."
 
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Turn off biometric unlock"
+msgstr "Desactivar el desbloqueo biométrico"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Backup saved. Keep it safe: with its passphrase, it opens your vaults."
+msgstr ""
+"Copia guardada. Guárdela en un lugar seguro: con su frase de contraseña, "
+"abre sus bóvedas."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Biometric unlock is off: the passphrase will be asked"
+msgstr "Desbloqueo biométrico desactivado: se pedirá la frase de contraseña"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Biometric unlock is on"
+msgstr "Desbloqueo biométrico activado"
+
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 #: crates/passel-core/src/helpers/pgp/mod.rs crates/passel-ffi/src/lib.rs
 msgid "Cancelled"
@@ -472,6 +547,10 @@ msgstr "Cancelado"
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Could not read this file"
 msgstr "No se pudo leer este archivo"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Could not write this file"
+msgstr "No se pudo escribir este archivo"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Creating the key"
@@ -498,12 +577,12 @@ msgid "Importing the key"
 msgstr "Importando la clave"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
-msgid "Key created. Add its public key to your vault from a computer."
-msgstr "Clave creada. Añade su clave pública a tu bóveda desde un equipo."
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Key imported"
 msgstr "Clave importada"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Locked: biometrics or the passphrase will be asked again"
+msgstr "Bloqueado: se volverá a pedir la biometría o la frase de contraseña"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Locked: the passphrase will be asked again"
@@ -520,6 +599,10 @@ msgstr "Guardado en este teléfono. Sin sincronizar: {error}"
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Saving"
 msgstr "Guardando"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Saving the backup"
+msgstr "Guardando la copia"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Synced: {received} received, {sent} sent"
