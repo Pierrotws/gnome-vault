@@ -1,0 +1,2199 @@
+# Spanish translation of Passel.
+# This file is distributed under the same license as the passel package.
+msgid ""
+msgstr ""
+"Project-Id-Version: passel\n"
+"Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
+"POT-Creation-Date: 2026-11-26 09:07+0100\n"
+"PO-Revision-Date: 2026-11-26 00:00+0100\n"
+"Last-Translator: Passel contributors\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Add a field"
+msgstr "Añadir un campo"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui
+msgid "Back"
+msgstr "Atrás"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+#: assets/ui/new_entry_dialog.ui src/ui/entry_view/mod.rs src/ui/window/mod.rs
+msgid "Cancel"
+msgstr "Cancelar"
+
+#. Translators: a one-time password code, as in "Code copied".
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Code"
+msgstr "Código"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Copy"
+msgstr "Copiar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+#: src/ui/window/mod.rs
+msgid "Delete"
+msgstr "Eliminar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Delete {name}?"
+msgstr "¿Eliminar {name}?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Edit"
+msgstr "Editar"
+
+#. Translators: the name of an entry's field, like "login" or "url".
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Field"
+msgstr "Campo"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Folder (e.g. web)"
+msgstr "Carpeta (p. ej., web)"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Generate"
+msgstr "Generar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Hide"
+msgstr "Ocultar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Invalid one-time password"
+msgstr "Código de un solo uso no válido"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "It stays in the vault's history."
+msgstr "Se conserva en el historial de la bóveda."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Name (e.g. github)"
+msgstr "Nombre (p. ej., github)"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "New entry"
+msgstr "Nueva entrada"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+#: assets/ui/fields/password_field_row.ui
+msgid "Password"
+msgstr "Contraseña"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Remove field"
+msgstr "Quitar el campo"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Save"
+msgstr "Guardar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+msgid "Show"
+msgstr "Mostrar"
+
+#. Translators: the value of an entry's field.
+#: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
+#: assets/ui/fields/plain_field_row.ui
+msgid "Value"
+msgstr "Valor"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Choose a passphrase"
+msgstr "Elige una frase de contraseña"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/new_entry_dialog.ui
+msgid "Create"
+msgstr "Crear"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "It protects the key for {user} on this phone and in its backups."
+msgstr ""
+"Protege la clave de {user} en este teléfono y en sus copias de seguridad."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Passphrase"
+msgstr "Frase de contraseña"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Repeat it"
+msgstr "Repítela"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Unlock"
+msgstr "Desbloquear"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Unlock your key"
+msgstr "Desbloquea tu clave"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+msgid "Wrong passphrase, try again"
+msgstr "Frase de contraseña incorrecta; inténtalo de nuevo"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Access token"
+msgstr "Token de acceso"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Add a vault"
+msgstr "Añadir una bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Address (https://…)"
+msgstr "Dirección (https://…)"
+
+#. Translators: button that checks a repository address.
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui
+msgid "Check"
+msgstr "Comprobar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Checking…"
+msgstr "Comprobando…"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Create a key"
+msgstr "Crear una clave"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Create a new vault"
+msgstr "Crear una bóveda nueva"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Create a new vault there"
+msgstr "Crear allí una bóveda nueva"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Create the vault"
+msgstr "Crear la bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Download it from its repository: made with Passel, or with pass and git."
+msgstr "Descárgala de su repositorio: creada con Passel, o con pass y git."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Download it instead"
+msgstr "Descargarla en su lugar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Download the vault"
+msgstr "Descargar la bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui
+msgid "Email (optional)"
+msgstr "Correo electrónico (opcional)"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Empty: ready for a new vault"
+msgstr "Vacío: listo para una bóveda nueva"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Entries are encrypted with an OpenPGP key. To open a vault made on a "
+"computer, import the backup of its key (gpg --export-secret-keys --armor "
+"<id>). A new vault can use a key created here."
+msgstr ""
+"Las entradas se cifran con una clave OpenPGP. Para abrir una bóveda creada "
+"en un equipo, importa la copia de seguridad de su clave (gpg --export-secret-"
+"keys --armor <id>). Una bóveda nueva puede usar una clave creada aquí."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Found a vault"
+msgstr "Se encontró una bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Get a key:"
+msgstr "Obtener una clave:"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Get started"
+msgstr "Empezar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "I already have a vault"
+msgstr "Ya tengo una bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Import a key"
+msgstr "Importar una clave"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "It already holds a vault"
+msgstr "Ya contiene una bóveda"
+
+#. Translators: shown for a key without a name.
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui
+msgid "Key"
+msgstr "Clave"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Last step"
+msgstr "Último paso"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Name of the vault on this phone"
+msgstr "Nombre de la bóveda en este teléfono"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
+#: src/ui/setup_wizard/sync.rs
+msgid "Next"
+msgstr "Siguiente"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "No backup: losing this phone loses this vault."
+msgstr "Sin copia de seguridad: si pierdes este teléfono, pierdes esta bóveda."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Nothing found at this address"
+msgstr "No se encontró nada en esta dirección"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Online, in an empty repository"
+msgstr "En línea, en un repositorio vacío"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Only on this phone"
+msgstr "Solo en este teléfono"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Or add another key:"
+msgstr "O añade otra clave:"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Passel keeps your passwords in a pass vault: one encrypted file per entry, "
+"with its whole history, in a git repository you choose. The same vault opens "
+"on your computers and phones."
+msgstr ""
+"Passel guarda tus contraseñas en una bóveda de pass: un archivo cifrado por "
+"entrada, con todo su historial, en un repositorio git que tú eliges. La "
+"misma bóveda se abre en tus equipos y teléfonos."
+
+#. Translators: the name given to pass's default vault folder
+#. (~/.password-store); the user can rename it.
+#. Translators: default names of a new vault.
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: crates/passel-core/src/app/vaults.rs crates/passel-ffi/src/vaults.rs
+msgid "Passwords"
+msgstr "Contraseñas"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Recommended: a private repository you created for it (GitHub, GitLab…). Your "
+"vault is backed up, and your other devices sync with it."
+msgstr ""
+"Recomendado: un repositorio privado creado para ello (GitHub, GitLab…). Tu "
+"bóveda queda respaldada y tus otros dispositivos se sincronizan con ella."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Set up Passel"
+msgstr "Configurar Passel"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Setting it up takes a few steps: your key, then your vault."
+msgstr "La configuración lleva unos pocos pasos: tu clave y luego tu bóveda."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Share public key"
+msgstr "Compartir la clave pública"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Share the public key"
+msgstr "Compartir la clave pública"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Start an empty vault, encrypted with your key."
+msgstr "Empieza una bóveda vacía, cifrada con tu clave."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Step {step} of {total}"
+msgstr "Paso {step} de {total}"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"The HTTPS address of its repository, and a personal access token allowed to "
+"read and write it (GitHub: a fine-grained token with Contents read and "
+"write)."
+msgstr ""
+"La dirección HTTPS de su repositorio y un token de acceso personal con "
+"permiso de lectura y escritura (GitHub: un token “fine-grained” con "
+"Contentsen lectura y escritura)."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "The changes you make from this phone are signed with:"
+msgstr "Los cambios que hagas desde este teléfono se firman con:"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "The server refused this username or token"
+msgstr "El servidor rechazó este nombre de usuario o token"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "This repository is empty"
+msgstr "Este repositorio está vacío"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Unknown server key"
+msgstr "Clave de servidor desconocida"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Username"
+msgstr "Nombre de usuario"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui assets/ui/window.ui src/ui/window/group_content.rs
+msgid "Vault"
+msgstr "Bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui
+msgid "Welcome to Passel"
+msgstr "Te damos la bienvenida a Passel"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Where is your vault?"
+msgstr "¿Dónde está tu bóveda?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Where to keep a copy?"
+msgstr "¿Dónde guardar una copia?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Your email"
+msgstr "Tu correo electrónico"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Your encryption key"
+msgstr "Tu clave de cifrado"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui
+msgid "Your name"
+msgstr "Tu nombre"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Your vault"
+msgstr "Tu bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Current vault"
+msgstr "Bóveda actual"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Lock"
+msgstr "Bloquear"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "More"
+msgstr "Más"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+#: src/ui/window/vaults.rs
+msgid "Remove"
+msgstr "Quitar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Remove this vault from this phone"
+msgstr "Quitar esta bóveda de este teléfono"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Remove {name} from this phone"
+msgstr "Quitar {name} de este teléfono"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Remove {name} from this phone?"
+msgstr "¿Quitar {name} de este teléfono?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Search {n} entry"
+msgid_plural "Search {n} entries"
+msgstr[0] "Buscar en {n} entrada"
+msgstr[1] "Buscar en {n} entradas"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "Switch vault"
+msgstr "Cambiar de bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+#: assets/ui/setup_wizard.ui src/ui/window/vaults.rs
+msgid "Sync"
+msgstr "Sincronizar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "The copy on your remote stays as it is; you can download it again."
+msgstr ""
+"La copia en tu repositorio remoto se queda como está; puedes volver a "
+"descargarla."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid ""
+"The copy on your remote stays as it is; you can download it again. {n} "
+"change not synced yet will be lost."
+msgid_plural ""
+"The copy on your remote stays as it is; you can download it again. {n} "
+"changes not synced yet will be lost."
+msgstr[0] ""
+"La copia en tu repositorio remoto se queda como está; puedes volver a "
+"descargarla. Se perderá {n} cambio aún no sincronizado."
+msgstr[1] ""
+"La copia en tu repositorio remoto se queda como está; puedes volver a "
+"descargarla. Se perderán {n} cambios aún no sincronizados."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/helpers/pgp/mod.rs crates/passel-ffi/src/lib.rs
+msgid "Cancelled"
+msgstr "Cancelado"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Could not read this file"
+msgstr "No se pudo leer este archivo"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Creating the key"
+msgstr "Creando la clave"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Creating the vault"
+msgstr "Creando la bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Decrypting"
+msgstr "Descifrando"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Deleting"
+msgstr "Eliminando"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Downloading the vault"
+msgstr "Descargando la bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Importing the key"
+msgstr "Importando la clave"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Key created. Add its public key to your vault from a computer."
+msgstr "Clave creada. Añade su clave pública a tu bóveda desde un equipo."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Key imported"
+msgstr "Clave importada"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Locked: the passphrase will be asked again"
+msgstr "Bloqueado: se volverá a pedir la frase de contraseña"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Removing the vault"
+msgstr "Quitando la bóveda"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Saved on this phone. Not synced: {error}"
+msgstr "Guardado en este teléfono. Sin sincronizar: {error}"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Saving"
+msgstr "Guardando"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Synced: {received} received, {sent} sent"
+msgstr "Sincronizado: recibidos {received}, enviados {sent}"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Syncing"
+msgstr "Sincronizando"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "The remote refused your username or token"
+msgstr "El repositorio remoto rechazó tu nombre de usuario o token"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Up to date"
+msgstr "Actualizado"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid ""
+"{entries} changed here and on another device, and your version could not be "
+"sent. It is kept on this phone; nothing was lost."
+msgstr ""
+"Cambios aquí y en otro dispositivo: {entries}. No se pudo enviar tu versión. "
+"Se conserva en este teléfono; no se perdió nada."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid ""
+"{entries} changed here and on another device. Your version was sent as "
+"branch {branch}: merge it on a computer, then sync here. Nothing was lost."
+msgstr ""
+"Cambios aquí y en otro dispositivo: {entries}. Tu versión se envió como la "
+"rama {branch}: fusiónala en un equipo y luego sincroniza aquí. No se perdió "
+"nada."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "{name} is ready"
+msgstr "{name} está disponible"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "{name} is ready on this phone. Not sent yet: {error}"
+msgstr "{name} está disponible en este teléfono. Aún no se envió: {error}"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "{name} is ready: {n} entry"
+msgid_plural "{name} is ready: {n} entries"
+msgstr[0] "{name} está disponible: {n} entrada"
+msgstr[1] "{name} está disponible: {n} entradas"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "{what} copied; cleared in {seconds} s"
+msgstr "{what}: copiado; se borrará en {seconds} s"
+
+#: assets/io.pierrotws.Passel.desktop.in
+msgid "Passel"
+msgstr "Passel"
+
+#: assets/io.pierrotws.Passel.desktop.in
+msgid "Password Manager"
+msgstr "Gestor de contraseñas"
+
+#: assets/io.pierrotws.Passel.desktop.in
+msgid "Your passwords in a pass vault, synced with git"
+msgstr "Tus contraseñas en una bóveda de pass, sincronizadas con git"
+
+#: assets/io.pierrotws.Passel.desktop.in
+msgid "password;pass;gpg;vault;otp;keepass;"
+msgstr "contraseña;bóveda;password;pass;gpg;vault;otp;keepass;"
+
+#: assets/ui/changes_view.ui assets/ui/window.ui
+msgid "Changes"
+msgstr "Cambios"
+
+#: assets/ui/changes_view.ui
+msgid "No changes"
+msgstr "Sin cambios"
+
+#: assets/ui/entry_view.ui
+msgid "Add field"
+msgstr "Añadir campo"
+
+#: assets/ui/entry_view.ui src/ui/group_view/mod.rs src/ui/vault_view/mod.rs
+msgid "Delete Entry"
+msgstr "Eliminar entrada"
+
+#: assets/ui/entry_view.ui
+msgid "Edit this entry"
+msgstr "Editar esta entrada"
+
+#: assets/ui/entry_view.ui
+msgid "Entry name"
+msgstr "Nombre de la entrada"
+
+#: assets/ui/entry_view.ui
+msgid "Multiline"
+msgstr "Multilínea"
+
+#: assets/ui/entry_view.ui assets/ui/window.ui
+#: crates/passel-core/src/app/app_error.rs
+msgid "No entry selected"
+msgstr "Ninguna entrada seleccionada"
+
+#: assets/ui/entry_view.ui
+msgid "OTP"
+msgstr "OTP"
+
+#: assets/ui/entry_view.ui
+msgid "Plain"
+msgstr "Simple"
+
+#: assets/ui/entry_view.ui
+msgid "Select an item from the tree"
+msgstr "Selecciona un elemento del árbol"
+
+#: assets/ui/entry_view.ui src/ui/window/unsaved.rs
+msgid "_Cancel"
+msgstr "_Cancelar"
+
+#: assets/ui/entry_view.ui
+msgid "_Edit"
+msgstr "_Editar"
+
+#: assets/ui/entry_view.ui
+msgid "_Save"
+msgstr "_Guardar"
+
+#: assets/ui/fields/multiline_field_row.ui assets/ui/fields/plain_field_row.ui
+msgid "Copy value"
+msgstr "Copiar el valor"
+
+#: assets/ui/fields/multiline_field_row.ui assets/ui/fields/otp_field_row.ui
+#: assets/ui/fields/plain_field_row.ui
+msgid "Delete field"
+msgstr "Eliminar el campo"
+
+#: assets/ui/fields/multiline_field_row.ui assets/ui/fields/otp_field_row.ui
+#: assets/ui/fields/plain_field_row.ui
+msgid "Drag to reorder"
+msgstr "Arrastrar para reordenar"
+
+#: assets/ui/fields/multiline_field_row.ui assets/ui/fields/otp_field_row.ui
+#: assets/ui/fields/plain_field_row.ui
+msgctxt "field"
+msgid "Key"
+msgstr "Nombre"
+
+#: assets/ui/fields/otp_field_row.ui
+msgid "Copy URL"
+msgstr "Copiar la URL"
+
+#: assets/ui/fields/otp_field_row.ui
+msgid "Copy code"
+msgstr "Copiar el código"
+
+#: assets/ui/fields/otp_field_row.ui
+#: src/ui/entry_view/fields/otp_field_row/mod.rs
+msgid "Show URL"
+msgstr "Mostrar la URL"
+
+#: assets/ui/fields/otp_field_row.ui
+msgid "otpauth://totp/..."
+msgstr "otpauth://totp/..."
+
+#: assets/ui/fields/password_field_row.ui
+msgid "Copy password"
+msgstr "Copiar la contraseña"
+
+#: assets/ui/fields/password_field_row.ui
+msgid "Generate password"
+msgstr "Generar contraseña"
+
+#: assets/ui/generate_password_view.ui
+msgid "Character Set"
+msgstr "Juego de caracteres"
+
+#: assets/ui/generate_password_view.ui
+msgid "Generate another password"
+msgstr "Generar otra contraseña"
+
+#: assets/ui/generate_password_view.ui
+msgid "Generated Password"
+msgstr "Contraseña generada"
+
+#: assets/ui/generate_password_view.ui
+msgid "Length"
+msgstr "Longitud"
+
+#: assets/ui/generate_password_view.ui
+msgid "Options"
+msgstr "Opciones"
+
+#: assets/ui/generate_password_view.ui
+msgid "Preview"
+msgstr "Vista previa"
+
+#: assets/ui/group_view.ui
+msgid "Group"
+msgstr "Grupo"
+
+#: assets/ui/group_view.ui src/ui/group_view/mod.rs
+msgid "No entries"
+msgstr "Sin entradas"
+
+#: assets/ui/new_entry_dialog.ui
+msgid "Entry"
+msgstr "Entrada"
+
+#: assets/ui/new_entry_dialog.ui src/ui/window/vaults.rs
+msgid "Name"
+msgstr "Nombre"
+
+#: assets/ui/new_entry_dialog.ui assets/ui/window.ui
+msgid "New Entry"
+msgstr "Nueva entrada"
+
+#: assets/ui/new_entry_dialog.ui
+msgid "Parent Folder"
+msgstr "Carpeta superior"
+
+#: assets/ui/preferences_dialog.ui
+msgid "App"
+msgstr "Aplicación"
+
+#: assets/ui/preferences_dialog.ui
+msgid ""
+"Decrypt entries in the background so search includes custom field values"
+msgstr ""
+"Descifrar las entradas en segundo plano para que la búsqueda incluya los "
+"valores de los campos personalizados"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Interpret multiline as markdown"
+msgstr "Interpretar los campos multilínea como Markdown"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Large"
+msgstr "Grande"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Load entries at startup"
+msgstr "Cargar las entradas al iniciar"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Medium"
+msgstr "Mediano"
+
+#: assets/ui/preferences_dialog.ui assets/ui/window.ui
+msgid "Preferences"
+msgstr "Preferencias"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Render multiline fields as Markdown in read-only mode"
+msgstr "Mostrar los campos multilínea como Markdown en modo de solo lectura"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Show group view"
+msgstr "Mostrar la vista de grupos"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Small"
+msgstr "Pequeño"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Tree view size"
+msgstr "Tamaño del árbol"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Use a group-only tree with a separate entries pane"
+msgstr "Usar un árbol solo de grupos con un panel de entradas aparte"
+
+#: assets/ui/preferences_dialog.ui
+msgid "Visual density of vault tree rows"
+msgstr "Densidad visual de las filas del árbol de la bóveda"
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"A USB drive, or a folder synced by Nextcloud or Syncthing. No account needed."
+msgstr ""
+"Una memoria USB o una carpeta sincronizada con Nextcloud o Syncthing. No "
+"necesita cuenta."
+
+#: assets/ui/setup_wizard.ui
+msgid "A secret key saved from another computer, e.g. a .asc file."
+msgstr "Una clave secreta guardada desde otro equipo, p. ej., un archivo .asc."
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"Any of these services offers free private repositories. If you have no "
+"account yet, pick one and create it on the service’s website."
+msgstr ""
+"Cualquiera de estos servicios ofrece repositorios privados gratuitos. Si aún "
+"no tienes cuenta, elige uno y créala en el sitio web del servicio."
+
+#: assets/ui/setup_wizard.ui
+msgid "Backup file"
+msgstr "Archivo de copia de seguridad"
+
+#: assets/ui/setup_wizard.ui
+msgid "Choose the folder that will hold your encrypted entries."
+msgstr "Elige la carpeta que contendrá tus entradas cifradas."
+
+#: assets/ui/setup_wizard.ui src/ui/window/import_dialog.rs
+msgid "Choose…"
+msgstr "Elegir…"
+
+#: assets/ui/setup_wizard.ui
+msgid "Copy to a Folder or Drive"
+msgstr "Copia en una carpeta o unidad"
+
+#: assets/ui/setup_wizard.ui
+msgid "Copy to a folder or drive"
+msgstr "Copiar en una carpeta o unidad"
+
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
+msgid "Create Vault"
+msgstr "Crear bóveda"
+
+#: assets/ui/setup_wizard.ui
+msgid "Create a New Vault"
+msgstr "Crear una bóveda nueva"
+
+#: assets/ui/setup_wizard.ui
+msgid "Create a new key"
+msgstr "Crear una clave nueva"
+
+#: assets/ui/setup_wizard.ui
+msgid "Create an Empty Private Repository"
+msgstr "Crear un repositorio privado vacío"
+
+#: assets/ui/setup_wizard.ui
+msgid "Encryption Key"
+msgstr "Clave de cifrado"
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"Entries are encrypted, but their names (like “Bank/mybank”) are not. Always "
+"keep the repository private."
+msgstr ""
+"Las entradas están cifradas, pero sus nombres (como “Banco/mibanco”) no. "
+"Mantén siempre el repositorio privado."
+
+#: assets/ui/setup_wizard.ui
+msgid "Entries never leave this computer."
+msgstr "Las entradas nunca salen de este equipo."
+
+#: assets/ui/setup_wizard.ui src/ui/window/vaults.rs
+msgid "Folder"
+msgstr "Carpeta"
+
+#: assets/ui/setup_wizard.ui
+msgid "Folder Copy"
+msgstr "Copia en una carpeta"
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"GPG will then ask you to choose a passphrase. Pick one you will remember: "
+"without it, nobody can open your entries, not even you."
+msgstr ""
+"Después, GPG te pedirá que elijas una frase de contraseña. Elige una que "
+"recuerdes: sin ella, nadie puede abrir tus entradas, ni siquiera tú."
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"If this computer is lost or breaks, the backup is the only way to open your "
+"entries. Keep it on a USB drive or in another safe place."
+msgstr ""
+"Si pierdes este equipo o se estropea, la copia de seguridad es la única "
+"forma de abrir tus entradas. Guárdala en una memoria USB o en otro lugar "
+"seguro."
+
+#: assets/ui/setup_wizard.ui
+msgid "Import a key from a backup file"
+msgstr "Importar una clave desde un archivo de copia de seguridad"
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"In a private repository on a free service like GitHub. Works from anywhere."
+msgstr ""
+"En un repositorio privado de un servicio gratuito como GitHub. Funciona "
+"desde cualquier lugar."
+
+#: assets/ui/setup_wizard.ui
+msgid "Keep an online copy"
+msgstr "Guardar una copia en línea"
+
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
+#: src/ui/window/import_dialog.rs
+msgid "No file chosen"
+msgstr "Ningún archivo elegido"
+
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/sync.rs
+msgid "No folder chosen"
+msgstr "Ninguna carpeta elegida"
+
+#: assets/ui/setup_wizard.ui
+msgid "Online Copy"
+msgstr "Copia en línea"
+
+#: assets/ui/setup_wizard.ui
+msgid "Only on this computer"
+msgstr "Solo en este equipo"
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"Passel can keep an encrypted copy of your vault somewhere else, so you can "
+"use it from another computer or your phone."
+msgstr ""
+"Passel puede guardar una copia cifrada de tu bóveda en otro lugar, para que "
+"puedas usarla desde otro equipo o tu teléfono."
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"Passel creates an encrypted copy named “passwords.git” in the folder you "
+"choose, and keeps it up to date as you save changes."
+msgstr ""
+"Passel crea una copia cifrada llamada “passwords.git” en la carpeta que "
+"elijas y la mantiene al día cada vez que guardas cambios."
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"Passel encrypts every entry with a GPG key. Only this key, unlocked with its "
+"passphrase, can open them."
+msgstr ""
+"Passel cifra cada entrada con una clave GPG. Solo esa clave, desbloqueada "
+"con su frase de contraseña, puede abrirlas."
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"Passel keeps your passwords in an encrypted folder that works with pass. "
+"Let’s set one up."
+msgstr ""
+"Passel guarda tus contraseñas en una carpeta cifrada compatible con pass. "
+"Vamos a crear una."
+
+#: assets/ui/setup_wizard.ui
+msgid "Passel will:"
+msgstr "Passel hará lo siguiente:"
+
+#: assets/ui/setup_wizard.ui
+msgid "Repository Address"
+msgstr "Dirección del repositorio"
+
+#: assets/ui/setup_wizard.ui
+msgid "Review"
+msgstr "Resumen"
+
+#: assets/ui/setup_wizard.ui
+msgid "SSH address"
+msgstr "Dirección SSH"
+
+#: assets/ui/setup_wizard.ui
+msgid "Save Backup…"
+msgstr "Guardar copia de seguridad…"
+
+#: assets/ui/setup_wizard.ui
+msgid "Save a backup of this key"
+msgstr "Guardar una copia de seguridad de esta clave"
+
+#: assets/ui/setup_wizard.ui
+msgid "Service"
+msgstr "Servicio"
+
+#: assets/ui/setup_wizard.ui
+msgid "Skip Sync"
+msgstr "Omitir la sincronización"
+
+#: assets/ui/setup_wizard.ui
+msgid "The usual choice if you have never used GPG."
+msgstr "La opción habitual si nunca has usado GPG."
+
+#: assets/ui/setup_wizard.ui
+msgid "Use It on Other Devices?"
+msgstr "¿Usarla en otros dispositivos?"
+
+#: assets/ui/setup_wizard.ui
+msgid "Use a key from this computer"
+msgstr "Usar una clave de este equipo"
+
+#: assets/ui/setup_wizard.ui
+msgid "Welcome"
+msgstr "Bienvenida"
+
+#: assets/ui/setup_wizard.ui
+msgid "Your Encryption Key"
+msgstr "Tu clave de cifrado"
+
+#: assets/ui/setup_wizard.ui
+msgid "Your Vault"
+msgstr "Tu bóveda"
+
+#: assets/ui/vault_view.ui
+msgid "Search entries and groups"
+msgstr "Buscar entradas y grupos"
+
+#: assets/ui/window.ui
+msgid "A vault is an encrypted folder that holds your passwords."
+msgstr "Una bóveda es una carpeta cifrada que contiene tus contraseñas."
+
+#: assets/ui/window.ui
+msgid "Add Existing Folder…"
+msgstr "Añadir una carpeta existente…"
+
+#: assets/ui/window.ui
+msgid "Create a Vault"
+msgstr "Crear una bóveda"
+
+#: assets/ui/window.ui
+msgid "Import Passwords…"
+msgstr "Importar contraseñas…"
+
+#: assets/ui/window.ui
+msgid "Import entries from KeePassXC or Buttercup into this vault"
+msgstr "Importar entradas de KeePassXC o Buttercup a esta bóveda"
+
+#: assets/ui/window.ui
+msgid "New Vault…"
+msgstr "Nueva bóveda…"
+
+#: assets/ui/window.ui
+msgid "No Vault Yet"
+msgstr "Aún no hay ninguna bóveda"
+
+#: assets/ui/window.ui
+msgid "Not Now"
+msgstr "Ahora no"
+
+#: assets/ui/window.ui
+msgid "Open an Existing Folder…"
+msgstr "Abrir una carpeta existente…"
+
+#: assets/ui/window.ui
+msgid ""
+"Open this vault without history. You can turn it on later in the vault’s "
+"settings."
+msgstr ""
+"Abrir esta bóveda sin historial. Puedes activarlo más tarde en los ajustes "
+"de la bóveda."
+
+#: assets/ui/window.ui src/ui/window/vaults.rs
+msgid "Remove from List"
+msgstr "Quitar de la lista"
+
+#: assets/ui/window.ui
+msgid "Select an entry"
+msgstr "Selecciona una entrada"
+
+#: assets/ui/window.ui
+msgid "Turn On History"
+msgstr "Activar el historial"
+
+#: assets/ui/window.ui
+msgid "Vault Not Found"
+msgstr "No se encontró la bóveda"
+
+#: assets/ui/window.ui
+msgid "Vaults"
+msgstr "Bóvedas"
+
+#: crates/passel-core/src/app/app_error.rs
+msgid "Entry is not valid"
+msgstr "La entrada no es válida"
+
+#: crates/passel-core/src/app/app_error.rs
+#: crates/passel-core/src/pass/store/store_error.rs
+#, rust-format
+msgid "I/O error ({reason})"
+msgstr "Error de entrada/salida ({reason})"
+
+#: crates/passel-core/src/app/app_error.rs crates/passel-ffi/src/lib.rs
+msgid "No vault is open"
+msgstr "No hay ninguna bóveda abierta"
+
+#: crates/passel-core/src/app/app_error.rs
+#: crates/passel-core/src/pass/store/store_error.rs
+msgid "Saved locally but failed to push to remote"
+msgstr "Guardado localmente, pero no se pudo enviar al repositorio remoto"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid "(no message)"
+msgstr "(sin mensaje)"
+
+#: crates/passel-core/src/helpers/git.rs
+#, rust-format
+msgid ""
+"An entry was changed both here and on the remote; nothing was changed here"
+msgid_plural ""
+"{n} entries were changed both here and on the remote; nothing was changed "
+"here"
+msgstr[0] ""
+"Una entrada cambió aquí y en el repositorio remoto; no se modificó nada aquí"
+msgstr[1] ""
+"{n} entradas cambiaron aquí y en el repositorio remoto; no se modificó nada "
+"aquí"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid "Current git HEAD has no branch name"
+msgstr "El HEAD actual de git no tiene nombre de rama"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid "Current git HEAD has no target commit"
+msgstr "El HEAD actual de git no apunta a ningún commit"
+
+#: crates/passel-core/src/helpers/git.rs crates/passel-ffi/src/lib.rs
+msgid "Git operation failed"
+msgstr "Falló la operación de git"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid "No changes to commit"
+msgstr "No hay cambios que confirmar"
+
+#: crates/passel-core/src/helpers/git.rs
+#, rust-format
+msgid "Path {path} is not inside git workdir {base}"
+msgstr "La ruta {path} no está dentro del directorio de trabajo de git {base}"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid "Remote rejected rollback backup ref"
+msgstr ""
+"El repositorio remoto rechazó la referencia de respaldo de la reversión"
+
+#: crates/passel-core/src/helpers/git.rs
+#, rust-format
+msgid "Repository has no workdir: {path}"
+msgstr "El repositorio no tiene directorio de trabajo: {path}"
+
+#: crates/passel-core/src/helpers/git.rs
+#, rust-format
+msgid "Reverting commit {commit} produced conflicts"
+msgstr "Revertir el commit {commit} produjo conflictos"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid "Unknown author"
+msgstr "Autor desconocido"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid ""
+"git user.name and user.email are not set; configure them with `git config --"
+"global user.name '...'` and `git config --global user.email '...'`"
+msgstr ""
+"user.name y user.email no están definidos en git; configúralos con `git "
+"config --global user.name '...'` y `git config --global user.email '...'`"
+
+#: crates/passel-core/src/helpers/password.rs
+#, rust-format
+msgid ""
+"Password length {got} is below the minimum {min} required for the selected "
+"mode"
+msgstr ""
+"La longitud de la contraseña ({got}) es inferior al mínimo de {min} que "
+"requiere el modo elegido"
+
+#: crates/passel-core/src/helpers/password.rs
+#, rust-format
+msgid "Random number generator failure: {reason}"
+msgstr "Fallo del generador de números aleatorios: {reason}"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "Could not create the key"
+msgstr "No se pudo crear la clave"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "Could not import this file"
+msgstr "No se pudo importar este archivo"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "Could not save the key backup"
+msgstr "No se pudo guardar la copia de seguridad de la clave"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "Decrypted content is not valid UTF-8"
+msgstr "El contenido descifrado no es UTF-8 válido"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid ""
+"Enter a name, and optionally a valid email, without “<”, “>” or line breaks"
+msgstr ""
+"Introduce un nombre y, si quieres, un correo electrónico válido, sin “<”, "
+"“>” ni saltos de línea"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "Error decrypting data"
+msgstr "Error al descifrar los datos"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "Error encrypting data"
+msgstr "Error al cifrar los datos"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "Error loading encrypted file"
+msgstr "Error al cargar el archivo cifrado"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+#, rust-format
+msgid "Error reading file ({reason})"
+msgstr "Error al leer el archivo ({reason})"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "Failed to initialize OpenPGP"
+msgstr "No se pudo inicializar OpenPGP"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "Invalid path"
+msgstr "Ruta no válida"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "No recipients found"
+msgstr "No se encontraron destinatarios"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid "No usable keys found"
+msgstr "No se encontraron claves utilizables"
+
+#: crates/passel-core/src/helpers/pgp/mod.rs
+msgid ""
+"This file has no secret key. Import the backup of your secret key, not a "
+"public key."
+msgstr ""
+"Este archivo no contiene ninguna clave secreta. Importa la copia de "
+"seguridad de tu clave secreta, no una clave pública."
+
+#: crates/passel-core/src/pass/import/buttercup.rs
+msgid "damaged content"
+msgstr "contenido dañado"
+
+#: crates/passel-core/src/pass/import/buttercup.rs
+msgid "key derivation failed"
+msgstr "falló la derivación de la clave"
+
+#: crates/passel-core/src/pass/import/buttercup.rs
+msgid "not a Buttercup vault"
+msgstr "no es una bóveda de Buttercup"
+
+#: crates/passel-core/src/pass/import/buttercup.rs
+msgid "unexpected content"
+msgstr "contenido inesperado"
+
+#: crates/passel-core/src/pass/import/buttercup.rs
+msgid "unexpected encryption format"
+msgstr "formato de cifrado inesperado"
+
+#: crates/passel-core/src/pass/import/buttercup.rs
+msgid "unexpected key derivation"
+msgstr "derivación de clave inesperada"
+
+#: crates/passel-core/src/pass/import/buttercup.rs
+msgid "unsupported encryption method"
+msgstr "método de cifrado no compatible"
+
+#: crates/passel-core/src/pass/import/mod.rs
+msgid "The master password is not correct"
+msgstr "La contraseña maestra no es correcta"
+
+#: crates/passel-core/src/pass/import/mod.rs
+#, rust-format
+msgid "This file cannot be opened ({reason})"
+msgstr "No se puede abrir este archivo ({reason})"
+
+#: crates/passel-core/src/pass/import/mod.rs
+#, rust-format
+msgid "This file cannot be read: {reason}"
+msgstr "No se puede leer este archivo: {reason}"
+
+#: crates/passel-core/src/pass/store/store_error.rs
+msgid "Destination already exists"
+msgstr "El destino ya existe"
+
+#: crates/passel-core/src/pass/store/store_error.rs
+msgid "Encrypted file is empty"
+msgstr "El archivo cifrado está vacío"
+
+#: crates/passel-core/src/pass/store/store_error.rs
+#, rust-format
+msgid "GPG error: {reason}"
+msgstr "Error de GPG: {reason}"
+
+#: crates/passel-core/src/pass/store/store_error.rs
+msgid "GPG recipient is required"
+msgstr "Se necesita un destinatario GPG"
+
+#: crates/passel-core/src/pass/store/store_error.rs
+#, rust-format
+msgid "Git error: {reason}"
+msgstr "Error de git: {reason}"
+
+#: crates/passel-core/src/pass/store/store_error.rs
+msgid "Invalid entry name"
+msgstr "Nombre de entrada no válido"
+
+#: crates/passel-core/src/pass/store/store_error.rs
+msgid "Invalid folder path"
+msgstr "Ruta de carpeta no válida"
+
+#: crates/passel-core/src/pass/store/store_error.rs
+msgid "Missing parent directory"
+msgstr "Falta la carpeta superior"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "A git credential provider is already installed"
+msgstr "Ya hay un proveedor de credenciales de git instalado"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "An OpenPGP backend is already installed"
+msgstr "Ya hay un motor OpenPGP instalado"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "Could not generate a password of this length"
+msgstr "No se pudo generar una contraseña de esta longitud"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "Could not reach the remote"
+msgstr "No se pudo conectar con el repositorio remoto"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "Could not reach this address"
+msgstr "No se pudo conectar con esta dirección"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "No such vault on this device"
+msgstr "Esta bóveda no existe en este dispositivo"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "Not an entry of this vault"
+msgstr "No es una entrada de esta bóveda"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "Passel is already open with another folder"
+msgstr "Passel ya está abierto con otra carpeta"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "The SSH connection failed"
+msgstr "Falló la conexión SSH"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "The remote refused the credentials"
+msgstr "El repositorio remoto rechazó las credenciales"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "The remote's certificate is not trusted"
+msgstr "El certificado del repositorio remoto no es de confianza"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "This key is not on this device"
+msgstr "Esta clave no está en este dispositivo"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "This one-time password setting is not valid"
+msgstr "Esta configuración de código de un solo uso no es válida"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "This repository already holds a vault: download it instead"
+msgstr "Este repositorio ya contiene una bóveda: descárgala en su lugar"
+
+#: crates/passel-ffi/src/lib.rs
+#, rust-format
+msgid "{entries} changed both here and on the remote"
+msgid_plural "{entries} changed both here and on the remote"
+msgstr[0] "{entries}: modificada aquí y en el repositorio remoto"
+msgstr[1] "{entries}: modificadas aquí y en el repositorio remoto"
+
+#: src/ui/changes_view/mod.rs src/ui/window/mod.rs
+msgid "Discard later changes"
+msgstr "Descartar los cambios posteriores"
+
+#: src/ui/changes_view/mod.rs
+msgid "Sync to remote"
+msgstr "Sincronizar con el repositorio remoto"
+
+#: src/ui/changes_view/mod.rs
+msgid "Undo this change"
+msgstr "Deshacer este cambio"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "in {n} day"
+msgid_plural "in {n} days"
+msgstr[0] "dentro de {n} día"
+msgstr[1] "dentro de {n} días"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "in {n} hour"
+msgid_plural "in {n} hours"
+msgstr[0] "dentro de {n} hora"
+msgstr[1] "dentro de {n} horas"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "in {n} minute"
+msgid_plural "in {n} minutes"
+msgstr[0] "dentro de {n} minuto"
+msgstr[1] "dentro de {n} minutos"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "in {n} month"
+msgid_plural "in {n} months"
+msgstr[0] "dentro de {n} mes"
+msgstr[1] "dentro de {n} meses"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "in {n} second"
+msgid_plural "in {n} seconds"
+msgstr[0] "dentro de {n} segundo"
+msgstr[1] "dentro de {n} segundos"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "in {n} year"
+msgid_plural "in {n} years"
+msgstr[0] "dentro de {n} año"
+msgstr[1] "dentro de {n} años"
+
+#: src/ui/changes_view/mod.rs
+msgid "just now"
+msgstr "ahora mismo"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "{n} day ago"
+msgid_plural "{n} days ago"
+msgstr[0] "hace {n} día"
+msgstr[1] "hace {n} días"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "{n} hour ago"
+msgid_plural "{n} hours ago"
+msgstr[0] "hace {n} hora"
+msgstr[1] "hace {n} horas"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "{n} minute ago"
+msgid_plural "{n} minutes ago"
+msgstr[0] "hace {n} minuto"
+msgstr[1] "hace {n} minutos"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "{n} month ago"
+msgid_plural "{n} months ago"
+msgstr[0] "hace {n} mes"
+msgstr[1] "hace {n} meses"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "{n} second ago"
+msgid_plural "{n} seconds ago"
+msgstr[0] "hace {n} segundo"
+msgstr[1] "hace {n} segundos"
+
+#: src/ui/changes_view/mod.rs
+#, rust-format
+msgid "{n} year ago"
+msgid_plural "{n} years ago"
+msgstr[0] "hace {n} año"
+msgstr[1] "hace {n} años"
+
+#: src/ui/entry_view/fields/otp_field_row/mod.rs
+msgid "Hide URL"
+msgstr "Ocultar la URL"
+
+#: src/ui/entry_view/fields/otp_field_row/mod.rs
+msgid "OTP URL must start with otpauth://"
+msgstr "La URL del código de un solo uso debe empezar por otpauth://"
+
+#: src/ui/entry_view/mod.rs src/ui/window/mod.rs
+msgid "Error"
+msgstr "Error"
+
+#: src/ui/entry_view/mod.rs
+msgid "Generate Password"
+msgstr "Generar contraseña"
+
+#: src/ui/entry_view/mod.rs src/ui/window/import_dialog.rs src/ui/window/mod.rs
+msgid "OK"
+msgstr "Aceptar"
+
+#. Translators: password characters: every kind.
+#: src/ui/generate_password_view/mod.rs
+msgid "All"
+msgstr "Todos"
+
+#. Translators: password characters: letters and digits.
+#: src/ui/generate_password_view/mod.rs
+msgid "Alphanumeric"
+msgstr "Alfanuméricos"
+
+#. Translators: password characters: letters, digits and a few symbols.
+#: src/ui/generate_password_view/mod.rs
+msgid "Limited specials"
+msgstr "Algunos símbolos"
+
+#. Translators: password characters: digits only.
+#: src/ui/generate_password_view/mod.rs
+msgid "Numeric"
+msgstr "Numéricos"
+
+#: src/ui/group_view/mod.rs src/ui/window/import_dialog.rs
+#, rust-format
+msgid "{n} entry"
+msgid_plural "{n} entries"
+msgstr[0] "{n} entrada"
+msgstr[1] "{n} entradas"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Choose Private"
+msgstr "Elige Private"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Click Clone, choose SSH, and copy the address"
+msgstr "Haz clic en Clone, elige SSH y copia la dirección"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Create a private project, for example “passwords”"
+msgstr "Crea un proyecto privado, por ejemplo “passwords”"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Create it, then copy its SSH address"
+msgstr "Créalo y luego copia su dirección SSH"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Create it, then copy the SSH address shown under Clone"
+msgstr "Créalo y luego copia la dirección SSH que aparece en Clone"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Create it, then copy the address under Code › Clone with SSH"
+msgstr "Créalo y luego copia la dirección en Code › Clone with SSH"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Free for up to 5 users."
+msgstr "Gratis hasta 5 usuarios."
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Free for up to 5 users. Needs an RSA SSH key."
+msgstr "Gratis hasta 5 usuarios. Requiere una clave SSH RSA."
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Free."
+msgstr "Gratis."
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Free. The most widely used."
+msgstr "Gratis. El más utilizado."
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Keep “Private repository” ticked"
+msgstr "Deja marcada la opción “Private repository”"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Leave README, .gitignore and license off"
+msgstr "Deja desactivados README, .gitignore y la licencia"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Name it, for example “passwords”"
+msgstr "Ponle un nombre, por ejemplo “passwords”"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Open Repos: the project’s repository starts empty"
+msgstr "Abre Repos: el repositorio del proyecto empieza vacío"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Set Visibility to Private"
+msgstr "Pon Visibility en Private"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Set “Include a README?” to No"
+msgstr "Pon “Include a README?” en No"
+
+#: src/ui/setup_wizard/hosts.rs
+msgid "Untick “Initialize repository with a README”"
+msgstr "Desmarca “Initialize repository with a README”"
+
+#: src/ui/setup_wizard/key.rs src/ui/window/import_dialog.rs
+msgid "All files"
+msgstr "Todos los archivos"
+
+#: src/ui/setup_wizard/key.rs
+#, rust-format
+msgid ""
+"Backup saved to {file}. Move it somewhere safe, away from this computer."
+msgstr ""
+"Copia de seguridad guardada en {file}. Muévela a un lugar seguro, fuera de "
+"este equipo."
+
+#: src/ui/setup_wizard/key.rs
+msgid "Choose a Key Backup"
+msgstr "Elegir una copia de seguridad de clave"
+
+#: src/ui/setup_wizard/key.rs
+msgid "Create Key"
+msgstr "Crear clave"
+
+#: src/ui/setup_wizard/key.rs
+msgid "Creating your key… GPG will ask you to choose a passphrase."
+msgstr "Creando tu clave… GPG te pedirá que elijas una frase de contraseña."
+
+#: src/ui/setup_wizard/key.rs
+msgid "Import Key"
+msgstr "Importar clave"
+
+#: src/ui/setup_wizard/key.rs
+msgid "Importing the key… GPG may ask for its passphrase."
+msgstr "Importando la clave… GPG puede pedir su frase de contraseña."
+
+#: src/ui/setup_wizard/key.rs
+msgid "Key created. Save a backup of it before you continue."
+msgstr "Clave creada. Guarda una copia de seguridad antes de continuar."
+
+#: src/ui/setup_wizard/key.rs
+msgid "Key files"
+msgstr "Archivos de clave"
+
+#: src/ui/setup_wizard/key.rs
+msgid "Key imported."
+msgstr "Clave importada."
+
+#: src/ui/setup_wizard/key.rs
+msgid "Save Key Backup"
+msgstr "Guardar copia de seguridad de la clave"
+
+#: src/ui/setup_wizard/key.rs
+msgid "Saving the backup… GPG will ask for the key’s passphrase."
+msgstr ""
+"Guardando la copia de seguridad… GPG pedirá la frase de contraseña de la "
+"clave."
+
+#: src/ui/setup_wizard/key.rs
+msgid "The key task stopped unexpectedly"
+msgstr "La operación con la clave se detuvo de forma inesperada"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Changes will be copied there"
+msgstr "Los cambios se copiarán allí"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Connect to the online copy"
+msgstr "Conectar con la copia en línea"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Create the copy"
+msgstr "Crear la copia"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Create the vault folder"
+msgstr "Crear la carpeta de la bóveda"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Encrypt entries with your key"
+msgstr "Cifrar las entradas con tu clave"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Fill the copy"
+msgstr "Llenar la copia"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Link the vault to its copy"
+msgstr "Vincular la bóveda con su copia"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Open Vault"
+msgstr "Abrir la bóveda"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Record every change so it can be undone"
+msgstr "Registrar cada cambio para poder deshacerlo"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Retry"
+msgstr "Reintentar"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Send the first version"
+msgstr "Enviar la primera versión"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Setup task panicked unexpectedly"
+msgstr "La configuración se detuvo de forma inesperada"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "This folder already holds a password store. Choose an empty folder."
+msgstr ""
+"Esta carpeta ya contiene un almacén de contraseñas. Elige una carpeta vacía."
+
+#: src/ui/setup_wizard/mod.rs
+msgid "This folder is not empty. Choose an empty or new folder."
+msgstr "Esta carpeta no está vacía. Elige una carpeta vacía o nueva."
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Turn on history"
+msgstr "Activar el historial"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Upload the vault"
+msgstr "Subir la bóveda"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Access denied. Add your SSH key to the service, then check again."
+msgstr ""
+"Acceso denegado. Añade tu clave SSH al servicio y vuelve a comprobarlo."
+
+#. Translators: {service} is GitHub, GitLab…
+#: src/ui/setup_wizard/sync.rs
+#, rust-format
+msgid "Access denied. Add your SSH key to {service}, then check again."
+msgstr ""
+"Acceso denegado. Añade tu clave SSH a {service} y vuelve a comprobarlo."
+
+#: src/ui/setup_wizard/sync.rs
+msgid ""
+"Access denied. HTTPS addresses need a saved password or token: use the SSH "
+"address instead."
+msgstr ""
+"Acceso denegado. Las direcciones HTTPS necesitan una contraseña o un token "
+"guardados: usa la dirección SSH en su lugar."
+
+#. Translators: {service} is GitHub, GitLab…
+#: src/ui/setup_wizard/sync.rs
+#, rust-format
+msgid "Add your SSH key to {service}"
+msgstr "Añade tu clave SSH a {service}"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Checking the address…"
+msgstr "Comprobando la dirección…"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Choose a Folder for the Copy"
+msgstr "Elegir una carpeta para la copia"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Continue Anyway"
+msgstr "Continuar de todos modos"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Copy Key"
+msgstr "Copiar clave"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "How to Create One"
+msgstr "Cómo crear uno"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "I already have one"
+msgstr "Ya tengo uno"
+
+#: src/ui/setup_wizard/sync.rs
+msgid ""
+"No repository found at this address. Check the address and your internet "
+"connection."
+msgstr ""
+"No se encontró ningún repositorio en esta dirección. Comprueba la dirección "
+"y tu conexión a Internet."
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Open the SSH Keys Page"
+msgstr "Abrir la página de claves SSH"
+
+#. Translators: {service} is GitHub, GitLab…
+#: src/ui/setup_wizard/sync.rs
+#, rust-format
+msgid "Open {service}"
+msgstr "Abrir {service}"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Ready: the repository exists and is empty."
+msgstr "Listo: el repositorio existe y está vacío."
+
+#: src/ui/setup_wizard/sync.rs
+msgid "SSH address, like git@server:you/passwords.git"
+msgstr "Dirección SSH, como git@servidor:tu/passwords.git"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Sign in or create a free account, then start a new repository"
+msgstr ""
+"Inicia sesión o crea una cuenta gratuita y luego crea un repositorio nuevo"
+
+#: src/ui/setup_wizard/sync.rs
+msgid ""
+"This computer has no SSH key yet. Create one, then add it to your account."
+msgstr ""
+"Este equipo aún no tiene ninguna clave SSH. Crea una y luego añádela a tu "
+"cuenta."
+
+#: src/ui/setup_wizard/sync.rs
+msgid "This folder already has a “passwords.git”. Choose another folder."
+msgstr "Esta carpeta ya tiene un “passwords.git”. Elige otra carpeta."
+
+#: src/ui/setup_wizard/sync.rs
+msgid "This folder is inside the vault. Choose a folder outside it."
+msgstr ""
+"Esta carpeta está dentro de la bóveda. Elige una carpeta fuera de ella."
+
+#: src/ui/setup_wizard/sync.rs
+msgid "This folder’s name has unsupported characters. Choose another folder."
+msgstr ""
+"El nombre de esta carpeta tiene caracteres no compatibles. Elige otra "
+"carpeta."
+
+#: src/ui/setup_wizard/sync.rs
+#, rust-format
+msgid ""
+"This lets Passel upload. Copy your key ({file}), then add it on the SSH keys "
+"page."
+msgstr ""
+"Así Passel puede subir los datos. Copia tu clave ({file}) y luego añádela en "
+"la página de claves SSH."
+
+#: src/ui/setup_wizard/sync.rs
+msgid ""
+"This repository already has content. Create a new, empty one for the vault."
+msgstr ""
+"Este repositorio ya tiene contenido. Crea uno nuevo y vacío para la bóveda."
+
+#: src/ui/setup_wizard/sync.rs
+msgid ""
+"This server isn’t in your known SSH hosts yet. Connect to it once with ssh "
+"in a terminal, then check again."
+msgstr ""
+"Este servidor aún no está entre tus hosts SSH conocidos. Conéctate a él una "
+"vez con ssh en una terminal y vuelve a comprobarlo."
+
+#: src/ui/setup_wizard/sync.rs
+msgid "This service only accepts RSA keys, and this computer has none yet."
+msgstr ""
+"Este servicio solo acepta claves RSA, y este equipo aún no tiene ninguna."
+
+#: src/ui/vault_view/mod.rs
+msgid "Create Entry"
+msgstr "Crear entrada"
+
+#: src/ui/vault_view/mod.rs
+msgid "Delete Folder"
+msgstr "Eliminar carpeta"
+
+#: src/ui/window/group_content.rs
+#, rust-format
+msgid "Results for “{query}”"
+msgstr "Resultados para “{query}”"
+
+#. Translators: {entries} is "1 entry" or "5 entries".
+#: src/ui/window/import_dialog.rs
+#, rust-format
+msgid "Added {entries} to the vault."
+msgstr "Añadido a la bóveda: {entries}."
+
+#. Translators: {entries} is "1 entry" or "5 entries".
+#: src/ui/window/import_dialog.rs
+#, rust-format
+msgid "Added {entries} to “{folder}”."
+msgstr "Añadido a “{folder}”: {entries}."
+
+#: src/ui/window/import_dialog.rs
+msgid "Buttercup vaults"
+msgstr "Bóvedas de Buttercup"
+
+#: src/ui/window/import_dialog.rs
+msgid "Choose a File to Import"
+msgstr "Elegir un archivo para importar"
+
+#: src/ui/window/import_dialog.rs
+msgid "Encrypting and saving the entries…"
+msgstr "Cifrando y guardando las entradas…"
+
+#: src/ui/window/import_dialog.rs
+msgid "File"
+msgstr "Archivo"
+
+#: src/ui/window/import_dialog.rs
+msgid "Folder in this vault"
+msgstr "Carpeta en esta bóveda"
+
+#. Translators: {entries} is "1 entry" or "5 entries",
+#. {groups} is "1 group" or "3 groups".
+#: src/ui/window/import_dialog.rs
+#, rust-format
+msgid "Found {entries} in {groups} (the trash is left out)."
+msgstr "Encontrado: {entries} en {groups} (sin contar la papelera)."
+
+#: src/ui/window/import_dialog.rs
+msgid "From"
+msgstr "Desde"
+
+#: src/ui/window/import_dialog.rs
+msgid ""
+"Groups become folders inside it. A name already in use gets a number, e.g. "
+"“Bank (2)”."
+msgstr ""
+"Los grupos se convierten en carpetas dentro de ella. A un nombre que ya está "
+"en uso se le añade un número, p. ej., “Banco (2)”."
+
+#: src/ui/window/import_dialog.rs
+msgid "Import Finished"
+msgstr "Importación terminada"
+
+#: src/ui/window/import_dialog.rs
+msgid "Import Passwords"
+msgstr "Importar contraseñas"
+
+#: src/ui/window/import_dialog.rs
+#, rust-format
+msgid "Import {n} Entry"
+msgid_plural "Import {n} Entries"
+msgstr[0] "Importar {n} entrada"
+msgstr[1] "Importar {n} entradas"
+
+#. Translators: the suggested folder for imported entries;
+#. {source} is KeePassXC or Buttercup.
+#: src/ui/window/import_dialog.rs
+#, rust-format
+msgid "Imported/{source}"
+msgstr "Importado/{source}"
+
+#: src/ui/window/import_dialog.rs
+msgid "Into"
+msgstr "En"
+
+#: src/ui/window/import_dialog.rs
+msgid "KeePassXC databases"
+msgstr "Bases de datos de KeePassXC"
+
+#: src/ui/window/import_dialog.rs
+msgid "Master password"
+msgstr "Contraseña maestra"
+
+#: src/ui/window/import_dialog.rs
+msgid "Open File"
+msgstr "Abrir archivo"
+
+#: src/ui/window/import_dialog.rs
+msgid "Opening the file…"
+msgstr "Abriendo el archivo…"
+
+#: src/ui/window/import_dialog.rs
+msgid ""
+"The entries were added to the vault and saved, but uploading them failed. "
+"Use Changes to try again."
+msgstr ""
+"Las entradas se añadieron a la bóveda y se guardaron, pero no se pudieron "
+"subir. Usa Cambios para volver a intentarlo."
+
+#: src/ui/window/import_dialog.rs
+#, rust-format
+msgid ""
+"The entries were added to “{folder}” and saved, but uploading them failed. "
+"Use Changes to try again."
+msgstr ""
+"Las entradas se añadieron a “{folder}” y se guardaron, pero no se pudieron "
+"subir. Usa Cambios para volver a intentarlo."
+
+#: src/ui/window/import_dialog.rs
+msgid "The import stopped unexpectedly"
+msgstr "La importación se detuvo de forma inesperada"
+
+#: src/ui/window/import_dialog.rs
+msgid "The master password only opens the file here; Passel does not keep it."
+msgstr ""
+"La contraseña maestra solo sirve para abrir el archivo aquí; Passel no la "
+"guarda."
+
+#: src/ui/window/import_dialog.rs
+msgid "This file has no entries to import."
+msgstr "Este archivo no tiene entradas que importar."
+
+#: src/ui/window/import_dialog.rs
+#, rust-format
+msgid "{n} entry got a number because the name was already in use."
+msgid_plural "{n} entries got a number because the name was already in use."
+msgstr[0] ""
+"Se añadió un número a {n} entrada porque su nombre ya estaba en uso."
+msgstr[1] ""
+"Se añadió un número a {n} entradas porque sus nombres ya estaban en uso."
+
+#: src/ui/window/import_dialog.rs
+#, rust-format
+msgid "{n} group"
+msgid_plural "{n} groups"
+msgstr[0] "{n} grupo"
+msgstr[1] "{n} grupos"
+
+#: src/ui/window/mod.rs
+#, rust-format
+msgid ""
+"A backup was saved to the remote as “{branch}” in case you need to recover."
+msgstr ""
+"Se guardó una copia de seguridad en el repositorio remoto como “{branch}” "
+"por si necesitas recuperarla."
+
+#: src/ui/window/mod.rs
+msgid "Changes discarded"
+msgstr "Cambios descartados"
+
+#: src/ui/window/mod.rs
+#, rust-format
+msgid "Delete “{name}”?"
+msgstr "¿Eliminar “{name}”?"
+
+#: src/ui/window/mod.rs
+msgid "Discard changes after this point?"
+msgstr "¿Descartar los cambios posteriores a este punto?"
+
+#: src/ui/window/mod.rs
+msgid "Discard-changes task panicked unexpectedly"
+msgstr "El descarte de los cambios se detuvo de forma inesperada"
+
+#: src/ui/window/mod.rs
+msgid "Save or cancel current changes before deleting a folder"
+msgstr "Guarda o cancela los cambios actuales antes de eliminar una carpeta"
+
+#: src/ui/window/mod.rs
+msgid "Save or cancel current changes before deleting an entry"
+msgstr "Guarda o cancela los cambios actuales antes de eliminar una entrada"
+
+#: src/ui/window/mod.rs
+msgid "Save or cancel current changes before discarding later changes"
+msgstr ""
+"Guarda o cancela los cambios actuales antes de descartar los cambios "
+"posteriores"
+
+#: src/ui/window/mod.rs
+msgid "Save or cancel current changes before undoing a change"
+msgstr "Guarda o cancela los cambios actuales antes de deshacer un cambio"
+
+#: src/ui/window/mod.rs
+msgid "Sync-to-remote task panicked unexpectedly"
+msgstr ""
+"La sincronización con el repositorio remoto se detuvo de forma inesperada"
+
+#: src/ui/window/mod.rs
+msgid "The entry is removed and a single commit is recorded."
+msgstr "Se elimina la entrada y se registra un único commit."
+
+#: src/ui/window/mod.rs
+msgid "Undo"
+msgstr "Deshacer"
+
+#: src/ui/window/mod.rs
+msgid "Undo task panicked unexpectedly"
+msgstr "La acción de deshacer se detuvo de forma inesperada"
+
+#: src/ui/window/mod.rs
+msgid "Undo this change?"
+msgstr "¿Deshacer este cambio?"
+
+#: src/ui/window/new_entry_dialog.rs
+msgid "Save or cancel current changes before creating a new entry"
+msgstr "Guarda o cancela los cambios actuales antes de crear una entrada nueva"
+
+#. Translators: {folder} is a folder path, in bold.
+#: src/ui/window/setup.rs
+#, rust-format
+msgid ""
+"<b>{folder}</b> holds a password store whose changes are not recorded. "
+"Passel can keep a history of every change so you can undo it and sync it "
+"with a remote. Your entries stay as they are."
+msgstr ""
+"<b>{folder}</b> contiene un almacén de contraseñas cuyos cambios no se "
+"registran. Passel puede guardar un historial de cada cambio para que puedas "
+"deshacerlo y sincronizarlo con un repositorio remoto. Tus entradas se quedan "
+"como están."
+
+#: src/ui/window/setup.rs
+msgid "New Vault"
+msgstr "Nueva bóveda"
+
+#: src/ui/window/setup.rs src/ui/window/vaults.rs
+msgid "No history"
+msgstr "Sin historial"
+
+#: src/ui/window/unsaved.rs
+msgid "Discard changes?"
+msgstr "¿Descartar los cambios?"
+
+#: src/ui/window/unsaved.rs
+msgid "The changes to this entry have not been saved."
+msgstr "Los cambios de esta entrada no se han guardado."
+
+#: src/ui/window/unsaved.rs
+msgid "_Discard"
+msgstr "_Descartar"
+
+#. Translators: {folder} is a folder path, in bold.
+#: src/ui/window/vaults.rs
+#, rust-format
+msgid ""
+"<b>{folder}</b> was not found, or holds no vault. If it is on a drive, plug "
+"it in and switch to this vault again."
+msgstr ""
+"<b>{folder}</b> no se encontró o no contiene ninguna bóveda. Si está en una "
+"unidad externa, conéctala y vuelve a cambiar a esta bóveda."
+
+#: src/ui/window/vaults.rs
+msgid "Branch (empty: current branch)"
+msgstr "Rama (vacío: rama actual)"
+
+#: src/ui/window/vaults.rs
+#, rust-format
+msgid "Could not save the vault list: {error}"
+msgstr "No se pudo guardar la lista de bóvedas: {error}"
+
+#: src/ui/window/vaults.rs
+msgid "Folder not found"
+msgstr "No se encontró la carpeta"
+
+#: src/ui/window/vaults.rs
+msgid "History"
+msgstr "Historial"
+
+#: src/ui/window/vaults.rs
+msgid "Leave the address empty to keep this vault on this computer only."
+msgstr "Deja la dirección vacía para mantener esta bóveda solo en este equipo."
+
+#: src/ui/window/vaults.rs
+msgid "Off: changes are saved but not recorded."
+msgstr ""
+"Desactivado: los cambios se guardan, pero no se registran en el historial."
+
+#: src/ui/window/vaults.rs
+msgid "On: every change is recorded and can be undone."
+msgstr "Activado: cada cambio se registra y puede deshacerse."
+
+#: src/ui/window/vaults.rs
+msgid "Open a Vault Folder"
+msgstr "Abrir una carpeta de bóveda"
+
+#: src/ui/window/vaults.rs
+msgid "Push changes automatically"
+msgstr "Enviar los cambios automáticamente"
+
+#: src/ui/window/vaults.rs
+msgid "Remote address"
+msgstr "Dirección del repositorio remoto"
+
+#: src/ui/window/vaults.rs
+msgid "The folder and its entries stay on disk."
+msgstr "La carpeta y sus entradas se quedan en el disco."
+
+#: src/ui/window/vaults.rs
+msgid "Turn On"
+msgstr "Activar"
+
+#: src/ui/window/vaults.rs
+msgid "Upload after every saved change"
+msgstr "Subir después de cada cambio guardado"
+
+#: src/ui/window/vaults.rs
+msgid "Vault Settings"
+msgstr "Ajustes de la bóveda"
+
+#. Translators: a vault's state in the vault list.
+#: src/ui/window/vaults.rs
+msgid "history"
+msgstr "historial"
+
+#. Translators: a vault's state in the vault list.
+#: src/ui/window/vaults.rs
+msgid "history, synced"
+msgstr "historial, sincronizado"
+
+#. Translators: a vault's state in the vault list.
+#: src/ui/window/vaults.rs
+msgid "no history"
+msgstr "sin historial"
+
+#. Translators: a vault's state, after its folder in the
+#. vault list: "~/.password-store · not found".
+#: src/ui/window/vaults.rs
+msgid "not found"
+msgstr "no encontrada"
+
+#: src/ui/window/vaults.rs
+#, rust-format
+msgid "{name} Settings"
+msgstr "Ajustes de {name}"
+
+#: src/ui/window/vaults.rs
+#, rust-format
+msgid "{n} change not pushed"
+msgid_plural "{n} changes not pushed"
+msgstr[0] "{n} cambio sin enviar"
+msgstr[1] "{n} cambios sin enviar"

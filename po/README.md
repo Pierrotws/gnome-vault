@@ -45,12 +45,36 @@ translate the new entries (empty or `#, fuzzy`) in `<lang>.po`.
 
 1. `msginit -i po/passel.pot -o po/<lang>.po -l <lang>` and translate.
 2. Add `<lang>` to `po/LINGUAS`.
-3. Add it to `android/app/src/main/res/xml/locales_config.xml`.
+3. Add it to `android/app/src/main/res/xml/locales_config.xml`
+   (BCP 47 form there: `pt_BR` is `pt-BR`).
 
-## French
+## Glossaries
+
+Keep new messages consistent with the existing translations.
+
+### French
 
 Vault → coffre, entry → entrée, key → clé, passphrase → phrase
 secrète, remote → dépôt distant, sync → synchroniser, token → jeton,
 one-time password → code à usage unique. Typography: a no-break space
 (U+00A0) before `:` and inside `« »`, a narrow no-break space (U+202F)
 before `;`, `!` and `?`.
+
+### German
+
+Vault → Tresor, entry → Eintrag, key → Schlüssel, passphrase →
+Passphrase, remote → Remote-Repository, sync → synchronisieren,
+history → Verlauf, one-time password → Einmalpasswort. Formal « Sie »,
+quotes „…“.
+
+### Spanish
+
+Vault → bóveda, entry → entrada, key → clave, passphrase → frase de contraseña,
+remote → repositorio remoto, sync → sincronizar, history → historial,
+one-time password → código de un solo uso. Opening ¿ and ¡, quotes “…”.
+
+### Brazilian Portuguese
+
+Vault → cofre, entry → entrada, key → chave, passphrase → frase
+secreta, remote → repositório remoto, sync → sincronizar, history →
+histórico, one-time password → código de uso único. « Você », quotes “…”.
