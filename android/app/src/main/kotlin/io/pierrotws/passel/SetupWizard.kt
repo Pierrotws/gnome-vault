@@ -326,6 +326,7 @@ private fun CheckResult(found: RemoteState?, kind: Kind, onSwitchKind: (Kind) ->
         RemoteState.ACCESS_DENIED -> tr("The server refused this username or token") to bad
         RemoteState.UNKNOWN_HOST -> tr("Unknown server key") to bad
         RemoteState.UNREACHABLE -> tr("Nothing found at this address") to bad
+        RemoteState.NOT_HTTPS -> tr("Use an https:// address") to bad
     }
     Column {
         Text(text, color = color, style = MaterialTheme.typography.bodyMedium)
