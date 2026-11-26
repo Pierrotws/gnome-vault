@@ -386,6 +386,12 @@ jobs:
         if: env.CONFIGURED == 'true'
         run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 
+      # msgfmt compiles the translations into the library (passel-ffi's
+      # build.rs).
+      - name: gettext
+        if: env.CONFIGURED == 'true'
+        run: sudo apt-get install -y --no-install-recommends gettext
+
       - name: Cache cargo
         if: env.CONFIGURED == 'true'
         uses: Swatinem/rust-cache@v2
