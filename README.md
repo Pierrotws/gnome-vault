@@ -4,10 +4,43 @@
 
 # Passel
 
-GTK4 + Adwaita app for [pass](https://www.passwordstore.org/).
-Written in Rust ❤️
+A password manager for **Linux**, **Windows** and **Android**, built on
+the [pass](https://www.passwordstore.org/) standard. Written in Rust ❤️
 
-Uses:
+Your passwords stay in plain `pass` vaults: one OpenPGP-encrypted file
+per entry, in a git repository you own. No account, no cloud service,
+no lock-in: Passel, the `pass` CLI and every other `pass` client read
+and write the same vault.
+
+- **Encrypted with your own OpenPGP key**: create one in the setup
+  wizard, or use the key you already have.
+- **Synced with git**: any private remote (GitHub, GitLab, Gitea, your
+  own server). Changes made on the phone and on the computer merge;
+  nothing is lost when the same entry changed on both sides.
+- **Several vaults**: personal, work, shared with a team, each with its
+  own remote.
+- **Entries with fields**: passwords, usernames, URLs, notes, one-time
+  password (TOTP) codes, and a password generator.
+- **History**: see what changed, revert an entry or roll back the vault.
+- **Careful with secrets**: copied passwords are cleared from the
+  clipboard, secrets are hidden from input methods, and from
+  screenshots on Android.
+- In English, French, German, Spanish and Brazilian Portuguese.
+
+## Platforms
+
+| Platform | App | Get it |
+| --- | --- | --- |
+| Linux | GTK4 + Adwaita | `.deb` and Arch tarball on the [releases](https://github.com/Pierrotws/passel/releases), `passel` / `passel-bin` on the AUR, or [build it](#install) |
+| Windows | GTK4 + Adwaita | not packaged yet: in progress |
+| Android | Kotlin + Jetpack Compose | Google Play (internal testing for now); see [android/](android/README.md) |
+
+All of them share one Rust core ([`crates/passel-core`](crates/passel-core)):
+the vault format, encryption, git sync and setup. The desktop app uses
+GnuPG; Android uses [rPGP](https://github.com/rpgp/rpgp), and both open
+the same vault with the same key.
+
+Desktop stack:
 - Adwaita
 - Gtk-rs
 - blueprint
@@ -25,17 +58,15 @@ Use rustup if you require multiples rust env (similarly to other tools like pyen
 
 `blueprint-compiler` is only required when editing `.blp` UI files. Release tarballs ship generated `.ui` files, so they can be built without it.
 
-## Usage
+## Usage (desktop)
 
-- User must have GPG Key in their wallet.
-  Use Gnome `Seahorse` to create one if none appears.
-- User should install `pass` cli tool before,
-  although not required.
+On first launch, the setup wizard creates or imports your OpenPGP key
+and creates a vault, or downloads an existing one from its git remote.
+The `pass` CLI is not required, but works alongside Passel.
 
-If user want to sync, it requires a private git remote project, with working git access (git-credential configured, or ssh access).
-Project will default on `~/.password-store`, yet configurable with env var `PASSWORD_STORE_DIR`.
-
-Consider using `pass` cli for a guaranteed functional git env
+Syncing needs a private git remote with working access (a git
+credential helper, or SSH). The default vault is `~/.password-store`,
+like `pass`; `PASSWORD_STORE_DIR` overrides it.
 
 ## Install
 
@@ -105,8 +136,8 @@ LANGUAGE=fr ./build/target/debug/passel
 
 ### Android
 
-A first Android version lives in [`android/`](android/README.md): it opens
-the same vault with the same key, and syncs with the desktop.
+The Android app lives in [`android/`](android/README.md): how to build
+it, how it fits on the Rust core, and how releases reach Google Play.
 
 ### Doc
 
