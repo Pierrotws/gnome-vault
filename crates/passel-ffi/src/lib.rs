@@ -240,6 +240,9 @@ pub enum RemoteState {
     UnknownHost,
     /// Nothing usable at this address.
     Unreachable,
+    /// Not an `https://` address: refused without connecting, so the
+    /// vault never travels unencrypted (see [`remote_allowed`]).
+    NotHttps,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
@@ -425,7 +428,11 @@ impl Passel {
     /// Whether `remote_url` holds a vault, is empty, or cannot be used
     /// (with the credentials set for its host).
     pub fn check_remote(&self, remote_url: String) -> RemoteState {
-        match store::check_remote(&remote_url) {
+        let remote_url = remote_url.trim();
+        if !remote_allowed(remote_url) {
+            return RemoteState::NotHttps;
+        }
+        match store::check_remote(remote_url) {
             RemoteCheck::Empty => RemoteState::Empty,
             RemoteCheck::NotEmpty => RemoteState::NotEmpty,
             RemoteCheck::AccessDenied => RemoteState::AccessDenied,
@@ -443,9 +450,13 @@ impl Passel {
         author_name: String,
         author_email: String,
     ) -> Result<VaultInfo, PasselError> {
+        let remote_url = remote_url.trim();
+        if !remote_allowed(remote_url) {
+            return Err(not_https_error());
+        }
         let _guard = self.lock_vault();
         let dir = self.vault_list().new_dir(&name);
-        if let Err(err) = store::clone_vault(remote_url.trim(), &dir, &author_name, &author_email) {
+        if let Err(err) = store::clone_vault(remote_url, &dir, &author_name, &author_email) {
             // A failed clone can leave a partial folder behind.
             let _ = std::fs::remove_dir_all(&dir);
             return Err(err.into());
@@ -481,6 +492,7 @@ impl Passel {
                 RemoteState::UnknownHost | RemoteState::Unreachable => {
                     return Err(PasselError::failed(gettext("Could not reach this address")))
                 }
+                RemoteState::NotHttps => return Err(not_https_error()),
             }
         }
         let dir = self.vault_list().new_dir(&name);
@@ -542,7 +554,13 @@ impl Passel {
     /// Exchanges changes with the remote, both ways.
     pub fn sync(&self) -> Result<SyncResult, PasselError> {
         let _guard = self.lock_vault();
-        let report = store::sync_vault(&self.vault_dir()?, None)?;
+        let dir = self.vault_dir()?;
+        // A vault set up before https was required may still point at
+        // another kind of address: it stays usable here, but unsynced.
+        if store::remote_url(&dir).is_some_and(|url| !remote_allowed(&url)) {
+            return Err(not_https_error());
+        }
+        let report = store::sync_vault(&dir, None)?;
         Ok(SyncResult {
             received: saturating_u32(report.received),
             sent: saturating_u32(report.sent),
@@ -646,6 +664,31 @@ impl Passel {
     fn lock_vault(&self) -> std::sync::MutexGuard<'_, ()> {
         self.vault_lock.lock().unwrap_or_else(|p| p.into_inner())
     }
+}
+
+/// Whether the mobile app may sync with `remote_url`: only over HTTPS,
+/// so a vault (whose entry names are plain file names) never crosses
+/// the network unencrypted. Plain `http://`, `git://` and SSH addresses
+/// are refused. A folder on this device (an absolute path or `file://`)
+/// is allowed too: nothing leaves the device. The desktop app does not
+/// go through this API and keeps every kind of remote.
+fn remote_allowed(remote_url: &str) -> bool {
+    let url = remote_url.trim();
+    let scheme_is = |scheme: &str| {
+        url.get(..scheme.len())
+            .is_some_and(|start| start.eq_ignore_ascii_case(scheme))
+    };
+    if scheme_is("https://") {
+        // Something must follow the scheme: a host.
+        return url.len() > "https://".len();
+    }
+    scheme_is("file://") || (!url.contains("://") && Path::new(url).is_absolute())
+}
+
+fn not_https_error() -> PasselError {
+    PasselError::failed(gettext(
+        "Only https:// addresses are supported, so the vault is always sent encrypted",
+    ))
 }
 
 fn save_list(vaults: &Vaults) {
@@ -901,5 +944,36 @@ fn trust_android_certificates() {
     match git::trust_certificates(&bundle) {
         Ok(count) => log::info!("trusting {count} system certificate authorities"),
         Err(err) => log::warn!("could not load the system certificates: {err:?}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::remote_allowed;
+
+    #[test]
+    fn only_https_and_local_remotes_are_allowed() {
+        for url in [
+            "https://github.com/me/vault.git",
+            "HTTPS://gitlab.com/me/vault",
+            "  https://example.org/vault.git  ",
+            "/data/user/0/io.pierrotws.passel/files/remote.git",
+            "file:///sdcard/vault.git",
+        ] {
+            assert!(remote_allowed(url), "{url}");
+        }
+        for url in [
+            "http://github.com/me/vault.git",
+            "HTTP://example.org/vault",
+            "git://example.org/vault.git",
+            "ssh://git@github.com/me/vault.git",
+            "git@github.com:me/vault.git",
+            "github.com/me/vault.git",
+            "relative/vault.git",
+            "https://",
+            "",
+        ] {
+            assert!(!remote_allowed(url), "{url}");
+        }
     }
 }

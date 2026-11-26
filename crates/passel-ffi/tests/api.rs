@@ -283,6 +283,39 @@ fn a_phone_and_a_desktop_share_a_vault() {
     git::init_bare(&empty_remote, "main").unwrap();
     let empty_url = empty_remote.to_string_lossy().into_owned();
     assert_eq!(passel.check_remote(empty_url.clone()), RemoteState::Empty);
+    // Only https (or a folder on the device): the vault never travels
+    // unencrypted, and nothing is attempted or left behind.
+    for url in [
+        "http://127.0.0.1:9/vault.git",
+        "git://127.0.0.1:9/vault.git",
+        "git@github.com:me/vault.git",
+    ] {
+        assert_eq!(
+            passel.check_remote(url.into()),
+            RemoteState::NotHttps,
+            "{url}"
+        );
+        assert!(matches!(
+            passel.clone_vault(
+                "Plain".into(),
+                url.into(),
+                "Phone".into(),
+                "phone@example.invalid".into(),
+            ),
+            Err(PasselError::Failed { .. })
+        ));
+        assert!(matches!(
+            passel.create_vault(
+                "Plain".into(),
+                fingerprint.clone(),
+                Some(url.into()),
+                "Phone".into(),
+                "phone@example.invalid".into(),
+            ),
+            Err(PasselError::Failed { .. })
+        ));
+        assert!(!data_dir.join("vaults/plain").exists());
+    }
     let created = passel
         .create_vault(
             "Personal".into(),
@@ -310,6 +343,11 @@ fn a_phone_and_a_desktop_share_a_vault() {
         (passel.sync().unwrap().sent, passel.unsynced_count()),
         (1, 0)
     );
+    // A vault whose remote is (or became) plain http is not synced.
+    let personal = data_dir.join("vaults/personal");
+    git::set_origin(&personal, "http://127.0.0.1:9/vault.git").unwrap();
+    assert!(matches!(passel.sync(), Err(PasselError::Failed { .. })));
+    git::set_origin(&personal, &empty_url).unwrap();
     // The remote now holds it: a clone elsewhere reads .gpg-id and bank.
     let elsewhere = dirs.root.join("elsewhere");
     git::clone(&empty_url, &elsewhere).unwrap();

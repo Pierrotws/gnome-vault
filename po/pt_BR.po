@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-26 09:07+0100\n"
+"POT-Creation-Date: 2026-11-26 11:15+0100\n"
 "PO-Revision-Date: 2026-11-26 00:00+0100\n"
 "Last-Translator: Passel contributors\n"
 "Language-Team: Brazilian Portuguese\n"
@@ -355,6 +355,10 @@ msgstr "Este repositório está vazio"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Unknown server key"
 msgstr "Chave do servidor desconhecida"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Use an https:// address"
+msgstr "Use um endereço https://"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Username"
@@ -1339,6 +1343,13 @@ msgstr "Este cofre não existe neste dispositivo"
 #: crates/passel-ffi/src/lib.rs
 msgid "Not an entry of this vault"
 msgstr "Não é uma entrada deste cofre"
+
+#: crates/passel-ffi/src/lib.rs
+msgid ""
+"Only https:// addresses are supported, so the vault is always sent encrypted"
+msgstr ""
+"Só endereços https:// são aceitos, assim o cofre é sempre enviado "
+"criptografado"
 
 #: crates/passel-ffi/src/lib.rs
 msgid "Passel is already open with another folder"
