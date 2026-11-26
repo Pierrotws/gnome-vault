@@ -778,6 +778,9 @@ fn valid_entry_name(name: &str) -> Result<&str, StoreError> {
         || name == ".gpg-id"
         || name == ".gpg-id.gpg"
         || name == ".gitattributes"
+        // Windows: `C:name` would leave the store when joined to it, and
+        // the others are not allowed in file names there.
+        || (cfg!(windows) && name.contains([':', '<', '>', '"', '|', '?', '*']))
     {
         return Err(StoreError::InvalidEntryName(name.to_string()));
     }
@@ -785,10 +788,15 @@ fn valid_entry_name(name: &str) -> Result<&str, StoreError> {
 }
 
 fn validate_folder_path(path: &Path) -> Result<(), StoreError> {
+    // A root is not enough to be absolute on Windows (`\etc` needs a
+    // drive), but joining it to the store still lands outside it.
     if path.is_absolute()
-        || path
-            .components()
-            .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
+        || path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::Prefix(_) | Component::RootDir
+            )
+        })
     {
         return Err(StoreError::InvalidFolderPath(path.to_path_buf()));
     }
@@ -816,8 +824,9 @@ pub fn dev_store_dir() -> Option<PathBuf> {
 
 /// Returns the active password-store directory.
 ///
-/// Honors `PASSWORD_STORE_DIR` and falls back to `$HOME/.password-store`.
-/// When neither is set (e.g. running under a session manager that
+/// Honors `PASSWORD_STORE_DIR` and falls back to `~/.password-store`
+/// (`$HOME`, or the profile folder on Windows, like gopass and QtPass).
+/// When neither is known (e.g. running under a session manager that
 /// doesn't propagate `HOME`), returns the relative `.password-store`
 /// path. Subsequent filesystem operations surface a normal not-found
 /// error instead of panicking the whole process.
@@ -825,10 +834,10 @@ pub fn password_store_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("PASSWORD_STORE_DIR") {
         return PathBuf::from(dir);
     }
-    match std::env::var_os("HOME") {
-        Some(home) => PathBuf::from(home).join(".password-store"),
+    match std::env::home_dir() {
+        Some(home) => home.join(".password-store"),
         None => {
-            log::warn!("HOME is not set; using relative .password-store as fallback");
+            log::warn!("No home folder; using relative .password-store as fallback");
             PathBuf::from(".password-store")
         }
     }

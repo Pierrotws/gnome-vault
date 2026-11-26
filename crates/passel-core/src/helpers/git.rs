@@ -2096,6 +2096,7 @@ mod tests {
         fs::remove_dir_all(outside_dir).unwrap();
     }
 
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios"))))]
     #[test]
     fn trusts_certificates_given_in_memory() {
         // Two real roots, with text around them as in Android's files.
@@ -2138,6 +2139,7 @@ Certificate:\n    Data: (text dump)\n";
 
     /// Android's app folder is reached as /data/user/0/… while libgit2
     /// reports the workdir as /data/data/… (a symlink between them).
+    #[cfg(unix)]
     #[test]
     fn stages_paths_reached_through_a_symlinked_folder() {
         let root = temp_dir("git-symlinked");

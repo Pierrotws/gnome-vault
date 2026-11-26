@@ -711,12 +711,18 @@ fn email_of(user_id: &str) -> Option<&str> {
     }
 }
 
+#[cfg(unix)]
 fn restrict_to_owner(dir: &Path) {
     use std::os::unix::fs::PermissionsExt;
     if let Err(err) = fs::set_permissions(dir, fs::Permissions::from_mode(0o700)) {
         log::warn!("could not restrict the keyring folder: {err}");
     }
 }
+
+/// No mode bits elsewhere: on Windows the folder keeps the ACL of the
+/// user's profile it is created in.
+#[cfg(not(unix))]
+fn restrict_to_owner(_dir: &Path) {}
 
 #[cfg(test)]
 mod tests {
@@ -827,10 +833,13 @@ mod tests {
         let reopened = RpgpBackend::open(&ring.dir, Box::new(prompts.clone())).unwrap();
         assert_eq!(&*reopened.decrypt(&ciphertext).unwrap(), b"secret");
 
-        use std::os::unix::fs::PermissionsExt;
-        let file = ring.dir.join("secret").join(format!("{fingerprint}.asc"));
-        let mode = fs::metadata(file).unwrap().permissions().mode();
-        assert_eq!(mode & 0o777, 0o600);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let file = ring.dir.join("secret").join(format!("{fingerprint}.asc"));
+            let mode = fs::metadata(file).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
     }
 
     #[test]

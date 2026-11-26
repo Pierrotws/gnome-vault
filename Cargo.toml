@@ -16,3 +16,7 @@ once_cell = "1.21.4"
 log = "0.4.29"
 env_logger = "0.11.10"
 zeroize = { version = "1.8", features = ["derive"] }
+
+# build.rs: the Windows icon and version details in passel.exe.
+[build-dependencies]
+embed-resource = "3"

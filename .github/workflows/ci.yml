@@ -176,6 +176,59 @@ jobs:
           meson setup build --buildtype=debug -Dblueprint=disabled
           meson compile -C build
 
+  windows:
+    # The desktop app on Windows, built like the installer (packages.yml):
+    # MSYS2's UCRT64 GTK, libadwaita, gpgme and libgit2. passel-core's
+    # tests run there too, against MSYS2's GnuPG and Windows paths.
+    name: Build and test (Windows)
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      # Link MSYS2's libgit2 and libssh2 instead of building copies.
+      LIBGIT2_NO_VENDOR: 1
+      LIBSSH2_SYS_USE_PKG_CONFIG: 1
+      CARGO_HOME: ${{ runner.temp }}/cargo-home
+    steps:
+      # Byte-identical sources: CRLF would change the .po and .ui files
+      # meson compiles, and the test fixtures.
+      - name: Keep LF line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          # git: tests serve a repository with `git upload-pack`.
+          install: git
+          pacboy: >-
+            rust:p meson:p ninja:p pkgconf:p gettext-tools:p
+            gtk4:p libadwaita:p gpgme:p libgit2:p libssh2:p
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ runner.temp }}/cargo-home/registry
+            ${{ runner.temp }}/cargo-home/git
+            build/target
+          key: windows-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: windows-cargo-
+
+      - name: Configure and build
+        run: |
+          meson setup build --buildtype=debug -Dblueprint=disabled
+          meson compile -C build
+
+      - name: passel-core tests
+        run: cargo test --locked -p passel-core
+
   commits:
     # release-please builds versions and the changelog from these.
     name: Conventional commits

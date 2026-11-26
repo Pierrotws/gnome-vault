@@ -32,7 +32,7 @@ and write the same vault.
 | Platform | App | Get it |
 | --- | --- | --- |
 | Linux | GTK4 + Adwaita | `.deb` and Arch tarball on the [releases](https://github.com/Pierrotws/passel/releases), `passel` / `passel-bin` on the AUR, or [build it](#install) |
-| Windows | GTK4 + Adwaita | not packaged yet: in progress |
+| Windows | GTK4 + Adwaita | `passel-<version>-x86_64-setup.exe` on the [releases](https://github.com/Pierrotws/passel/releases), with [Gpg4win](https://gpg4win.org); see [packaging/windows](packaging/windows/README.md) |
 | Android | Kotlin + Jetpack Compose | Google Play (internal testing for now); see [android/](android/README.md) |
 
 All of them share one Rust core ([`crates/passel-core`](crates/passel-core)):

@@ -1,3 +1,7 @@
+// Release builds are a GUI program on Windows: no console window
+// behind the app. Debug builds keep it for the log.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod helpers;
 mod localization;
 mod ui;
@@ -8,7 +12,7 @@ mod ui;
 use passel_core::{app, i18n, pass};
 
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -68,7 +72,7 @@ fn main() -> glib::ExitCode {
     app.run()
 }
 
-fn resource_file() -> std::path::PathBuf {
+fn resource_file() -> PathBuf {
     for path in [
         "assets/resources.gresource",
         "build/assets/resources.gresource",
@@ -79,9 +83,25 @@ fn resource_file() -> std::path::PathBuf {
         }
     }
 
+    #[cfg(windows)]
+    if let Some(share) = installed_share_dir() {
+        return share.join("passel").join("resources.gresource");
+    }
+
     option_env!("RESOURCES_FILE")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| std::path::PathBuf::from("assets/resources.gresource"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("assets/resources.gresource"))
+}
+
+/// The installed `share` folder on Windows. Unix builds are told where
+/// their files are at build time (meson's prefix), but a Windows install
+/// can be put in any folder: it is found from the program's own place,
+/// `<install>\bin\passel.exe` next to `<install>\share`. GLib looks
+/// for the settings schemas and icons there the same way.
+#[cfg(windows)]
+fn installed_share_dir() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    Some(exe.parent()?.parent()?.join("share"))
 }
 
 /// Loads the small inline stylesheet used by widgets that aren't fully

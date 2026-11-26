@@ -250,10 +250,14 @@ pub(super) mod tests {
 
     impl TempGnupgHome {
         pub fn new(name: &str) -> Self {
-            use std::os::unix::fs::PermissionsExt;
             let path = super::super::tests::temp_dir(name);
             fs::create_dir_all(&path).unwrap();
-            fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+            // gpg warns about a home others can read.
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+            }
             Self { path }
         }
 

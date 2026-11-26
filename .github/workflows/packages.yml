@@ -177,6 +177,85 @@ jobs:
         with:
           files: 'passel-*-x86_64.tar.gz'
 
+  windows-installer:
+    # passel-<version>-x86_64-setup.exe: the app built with MSYS2's UCRT64
+    # GTK, the runtime it needs (packaging/windows/bundle.sh), packed by
+    # NSIS (packaging/windows/passel.nsi). GnuPG is the user's Gpg4win.
+    name: Windows installer (x86_64)
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      LIBGIT2_NO_VENDOR: 1
+      LIBSSH2_SYS_USE_PKG_CONFIG: 1
+    steps:
+      # The .po and .ui files meson compiles must keep LF endings.
+      - name: Keep LF line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          pacboy: >-
+            rust:p meson:p ninja:p pkgconf:p gettext-tools:p
+            gtk4:p libadwaita:p gpgme:p libgit2:p libssh2:p
+            librsvg:p adwaita-icon-theme:p nsis:p
+
+      - name: Compute version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            BASE=$(awk -F'"' '/^version[[:space:]]*=[[:space:]]*"/{print $2; exit}' Cargo.toml)
+            VERSION="${BASE}+${GITHUB_SHA::8}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # The four numbers Windows file properties take.
+          echo "numeric=${VERSION%%[+-]*}.0" >> "$GITHUB_OUTPUT"
+
+      - name: Configure, build and install (release)
+        run: |
+          meson setup build \
+            --prefix="$(cygpath -m "$PWD/dist")" \
+            --buildtype=release \
+            -Dblueprint=disabled
+          meson compile -C build
+          meson install -C build
+
+      - name: Bundle the GTK runtime
+        run: packaging/windows/bundle.sh dist
+
+      - name: Build the installer
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          makensis -INPUTCHARSET UTF8 \
+            -DVERSION="$VERSION" \
+            -DVERSION_NUMERIC="${{ steps.version.outputs.numeric }}" \
+            -DDIST="$(cygpath -w "$PWD/dist")" \
+            -DOUTFILE="$(cygpath -w "$PWD/passel-$VERSION-x86_64-setup.exe")" \
+            packaging/windows/passel.nsi
+
+      - name: Upload artifacts (untagged run)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: passel-windows-installer
+          path: 'passel-*-x86_64-setup.exe'
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: 'passel-*-x86_64-setup.exe'
+
   aur:
     # Replaces the old release.sh tail: bump both PKGBUILDs to the released
     # version, commit them to main, and publish them to the AUR.
