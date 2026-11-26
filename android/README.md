@@ -50,7 +50,8 @@ crates/passel-core (rpgp feature: keyring in the app's storage;
 
 ## Languages
 
-English and French, from the same gettext catalogs as the desktop
+English, French, German, Spanish and Brazilian Portuguese, from the
+same gettext catalogs as the desktop
 (`po/`, see [po/README.md](../po/README.md)): `passel-ffi`'s build
 compiles them with `msgfmt` (install GNU gettext) into the library, and
 the Kotlin UI looks its messages up with `tr()`/`trn()` (`I18n.kt`).

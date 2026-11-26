@@ -20,7 +20,8 @@ git ls-files \
     'src/*.rs' 'crates/*.rs' \
     'assets/ui/*.ui' 'assets/*.desktop.in' \
     'android/app/src/main/kotlin/*.kt' \
-    | grep -v -e '/tests/' -e '/i18n/' -e '/i18n\.rs$' | sort > po/POTFILES
+    | grep -v -e '/tests/' -e '/i18n/' -e '/i18n\.rs$' \
+    | LC_ALL=C sort > po/POTFILES # same order in every locale (and in CI)
 
 # Keep in sync with po/meson.build.
 extract() {

@@ -36,8 +36,8 @@ crates/passel-core/src/app/state/entry_view_data.rs
 crates/passel-core/src/app/state/mod.rs
 crates/passel-core/src/app/vaults.rs
 crates/passel-core/src/helpers/entry_preview.rs
-crates/passel-core/src/helpers/git_credentials.rs
 crates/passel-core/src/helpers/git.rs
+crates/passel-core/src/helpers/git_credentials.rs
 crates/passel-core/src/helpers/macros.rs
 crates/passel-core/src/helpers/mod.rs
 crates/passel-core/src/helpers/otp.rs
@@ -50,11 +50,11 @@ crates/passel-core/src/lib.rs
 crates/passel-core/src/pass/import/buttercup.rs
 crates/passel-core/src/pass/import/keepass.rs
 crates/passel-core/src/pass/import/mod.rs
+crates/passel-core/src/pass/mod.rs
 crates/passel-core/src/pass/model/entry_data.rs
 crates/passel-core/src/pass/model/entry_field.rs
 crates/passel-core/src/pass/model/mod.rs
 crates/passel-core/src/pass/model/pass_node.rs
-crates/passel-core/src/pass/mod.rs
 crates/passel-core/src/pass/store/import.rs
 crates/passel-core/src/pass/store/mod.rs
 crates/passel-core/src/pass/store/store_error.rs
@@ -97,8 +97,8 @@ src/ui/vault_view/imp.rs
 src/ui/vault_view/mod.rs
 src/ui/window/autoload.rs
 src/ui/window/group_content.rs
-src/ui/window/import_dialog.rs
 src/ui/window/imp.rs
+src/ui/window/import_dialog.rs
 src/ui/window/mod.rs
 src/ui/window/new_entry_dialog.rs
 src/ui/window/preferences.rs

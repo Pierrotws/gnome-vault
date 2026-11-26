@@ -93,7 +93,8 @@ cargo test --workspace
 
 ### Translations
 
-Passel is in English and French. All targets (desktop, Android, later
+Passel is in English, French, German, Spanish and Brazilian
+Portuguese. All targets (desktop, Android, later
 iOS) share the gettext catalogs in [`po/`](po/README.md): how to write
 translatable messages, refresh the catalogs (`po/update.sh`) and add a
 language. To try a language without changing the session's:
