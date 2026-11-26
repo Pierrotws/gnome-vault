@@ -2503,7 +2503,7 @@ dependencies = [
 
 [[package]]
 name = "passel"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "embed-resource",
  "env_logger",
@@ -2519,7 +2519,7 @@ dependencies = [
 
 [[package]]
 name = "passel-core"
-version = "0.0.0"
+version = "0.3.0"
 dependencies = [
  "aes 0.9.4",
  "aes-gcm 0.11.1",
@@ -2545,7 +2545,7 @@ dependencies = [
 
 [[package]]
 name = "passel-ffi"
-version = "0.0.0"
+version = "0.3.0"
 dependencies = [
  "android_logger",
  "log",

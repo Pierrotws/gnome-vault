@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0](https://github.com/Pierrotws/passel/compare/v0.2.0...v0.3.0) (2026-11-26)
+
+
+### Features
+
+* **android:** Android app with setup wizard and vaults, two-way sync, logo and Play publishing ([#12](https://github.com/Pierrotws/passel/issues/12)) ([fefd926](https://github.com/Pierrotws/passel/commit/fefd926095b566d15932582b254fef4755757e81))
+* **android:** biometric unlock, auto-lock and key backup ([#18](https://github.com/Pierrotws/passel/issues/18)) ([73d65d1](https://github.com/Pierrotws/passel/commit/73d65d11e6595749d4814c14e16bd59b9507bb90))
+* **core:** passel-core crate with mobile-ready OpenPGP and git credentials ([#10](https://github.com/Pierrotws/passel/issues/10)) ([a8b671d](https://github.com/Pierrotws/passel/commit/a8b671ddf23da2288ac082936ec01a30b211f7d2))
+* first-run wizard and multiple vaults ([#5](https://github.com/Pierrotws/passel/issues/5)) ([ff368e7](https://github.com/Pierrotws/passel/commit/ff368e70ebdf2ea85ac7628cdcbb77726a1fb5ce))
+* **i18n:** German, Spanish and Brazilian Portuguese translations ([#14](https://github.com/Pierrotws/passel/issues/14)) ([c136d97](https://github.com/Pierrotws/passel/commit/c136d978d8551ddb0ac5f832f72cc399fe6732df))
+* **i18n:** translations with gettext on every target, in English and French ([#13](https://github.com/Pierrotws/passel/issues/13)) ([3b42323](https://github.com/Pierrotws/passel/commit/3b423239cbb21e911267ac869170cee8a861a27c))
+* **import:** import entries from KeePassXC and Buttercup vaults ([#8](https://github.com/Pierrotws/passel/issues/8)) ([895e8ba](https://github.com/Pierrotws/passel/commit/895e8bac350514caedf35d5323c0968900a24c8b))
+* **windows:** Windows build and installer ([#17](https://github.com/Pierrotws/passel/issues/17)) ([9cc4daa](https://github.com/Pierrotws/passel/commit/9cc4daa2d21e08b9c8ac8341342b551500a9e0ba))
+
+
+### Bug Fixes
+
+* **android:** sync vaults over https only ([#16](https://github.com/Pierrotws/passel/issues/16)) ([ee14884](https://github.com/Pierrotws/passel/commit/ee14884943836a9e4885f5d520823345738622e1))
+* **ui:** sidebar and header review fixes ([#9](https://github.com/Pierrotws/passel/issues/9)) ([9afc59e](https://github.com/Pierrotws/passel/commit/9afc59e7b5d176eb2663e4d9ee3c8fc07cd29020))
+* **windows:** start gpg without gpgme's spawn helper ([#21](https://github.com/Pierrotws/passel/issues/21)) ([29c007d](https://github.com/Pierrotws/passel/commit/29c007dec041e7e3f694a853d5b86cd90fb8f18d))
+
 ## [0.2.0](https://github.com/Pierrotws/passel/compare/v0.1.1...v0.2.0) (2026-11-24)
 
 
