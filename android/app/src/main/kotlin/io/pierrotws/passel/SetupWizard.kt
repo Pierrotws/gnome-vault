@@ -402,13 +402,17 @@ fun KeyLine(key: KeyInfo, model: VaultViewModel) {
         // Translators: shown for a key without a name.
         Text(key.userId ?: tr("Key"), style = MaterialTheme.typography.bodyLarge)
         Text(key.fingerprint.chunked(4).joinToString(" "), style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = {
-            scope.launch {
-                val armored = model.publicKey(key.fingerprint) ?: return@launch
-                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, armored)
-                context.startActivity(Intent.createChooser(send, tr("Share the public key")))
-            }
-        }) { Text(tr("Share public key")) }
+        val saveBackup = rememberKeyBackupLauncher(model)
+        Row {
+            TextButton(onClick = {
+                scope.launch {
+                    val armored = model.publicKey(key.fingerprint) ?: return@launch
+                    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, armored)
+                    context.startActivity(Intent.createChooser(send, tr("Share the public key")))
+                }
+            }) { Text(tr("Share public key")) }
+            TextButton(onClick = { saveBackup(key.fingerprint) }) { Text(tr("Save a backup")) }
+        }
     }
 }
 

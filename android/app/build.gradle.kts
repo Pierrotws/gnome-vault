@@ -91,6 +91,9 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
+    // Auto-lock: knows when the whole app goes to the background.
+    implementation(libs.lifecycle.process)
+    implementation(libs.biometric)
     // UniFFI's Kotlin bindings call the Rust library through JNA.
     implementation(libs.jna) { artifact { type = "aar" } }
 }

@@ -44,6 +44,10 @@ data class VaultState(
     val busy: String? = null,
     val open: OpenEntry? = null,
     val creating: Boolean = false,
+    /** Some key unlocks with biometrics. */
+    val biometricUnlock: Boolean = false,
+    /** A key just created here, to offer saving a backup of. */
+    val keyToBackUp: String? = null,
 ) {
     val activeVault: VaultInfo? get() = vaults.firstOrNull { it.active }
     val hasVault: Boolean get() = activeVault != null
@@ -68,6 +72,8 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     val messages = messageChannel.receiveAsFlow()
 
     init {
+        // Locked (by hand or after a while in the background): hide what was decrypted.
+        viewModelScope.launch { app.locks.collect { close() } }
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 app.remoteSecrets.loadAll().forEach { passel.setHttpsCredentials(it.host, it.username, it.token) }
@@ -99,10 +105,32 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun createKey(name: String, email: String) = run(tr("Creating the key")) {
-        passel.createKey(name, email)
+        val fingerprint = passel.createKey(name, email)
+        app.prompts.finishCall(succeeded = true, created = fingerprint)
         reload()
-        say(tr("Key created. Add its public key to your vault from a computer."))
+        mutableState.update { it.copy(keyToBackUp = fingerprint) }
     }
+
+    /** Writes the backup of a key (still protected by its passphrase) to [uri]. */
+    fun saveKeyBackup(fingerprint: String, uri: Uri) = run(tr("Saving the backup")) {
+        val armored = passel.exportKey(fingerprint)
+        try {
+            val written = try {
+                app.contentResolver.openOutputStream(uri, "wt")?.use { it.write(armored) } != null
+            } catch (_: java.io.IOException) {
+                false
+            } catch (_: SecurityException) {
+                false
+            }
+            if (!written) throw PasselException.Failed(tr("Could not write this file"))
+        } finally {
+            armored.fill(0)
+        }
+        mutableState.update { it.copy(keyToBackUp = null) }
+        say(tr("Backup saved. Keep it safe: with its passphrase, it opens your vaults."))
+    }
+
+    fun skipKeyBackup() = mutableState.update { it.copy(keyToBackUp = null) }
 
     /** The armored public key, for sharing; null if it failed. */
     suspend fun publicKey(fingerprint: String): String? = withContext(Dispatchers.IO) {
@@ -110,9 +138,28 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun lock() {
-        viewModelScope.launch(Dispatchers.IO) { passel.lock() }
-        close()
-        say(tr("Locked: the passphrase will be asked again"))
+        app.lock()
+        say(
+            if (state.value.biometricUnlock) {
+                tr("Locked: biometrics or the passphrase will be asked again")
+            } else {
+                tr("Locked: the passphrase will be asked again")
+            },
+        )
+    }
+
+    /** The biometric check that turns on biometric unlock ended ([cipher]: null if it failed). */
+    fun finishEnrollment(request: EnrollRequest, cipher: javax.crypto.Cipher?) {
+        if (app.prompts.finishEnrollment(request, cipher)) {
+            mutableState.update { it.copy(biometricUnlock = true) }
+            say(tr("Biometric unlock is on"))
+        }
+    }
+
+    fun turnOffBiometrics() {
+        app.biometrics.forgetAll()
+        mutableState.update { it.copy(biometricUnlock = false) }
+        say(tr("Biometric unlock is off: the passphrase will be asked"))
     }
 
     // ---- Vault -----------------------------------------------------------
@@ -272,17 +319,24 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         val hasVault = vaults.any { it.active }
         val entries = if (hasVault) passel.entries() else emptyList()
         val unsynced = if (hasVault) passel.unsyncedCount().toInt() else 0
-        mutableState.update { it.copy(keys = keys, vaults = vaults, entries = entries, unsynced = unsynced) }
+        val biometricUnlock = app.biometrics.anyEnrolled()
+        mutableState.update {
+            it.copy(keys = keys, vaults = vaults, entries = entries, unsynced = unsynced, biometricUnlock = biometricUnlock)
+        }
     }
 
     private fun run(label: String?, block: () -> Unit) {
         viewModelScope.launch {
             mutableState.update { it.copy(busy = label) }
+            var succeeded = false
             try {
                 withContext(Dispatchers.IO) { block() }
+                succeeded = true
             } catch (e: PasselException) {
                 if (e !is PasselException.Cancelled) say(describe(e))
             } finally {
+                // Keep a passphrase for biometric unlock only once it worked.
+                app.prompts.finishCall(succeeded)
                 mutableState.update { it.copy(busy = null) }
             }
         }

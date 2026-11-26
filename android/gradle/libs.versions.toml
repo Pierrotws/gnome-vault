@@ -5,6 +5,7 @@ composeBom = "2026.11.01"
 activityCompose = "1.13.0"
 lifecycle = "2.11.1"
 jna = "5.19.1"
+biometric = "1.4.0-rc01"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
@@ -14,6 +15,8 @@ compose-material-icons = { module = "androidx.compose.material:material-icons-co
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle" }
+biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 
 [plugins]

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VaultScreen(state: VaultState, model: VaultViewModel) {
+    val saveBackup = rememberKeyBackupLauncher(model)
     var menu by remember { mutableStateOf(false) }
     var switcher by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
@@ -107,6 +108,26 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
                             },
                             onClick = { menu = false; confirmRemove = true },
                         )
+                        state.keys.forEach { key ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (state.keys.size == 1) {
+                                            tr("Save a backup of your key")
+                                        } else {
+                                            tr("Save a backup of {key}", "key" to (key.userId ?: key.fingerprint.takeLast(16)))
+                                        },
+                                    )
+                                },
+                                onClick = { menu = false; saveBackup(key.fingerprint) },
+                            )
+                        }
+                        if (state.biometricUnlock) {
+                            DropdownMenuItem(
+                                text = { Text(tr("Turn off biometric unlock")) },
+                                onClick = { menu = false; model.turnOffBiometrics() },
+                            )
+                        }
                     }
                 },
             )
