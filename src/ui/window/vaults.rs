@@ -673,7 +673,7 @@ const SHORT_PATH_MAX: usize = 40;
 /// A vault folder for the switcher: `~` for the home folder, and only the
 /// end of a long path (the full path is in the row's tooltip).
 fn short_path(path: &Path) -> String {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let home = std::env::home_dir();
     let shown = match home
         .as_deref()
         .and_then(|home| path.strip_prefix(home).ok())

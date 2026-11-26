@@ -80,7 +80,7 @@ impl SshPublicKey {
 
 /// The user's default public SSH keys, in the order `ssh` tries them.
 pub fn ssh_public_keys() -> Vec<SshPublicKey> {
-    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
+    let Some(home) = std::env::home_dir() else {
         return Vec::new();
     };
     ["id_ed25519.pub", "id_ecdsa.pub", "id_rsa.pub"]

@@ -5,6 +5,8 @@
 
 Writes, from the repository root:
 - assets/icons/hicolor/<N>x<N>/apps/io.pierrotws.Passel.png: Linux icons;
+- assets/icons/passel.ico: the Windows icon (program, installer,
+  shortcuts);
 - android/app/src/main/res/mipmap-*/ic_launcher_foreground.png: the
   Android adaptive icon's foreground (its background is white).
 """
@@ -21,6 +23,8 @@ APP_ID = "io.pierrotws.Passel"
 # The SVG is rasterized once, at this size, then scaled down.
 RENDER_SIZE = 1024
 LINUX_SIZES = [16, 24, 32, 48, 64, 128, 256, 512]
+# Explorer, the taskbar and the title bar pick from these.
+WINDOWS_SIZES = [16, 20, 24, 32, 40, 48, 64, 256]
 # Android adaptive icon: a 108 dp layer, the logo drawn in its central
 # 48 dp: the launcher's mask (circle, squircle…) never cuts it, and it
 # keeps the margin other launcher icons have.
@@ -58,6 +62,10 @@ def main() -> None:
         dest = ROOT / f"assets/icons/hicolor/{size}x{size}/apps/{APP_ID}.png"
         dest.parent.mkdir(parents=True, exist_ok=True)
         icon.resize((size, size), Image.LANCZOS).save(dest, optimize=True)
+
+    icon.resize((256, 256), Image.LANCZOS).save(
+        ROOT / "assets/icons/passel.ico", sizes=[(s, s) for s in WINDOWS_SIZES]
+    )
 
     content = trimmed_square(clear, margin=0)
     for density, scale in ANDROID_DENSITIES.items():

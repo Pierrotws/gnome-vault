@@ -14,13 +14,14 @@ if get_option('buildtype') != 'debug'
   cargo_release_arg = '--release'
 endif
 
-cargo_binary = cargo_target_dir / cargo_profile / meson.project_name()
+exe_suffix = host_machine.system() == 'windows' ? '.exe' : ''
+cargo_binary = cargo_target_dir / cargo_profile / meson.project_name() + exe_suffix
 
 custom_target(
   'cargo-build',
   build_by_default: true,
   build_always_stale: true,
-  output: meson.project_name(),
+  output: meson.project_name() + exe_suffix,
   console: true,
   install: true,
   install_dir: bindir,

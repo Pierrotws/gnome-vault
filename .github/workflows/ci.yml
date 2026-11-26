@@ -149,12 +149,20 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            ninja-build pkg-config gettext \
-            libgtk-4-dev libadwaita-1-dev \
-            libgpgme-dev libgit2-dev libssh2-1-dev libssl-dev \
-            python3-pip
+          # The archive can drop a package between `update` and its download
+          # (a security update superseded: 404); refresh the index and retry.
+          for attempt in 1 2 3; do
+            sudo apt-get update &&
+              sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 \
+                ninja-build pkg-config gettext \
+                libgtk-4-dev libadwaita-1-dev \
+                libgpgme-dev libgit2-dev libssh2-1-dev libssl-dev \
+                python3-pip &&
+              break
+            if (( attempt == 3 )); then exit 1; fi
+            echo "::warning::apt-get failed (attempt $attempt), retrying"
+            sleep 30
+          done
           # Ubuntu 24.04 ships meson 1.3.2; project requires >= 1.4.
           sudo python3 -m pip install --break-system-packages --upgrade meson
 
@@ -167,6 +175,61 @@ jobs:
         run: |
           meson setup build --buildtype=debug -Dblueprint=disabled
           meson compile -C build
+
+  windows:
+    # The desktop app on Windows, built like the installer (packages.yml):
+    # MSYS2's UCRT64 GTK, libadwaita, gpgme and libgit2. passel-core's
+    # tests run there too, against MSYS2's GnuPG and Windows paths.
+    name: Build and test (Windows)
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      # Link MSYS2's libgit2 and libssh2 instead of building copies.
+      LIBGIT2_NO_VENDOR: 1
+      LIBSSH2_SYS_USE_PKG_CONFIG: 1
+    steps:
+      # Byte-identical sources: CRLF would change the .po and .ui files
+      # meson compiles, and the test fixtures. CARGO_HOME at a path the
+      # cache step can name (job env cannot use the runner context).
+      - name: Keep LF line endings, place CARGO_HOME
+        shell: pwsh
+        run: |
+          /usr/bin/git config --global core.autocrlf false
+          "CARGO_HOME=$env:RUNNER_TEMP\cargo-home" >> $env:GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          # git: tests serve a repository with `git upload-pack`.
+          install: git
+          pacboy: >-
+            rust:p meson:p ninja:p pkgconf:p gettext-tools:p
+            gtk4:p libadwaita:p gpgme:p libgit2:p libssh2:p
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ runner.temp }}/cargo-home/registry
+            ${{ runner.temp }}/cargo-home/git
+            build/target
+          key: windows-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: windows-cargo-
+
+      - name: Configure and build
+        run: |
+          meson setup build --buildtype=debug -Dblueprint=disabled
+          meson compile -C build
+
+      - name: passel-core tests
+        run: cargo test --locked -p passel-core
 
   commits:
     # release-please builds versions and the changelog from these.

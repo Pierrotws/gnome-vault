@@ -331,13 +331,16 @@ pub fn export_secret_key(fingerprint: &str, dest: &Path) -> Result<(), PgpError>
 }
 
 fn write_private_file(dest: &Path, contents: &[u8]) -> std::io::Result<()> {
-    use std::os::unix::fs::OpenOptionsExt;
-    let mut file = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(dest)?;
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    // Windows has no mode bits: a new file takes the ACL of its folder,
+    // which in the user's profile already shuts other users out.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(dest)?;
     file.write_all(contents)?;
     file.sync_all()
 }
@@ -503,6 +506,7 @@ pub(crate) mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn writes_backups_readable_by_the_owner_only() {
         use std::os::unix::fs::PermissionsExt;

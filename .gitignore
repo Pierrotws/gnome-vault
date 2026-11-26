@@ -16,6 +16,10 @@
 /packaging/arch/*/passel-[0-9]*/
 /packaging/arch/*/passel-bin-[0-9]*/
 
+# Windows install tree and installer (packaging/windows/README.md)
+/dist/
+/packaging/windows/*.exe
+
 # Editor / OS
 .DS_Store
 *.swp

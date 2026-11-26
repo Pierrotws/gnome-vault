@@ -13,27 +13,31 @@ use gtk::glib;
 
 use crate::i18n;
 
+#[cfg(not(windows))]
 extern "C" {
     // libintl, part of glibc.
     fn bindtextdomain(domainname: *const c_char, dirname: *const c_char) -> *mut c_char;
     fn bind_textdomain_codeset(domainname: *const c_char, codeset: *const c_char) -> *mut c_char;
 }
 
+// GNU libintl's own DLL on Windows, the one GLib uses. Its exported names
+// are the `libintl_` ones its header maps the usual names to; the wide
+// variant takes the folder as UTF-16, so a profile folder outside the
+// ANSI code page still works.
+#[cfg(windows)]
+#[link(name = "intl")]
+extern "C" {
+    fn libintl_wbindtextdomain(domainname: *const c_char, wdirname: *const u16) -> *mut u16;
+    fn libintl_bind_textdomain_codeset(
+        domainname: *const c_char,
+        codeset: *const c_char,
+    ) -> *mut c_char;
+}
+
 pub fn init() {
     let localedir = locale_dir();
-    match (
-        CString::new(i18n::DOMAIN),
-        CString::new(localedir.as_os_str().as_encoded_bytes()),
-    ) {
-        (Ok(domain), Ok(dir)) => {
-            // SAFETY: both are valid NUL-terminated strings; libintl
-            // copies them.
-            unsafe {
-                bindtextdomain(domain.as_ptr(), dir.as_ptr());
-                bind_textdomain_codeset(domain.as_ptr(), c"UTF-8".as_ptr());
-            }
-        }
-        _ => log::warn!("Locale directory {} is unusable", localedir.display()),
+    if !bind_domain(&localedir) {
+        log::warn!("Locale directory {} is unusable", localedir.display());
     }
 
     let languages: Vec<String> = glib::language_names()
@@ -46,9 +50,47 @@ pub fn init() {
     }
 }
 
+/// Points libintl at `localedir` for the `.ui` translations.
+#[cfg(not(windows))]
+fn bind_domain(localedir: &Path) -> bool {
+    let (Ok(domain), Ok(dir)) = (
+        CString::new(i18n::DOMAIN),
+        CString::new(localedir.as_os_str().as_encoded_bytes()),
+    ) else {
+        return false;
+    };
+    // SAFETY: both are valid NUL-terminated strings; libintl copies them.
+    unsafe {
+        bindtextdomain(domain.as_ptr(), dir.as_ptr());
+        bind_textdomain_codeset(domain.as_ptr(), c"UTF-8".as_ptr());
+    }
+    true
+}
+
+/// Points libintl at `localedir` for the `.ui` translations.
+#[cfg(windows)]
+fn bind_domain(localedir: &Path) -> bool {
+    use std::os::windows::ffi::OsStrExt;
+    let Ok(domain) = CString::new(i18n::DOMAIN) else {
+        return false;
+    };
+    let dir: Vec<u16> = localedir.as_os_str().encode_wide().chain([0]).collect();
+    if dir[..dir.len() - 1].contains(&0) {
+        return false;
+    }
+    // SAFETY: `domain` is NUL-terminated, `dir` is NUL-terminated UTF-16
+    // with no NUL inside; libintl copies both.
+    unsafe {
+        libintl_wbindtextdomain(domain.as_ptr(), dir.as_ptr());
+        libintl_bind_textdomain_codeset(domain.as_ptr(), c"UTF-8".as_ptr());
+    }
+    true
+}
+
 /// Where the compiled catalogs are: the build dir's `po/` when running
 /// from a checkout (meson compiles them there in the installed layout),
-/// otherwise the install prefix's, given by meson at build time.
+/// otherwise the install prefix's, given by meson at build time (found
+/// next to the program on Windows, see [`crate::installed_share_dir`]).
 fn locale_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("PASSEL_LOCALEDIR") {
         return dir.into();
@@ -63,6 +105,10 @@ fn locale_dir() -> PathBuf {
                 }
             }
         }
+    }
+    #[cfg(windows)]
+    if let Some(share) = crate::installed_share_dir() {
+        return share.join("locale");
     }
     PathBuf::from(option_env!("LOCALEDIR").unwrap_or("/usr/share/locale"))
 }
