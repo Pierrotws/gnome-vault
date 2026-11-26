@@ -1,3 +1,4 @@
+android/app/src/main/kotlin/io/pierrotws/passel/BiometricUnlock.kt
 android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
 android/app/src/main/kotlin/io/pierrotws/passel/I18n.kt
 android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt

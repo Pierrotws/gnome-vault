@@ -16,7 +16,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-git ls-files \
+# Tracked files, and new ones not committed yet (not the ignored ones):
+# running this before `git add` must give the list CI will compute.
+git ls-files --cached --others --exclude-standard \
     'src/*.rs' 'crates/*.rs' \
     'assets/ui/*.ui' 'assets/*.desktop.in' \
     'android/app/src/main/kotlin/*.kt' \
