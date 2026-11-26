@@ -21,4 +21,9 @@ class PasselApp : Application() {
     val remoteSecrets by lazy { RemoteSecrets(this) }
 
     val clipboard by lazy { SecretClipboard(this, scope) }
+
+    override fun onCreate() {
+        super.onCreate()
+        I18n.apply(resources.configuration)
+    }
 }

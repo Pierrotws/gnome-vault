@@ -59,7 +59,7 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable(onClickLabel = "Switch vault") { switcher = true },
+                        modifier = Modifier.clickable(onClickLabel = tr("Switch vault")) { switcher = true },
                     ) {
                         Text(active?.name ?: "Passel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Icon(Icons.Default.ArrowDropDown, contentDescription = null)
@@ -69,7 +69,7 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
                             DropdownMenuItem(
                                 text = { Text(vault.name) },
                                 leadingIcon = {
-                                    if (vault.active) Icon(Icons.Default.Check, contentDescription = "Open")
+                                    if (vault.active) Icon(Icons.Default.Check, contentDescription = tr("Current vault"))
                                 },
                                 onClick = {
                                     switcher = false
@@ -79,7 +79,7 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
                         }
                         HorizontalDivider()
                         DropdownMenuItem(
-                            text = { Text("Add a vault") },
+                            text = { Text(tr("Add a vault")) },
                             leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
                             onClick = { switcher = false; model.startAddingVault() },
                         )
@@ -88,18 +88,23 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
                 actions = {
                     IconButton(onClick = { model.sync() }, enabled = state.busy == null) {
                         BadgedBox(badge = { if (state.unsynced > 0) Badge { Text("${state.unsynced}") } }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Sync")
+                            Icon(Icons.Default.Refresh, contentDescription = tr("Sync"))
                         }
                     }
-                    IconButton(onClick = model::lock) { Icon(Icons.Default.Lock, contentDescription = "Lock") }
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
+                    IconButton(onClick = model::lock) { Icon(Icons.Default.Lock, contentDescription = tr("Lock")) }
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = tr("More")) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Add a vault") },
+                            text = { Text(tr("Add a vault")) },
                             onClick = { menu = false; model.startAddingVault() },
                         )
                         DropdownMenuItem(
-                            text = { Text("Remove ${active?.name ?: "this vault"} from this phone") },
+                            text = {
+                                Text(
+                                    active?.name?.let { tr("Remove {name} from this phone", "name" to it) }
+                                        ?: tr("Remove this vault from this phone"),
+                                )
+                            },
                             onClick = { menu = false; confirmRemove = true },
                         )
                     }
@@ -108,7 +113,7 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = model::startCreating) {
-                Icon(Icons.Default.Add, contentDescription = "New entry")
+                Icon(Icons.Default.Add, contentDescription = tr("New entry"))
             }
         },
     ) { padding ->
@@ -117,7 +122,7 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
             OutlinedTextField(
                 value = state.query,
                 onValueChange = model::setQuery,
-                placeholder = { Text("Search ${state.entries.size} entries") },
+                placeholder = { Text(trn("Search {n} entry", "Search {n} entries", state.entries.size, "n" to state.entries.size)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -149,15 +154,25 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
     if (confirmRemove && active != null) {
         AlertDialog(
             onDismissRequest = { confirmRemove = false },
-            title = { Text("Remove ${active.name} from this phone?") },
+            title = { Text(tr("Remove {name} from this phone?", "name" to active.name)) },
             text = {
-                val unsynced = if (state.unsynced > 0) " ${state.unsynced} change(s) not synced yet will be lost." else ""
-                Text("The copy on your remote stays as it is; you can download it again.$unsynced")
+                Text(
+                    if (state.unsynced > 0) {
+                        trn(
+                            "The copy on your remote stays as it is; you can download it again. {n} change not synced yet will be lost.",
+                            "The copy on your remote stays as it is; you can download it again. {n} changes not synced yet will be lost.",
+                            state.unsynced,
+                            "n" to state.unsynced,
+                        )
+                    } else {
+                        tr("The copy on your remote stays as it is; you can download it again.")
+                    },
+                )
             },
             confirmButton = {
-                TextButton(onClick = { confirmRemove = false; model.removeVault(active) }) { Text("Remove") }
+                TextButton(onClick = { confirmRemove = false; model.removeVault(active) }) { Text(tr("Remove")) }
             },
-            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(tr("Cancel")) } },
         )
     }
 }

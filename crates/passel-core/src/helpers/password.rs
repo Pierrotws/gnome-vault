@@ -1,5 +1,7 @@
 use zeroize::Zeroizing;
 
+use crate::i18n::gettext_f;
+
 use crate::helpers::macros::concat_bytes;
 
 /// Failure modes for [`generate_password`].
@@ -13,13 +15,17 @@ pub enum PasswordError {
 
 impl std::fmt::Display for PasswordError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PasswordError::TooShort { min, got } => write!(
-                f,
-                "password length {got} is below the minimum {min} required for the selected mode"
+        let message = match self {
+            PasswordError::TooShort { min, got } => gettext_f(
+                "Password length {got} is below the minimum {min} required for the selected mode",
+                &[("got", &got.to_string()), ("min", &min.to_string())],
             ),
-            PasswordError::Rng(err) => write!(f, "RNG failure: {err}"),
-        }
+            PasswordError::Rng(err) => gettext_f(
+                "Random number generator failure: {reason}",
+                &[("reason", &err.to_string())],
+            ),
+        };
+        f.write_str(&message)
     }
 }
 

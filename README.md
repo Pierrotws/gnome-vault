@@ -16,6 +16,7 @@ Uses:
 
 - rust or rustup
 - meson
+- gettext (msgfmt compiles the translations)
 
 Optional for UI development:
 - blueprint-compiler
@@ -88,6 +89,17 @@ opens the setup wizard to create it.
 ```bash
 cd build
 cargo test --workspace
+```
+
+### Translations
+
+Passel is in English and French. All targets (desktop, Android, later
+iOS) share the gettext catalogs in [`po/`](po/README.md): how to write
+translatable messages, refresh the catalogs (`po/update.sh`) and add a
+language. To try a language without changing the session's:
+
+```bash
+LANGUAGE=fr ./build/target/debug/passel
 ```
 
 ### Android

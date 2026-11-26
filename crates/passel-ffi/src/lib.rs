@@ -13,6 +13,7 @@ use std::{
     sync::{Arc, Mutex, RwLock},
 };
 
+use passel_core::i18n::{gettext, ngettext_f};
 use passel_core::{
     helpers::{
         git::{self, Credential, CredentialProvider, CredentialRequest, StoredCredentials},
@@ -31,6 +32,7 @@ use passel_core::{
 };
 use zeroize::Zeroizing;
 
+mod i18n;
 mod vaults;
 use vaults::Vaults;
 
@@ -58,13 +60,18 @@ pub enum PasselError {
 impl fmt::Display for PasselError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PasselError::Cancelled => f.write_str("Cancelled"),
-            PasselError::Conflict { entries, .. } => write!(
-                f,
-                "{} changed both here and on the remote",
-                entries.join(", ")
-            ),
-            PasselError::AccessDenied => f.write_str("The remote refused the credentials"),
+            PasselError::Cancelled => f.write_str(&gettext("Cancelled")),
+            // Translators: {entries} is one entry name, or several
+            // separated by commas.
+            PasselError::Conflict { entries, .. } => f.write_str(&ngettext_f(
+                "{entries} changed both here and on the remote",
+                "{entries} changed both here and on the remote",
+                entries.len() as u64,
+                &[("entries", &entries.join(", "))],
+            )),
+            PasselError::AccessDenied => {
+                f.write_str(&gettext("The remote refused the credentials"))
+            }
             PasselError::Failed { reason } => f.write_str(reason),
         }
     }
@@ -122,13 +129,15 @@ impl From<git::GitError> for PasselError {
 }
 
 /// A short, address-free explanation of a libgit2 failure.
-fn git_failure_message(err: &git::Git2Error) -> &'static str {
+fn git_failure_message(err: &git::Git2Error) -> String {
     use git::ErrorClass;
     match err.class() {
-        ErrorClass::Net | ErrorClass::Http | ErrorClass::Os => "Could not reach the remote",
-        ErrorClass::Ssl => "The remote's certificate is not trusted",
-        ErrorClass::Ssh => "The SSH connection failed",
-        _ => "Git operation failed",
+        ErrorClass::Net | ErrorClass::Http | ErrorClass::Os => {
+            gettext("Could not reach the remote")
+        }
+        ErrorClass::Ssl => gettext("The remote's certificate is not trusted"),
+        ErrorClass::Ssh => gettext("The SSH connection failed"),
+        _ => gettext("Git operation failed"),
     }
 }
 
@@ -273,9 +282,9 @@ impl Passel {
         let data_dir = PathBuf::from(data_dir);
         if let Some(existing) = instance.as_ref() {
             if existing.data_dir != data_dir {
-                return Err(PasselError::failed(
+                return Err(PasselError::failed(gettext(
                     "Passel is already open with another folder",
-                ));
+                )));
             }
             existing.prompt.set(prompt);
             return Ok(Arc::clone(existing));
@@ -294,9 +303,11 @@ impl Passel {
         )?);
         let credentials = Arc::new(StoredCredentials::new());
         pgp::install_backend(Box::new(SharedKeyring(Arc::clone(&keyring))))
-            .map_err(|_| PasselError::failed("An OpenPGP backend is already installed"))?;
+            .map_err(|_| PasselError::failed(gettext("An OpenPGP backend is already installed")))?;
         git::install_credential_provider(Box::new(SharedCredentials(Arc::clone(&credentials))))
-            .map_err(|_| PasselError::failed("A git credential provider is already installed"))?;
+            .map_err(|_| {
+                PasselError::failed(gettext("A git credential provider is already installed"))
+            })?;
 
         let passel = Arc::new(Self {
             keyring,
@@ -400,7 +411,7 @@ impl Passel {
     pub fn switch_vault(&self, id: String) -> Result<(), PasselError> {
         let mut vaults = self.vault_list();
         if !vaults.activate(&id) {
-            return Err(PasselError::failed("No such vault on this device"));
+            return Err(PasselError::failed(gettext("No such vault on this device")));
         }
         save_list(&vaults);
         Ok(())
@@ -462,13 +473,13 @@ impl Passel {
             match self.check_remote(url.clone()) {
                 RemoteState::Empty => {}
                 RemoteState::NotEmpty => {
-                    return Err(PasselError::failed(
+                    return Err(PasselError::failed(gettext(
                         "This repository already holds a vault: download it instead",
-                    ))
+                    )))
                 }
                 RemoteState::AccessDenied => return Err(PasselError::AccessDenied),
                 RemoteState::UnknownHost | RemoteState::Unreachable => {
-                    return Err(PasselError::failed("Could not reach this address"))
+                    return Err(PasselError::failed(gettext("Could not reach this address")))
                 }
             }
         }
@@ -480,7 +491,9 @@ impl Passel {
             autopush: true,
         };
         store::check_setup_plan(&plan).map_err(|err| match err {
-            StoreError::InvalidRecipient => PasselError::failed("This key is not on this device"),
+            StoreError::InvalidRecipient => {
+                PasselError::failed(gettext("This key is not on this device"))
+            }
             other => other.into(),
         })?;
 
@@ -517,7 +530,7 @@ impl Passel {
         let mut vaults = self.vault_list();
         let dir = vaults
             .remove(&id)
-            .ok_or_else(|| PasselError::failed("No such vault on this device"))?;
+            .ok_or_else(|| PasselError::failed(gettext("No such vault on this device")))?;
         save_list(&vaults);
         match std::fs::remove_dir_all(dir) {
             Ok(()) => Ok(()),
@@ -605,7 +618,7 @@ impl Passel {
     fn vault_dir(&self) -> Result<PathBuf, PasselError> {
         self.vault_list()
             .active_dir()
-            .ok_or_else(|| PasselError::failed("No vault is open"))
+            .ok_or_else(|| PasselError::failed(gettext("No vault is open")))
     }
 
     fn vault_list(&self) -> std::sync::MutexGuard<'_, Vaults> {
@@ -645,7 +658,7 @@ fn save_list(vaults: &Vaults) {
 #[uniffi::export]
 pub fn otp_code(uri: String) -> Result<OtpCode, PasselError> {
     let code = otp::generate_totp_from_url(&uri)
-        .map_err(|_| PasselError::failed("This one-time password setting is not valid"))?;
+        .map_err(|_| PasselError::failed(gettext("This one-time password setting is not valid")))?;
     Ok(OtpCode {
         code: code.code,
         seconds_left: code.remaining.try_into().unwrap_or(u32::MAX),
@@ -664,7 +677,7 @@ pub fn generate_password(length: u32, symbols: bool) -> Result<String, PasselErr
     };
     password::generate_password(length as usize, mode)
         .map(|password| password.to_string())
-        .map_err(|_| PasselError::failed("Could not generate a password of this length"))
+        .map_err(|_| PasselError::failed(gettext("Could not generate a password of this length")))
 }
 
 /// Forwards passphrase requests to the app's current prompt, which can
@@ -777,7 +790,7 @@ fn relative_path(path: &str, is_entry: bool) -> Result<PathBuf, PasselError> {
         .any(|c| !matches!(c, Component::Normal(_)));
     let not_entry = is_entry && relative.extension().is_none_or(|ext| ext != "gpg");
     if escapes || not_entry {
-        return Err(PasselError::failed("Not an entry of this vault"));
+        return Err(PasselError::failed(gettext("Not an entry of this vault")));
     }
     Ok(relative)
 }

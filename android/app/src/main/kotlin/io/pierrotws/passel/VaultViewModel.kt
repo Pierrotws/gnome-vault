@@ -86,22 +86,22 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---- Keys ----------------------------------------------------------
 
-    fun importKey(uri: Uri) = run("Importing the key") {
+    fun importKey(uri: Uri) = run(tr("Importing the key")) {
         val bytes = app.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: throw PasselException.Failed("Could not read this file")
+            ?: throw PasselException.Failed(tr("Could not read this file"))
         try {
             passel.importKey(bytes)
         } finally {
             bytes.fill(0)
         }
         reload()
-        say("Key imported")
+        say(tr("Key imported"))
     }
 
-    fun createKey(name: String, email: String) = run("Creating the key") {
+    fun createKey(name: String, email: String) = run(tr("Creating the key")) {
         passel.createKey(name, email)
         reload()
-        say("Key created. Add its public key to your vault from a computer.")
+        say(tr("Key created. Add its public key to your vault from a computer."))
     }
 
     /** The armored public key, for sharing; null if it failed. */
@@ -112,7 +112,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     fun lock() {
         viewModelScope.launch(Dispatchers.IO) { passel.lock() }
         close()
-        say("Locked: the passphrase will be asked again")
+        say(tr("Locked: the passphrase will be asked again"))
     }
 
     // ---- Vault -----------------------------------------------------------
@@ -137,13 +137,14 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun cloneVault(name: String, url: String, username: String, token: String, author: String, email: String) =
-        run("Downloading the vault") {
+        run(tr("Downloading the vault")) {
             val login = useLogin(url.trim(), username, token)
             val vault = passel.cloneVault(name.trim(), url.trim(), author.trim(), email.trim())
             login?.let(app.remoteSecrets::save)
             mutableState.update { it.copy(addingVault = false, remoteCheck = null) }
             reload()
-            say("${vault.name} is ready: ${state.value.entries.size} entries")
+            val count = state.value.entries.size
+            say(trn("{name} is ready: {n} entry", "{name} is ready: {n} entries", count, "name" to vault.name, "n" to count))
         }
 
     /** [url] is null to keep the vault on this phone only. */
@@ -155,15 +156,16 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         token: String,
         author: String,
         email: String,
-    ) = run("Creating the vault") {
+    ) = run(tr("Creating the vault")) {
         val login = url?.let { useLogin(it.trim(), username, token) }
         val created = passel.createVault(name.trim(), fingerprint, url?.trim(), author.trim(), email.trim())
         login?.let(app.remoteSecrets::save)
         mutableState.update { it.copy(addingVault = false, remoteCheck = null) }
         reload()
         say(
-            created.uploadError?.let { "${created.vault.name} is ready on this phone. Not sent yet: $it" }
-                ?: "${created.vault.name} is ready",
+            created.uploadError?.let {
+                tr("{name} is ready on this phone. Not sent yet: {error}", "name" to created.vault.name, "error" to it)
+            } ?: tr("{name} is ready", "name" to created.vault.name),
         )
     }
 
@@ -173,7 +175,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         reload()
     }
 
-    fun removeVault(vault: VaultInfo) = run("Removing the vault") {
+    fun removeVault(vault: VaultInfo) = run(tr("Removing the vault")) {
         passel.removeVault(vault.id)
         mutableState.update { it.copy(open = null, creating = false, query = "") }
         reload()
@@ -194,14 +196,18 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun sync(quiet: Boolean = false) = run(if (quiet) null else "Syncing") {
+    fun sync(quiet: Boolean = false) = run(if (quiet) null else tr("Syncing")) {
         val result = passel.sync()
         reload()
         if (!quiet || result.received > 0u) {
             say(
                 when {
-                    result.received == 0u && result.sent == 0u -> "Up to date"
-                    else -> "Synced: ${result.received} received, ${result.sent} sent"
+                    result.received == 0u && result.sent == 0u -> tr("Up to date")
+                    else -> tr(
+                        "Synced: {received} received, {sent} sent",
+                        "received" to result.received,
+                        "sent" to result.sent,
+                    )
                 },
             )
         }
@@ -209,20 +215,20 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---- Entries -----------------------------------------------------------
 
-    fun open(ref: EntryRef) = run("Decrypting") {
+    fun open(ref: EntryRef) = run(tr("Decrypting")) {
         val entry = passel.openEntry(ref.path)
         mutableState.update { it.copy(open = OpenEntry(ref, entry)) }
     }
 
     /** [onSaved] runs (on the main thread) once the entry is written. */
-    fun save(ref: EntryRef, entry: Entry, onSaved: () -> Unit) = run("Saving") {
+    fun save(ref: EntryRef, entry: Entry, onSaved: () -> Unit) = run(tr("Saving")) {
         passel.saveEntry(ref.path, entry)
         mutableState.update { it.copy(open = OpenEntry(ref, entry)) }
         viewModelScope.launch { onSaved() }
         syncAfterChange()
     }
 
-    fun create(folder: String, name: String, entry: Entry) = run("Saving") {
+    fun create(folder: String, name: String, entry: Entry) = run(tr("Saving")) {
         val path = passel.createEntry(folder.trim().trim('/'), name.trim(), entry)
         reload()
         val ref = state.value.entries.first { it.path == path }
@@ -230,7 +236,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         syncAfterChange()
     }
 
-    fun delete(ref: EntryRef) = run("Deleting") {
+    fun delete(ref: EntryRef) = run(tr("Deleting")) {
         passel.deleteEntry(ref.path)
         mutableState.update { it.copy(open = null) }
         reload()
@@ -238,7 +244,13 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun copy(text: String, what: String) {
-        if (app.clipboard.copy(text)) say("$what copied; cleared in ${SecretClipboard.CLEAR_AFTER_SECONDS} s")
+        if (app.clipboard.copy(text)) say(
+                tr(
+                    "{what} copied; cleared in {seconds} s",
+                    "what" to what,
+                    "seconds" to SecretClipboard.CLEAR_AFTER_SECONDS,
+                ),
+            )
     }
 
     // ---- Plumbing -----------------------------------------------------------
@@ -250,7 +262,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             reload()
         } catch (e: PasselException) {
             reload()
-            say("Saved on this phone. Not synced: ${describe(e)}")
+            say(tr("Saved on this phone. Not synced: {error}", "error" to describe(e)))
         }
     }
 
@@ -281,13 +293,18 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun describe(e: PasselException): String = when (e) {
-        is PasselException.Cancelled -> "Cancelled"
-        is PasselException.AccessDenied -> "The remote refused your username or token"
+        is PasselException.Cancelled -> tr("Cancelled")
+        is PasselException.AccessDenied -> tr("The remote refused your username or token")
         is PasselException.Conflict -> e.keptAs?.let { branch ->
-            "${e.entries.joinToString()} changed here and on another device. Your version was " +
-                "sent as branch $branch: merge it on a computer, then sync here. Nothing was lost."
-        } ?: ("${e.entries.joinToString()} changed here and on another device, and your version " +
-            "could not be sent. It is kept on this phone; nothing was lost.")
+            tr(
+                "{entries} changed here and on another device. Your version was sent as branch {branch}: merge it on a computer, then sync here. Nothing was lost.",
+                "entries" to e.entries.joinToString(),
+                "branch" to branch,
+            )
+        } ?: tr(
+            "{entries} changed here and on another device, and your version could not be sent. It is kept on this phone; nothing was lost.",
+            "entries" to e.entries.joinToString(),
+        )
         is PasselException.Failed -> e.reason
     }
 }

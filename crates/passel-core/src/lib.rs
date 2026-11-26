@@ -15,4 +15,5 @@
 
 pub mod app;
 pub mod helpers;
+pub mod i18n;
 pub mod pass;

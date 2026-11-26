@@ -6,6 +6,7 @@ project(
 )
 
 gnome = import('gnome')
+i18n = import('i18n')
 
 base_id = 'io.pierrotws.Passel'
 application_id = base_id
@@ -13,7 +14,9 @@ application_id = base_id
 bindir = get_option('prefix') / get_option('bindir')
 datadir = get_option('prefix') / get_option('datadir')
 pkgdatadir = datadir / meson.project_name()
+localedir = get_option('prefix') / get_option('localedir')
 
+subdir('po')
 subdir('assets')
 subdir('src')
 

@@ -5,6 +5,7 @@ use gtk::glib;
 use zeroize::Zeroizing;
 
 use crate::helpers::password::{generate_password, PasswordMode};
+use crate::i18n::gettext;
 
 /// Index of the `Limited specials` entry in the charset combo. Kept in
 /// sync with the StringList contents in [`GeneratePasswordView::setup`].
@@ -23,8 +24,18 @@ impl GeneratePasswordView {
 
     pub fn setup(&self) {
         let imp = self.imp();
-        let charset_model =
-            gtk::StringList::new(&["Numeric", "Alphanumeric", "Limited specials", "All"]);
+        let labels = [
+            // Translators: password characters: digits only.
+            gettext("Numeric"),
+            // Translators: password characters: letters and digits.
+            gettext("Alphanumeric"),
+            // Translators: password characters: letters, digits and a few symbols.
+            gettext("Limited specials"),
+            // Translators: password characters: every kind.
+            gettext("All"),
+        ];
+        let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+        let charset_model = gtk::StringList::new(&labels);
         imp.charset_row.set_model(Some(&charset_model));
         imp.charset_row.set_selected(DEFAULT_CHARSET_INDEX);
         self.regenerate_preview();

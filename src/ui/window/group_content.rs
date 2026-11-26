@@ -8,6 +8,7 @@ use gtk::glib;
 
 use crate::app::group_preview::{self, GroupPreviewMessage};
 use crate::helpers::entry_preview;
+use crate::i18n::{gettext, gettext_f};
 use crate::pass::model::{PassNode, PassNodeKind};
 use crate::ui::GroupEntry;
 
@@ -54,7 +55,7 @@ impl MainWindow {
         collect_matching_leaves(&nodes, None, &mut leaves);
 
         let pseudo_group = PassNode {
-            name: format!("Results for \u{201C}{search_text}\u{201D}"),
+            name: gettext_f("Results for “{query}”", &[("query", search_text)]),
             path: PathBuf::new(),
             kind: PassNodeKind::Group(Vec::new()),
         };
@@ -91,7 +92,7 @@ impl MainWindow {
             .vaults
             .borrow()
             .active()
-            .map_or_else(|| "Vault".to_string(), |vault| vault.name.clone());
+            .map_or_else(|| gettext("Vault"), |vault| vault.name.clone());
         PassNode {
             name,
             path: PathBuf::new(),

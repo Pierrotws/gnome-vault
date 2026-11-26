@@ -1,4 +1,5 @@
 using Gtk 4.0;
+translation-domain "passel";
 
 template $PlainFieldRow : ListBoxRow {
     child: Box {
@@ -32,7 +33,7 @@ template $PlainFieldRow : ListBoxRow {
             width-chars: 1;
             max-width-chars: 24;
             xalign: 0;
-            placeholder-text: _("Key");
+            placeholder-text: C_("field", "Key");
             has-frame: false;
             css-classes: ["field-entry", "field-key"];
         }

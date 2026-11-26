@@ -1,5 +1,6 @@
 using Gtk 4.0;
 using Adw 1;
+translation-domain "passel";
 
 template $EntryView : Adw.Bin {
     child: Stack content_stack {
@@ -15,12 +16,12 @@ template $EntryView : Adw.Bin {
                 spacing: 12;
 
                 Label {
-                    label: "No entry selected";
+                    label: _("No entry selected");
                     css-classes: ["title-3"];
                 }
 
                 Label {
-                    label: "Select an item from the tree";
+                    label: _("Select an item from the tree");
                     css-classes: ["dim-label"];
                 }
             };
@@ -49,11 +50,11 @@ template $EntryView : Adw.Bin {
                         name: "view";
                         child: Button edit_button {
                             halign: end;
-                            tooltip-text: "Edit this entry";
+                            tooltip-text: _("Edit this entry");
 
                             child: Adw.ButtonContent {
                                 icon-name: "document-edit-symbolic";
-                                label: "_Edit";
+                                label: _("_Edit");
                                 use-underline: true;
                             };
                         };
@@ -67,12 +68,12 @@ template $EntryView : Adw.Bin {
                             halign: end;
 
                             Button cancel_button {
-                                label: "_Cancel";
+                                label: _("_Cancel");
                                 use-underline: true;
                             }
 
                             Button save_button {
-                                label: "_Save";
+                                label: _("_Save");
                                 use-underline: true;
                                 css-classes: [ "suggested-action"];
                             }
@@ -85,7 +86,7 @@ template $EntryView : Adw.Bin {
                 // Label/Entry pair had to be swapped on every mode
                 // change, and the two never lined up to the pixel.
                 Entry title_entry {
-                    placeholder-text: "Entry name";
+                    placeholder-text: _("Entry name");
                     halign: center;
                     xalign: 0.5;
                     hexpand: false;
@@ -145,7 +146,7 @@ template $EntryView : Adw.Bin {
 
                                 MenuButton add_field_menu_button {
                                     icon-name: "list-add-symbolic";
-                                    tooltip-text: "Add field";
+                                    tooltip-text: _("Add field");
                                     valign: center;
 
                                     popover: Popover {
@@ -158,17 +159,17 @@ template $EntryView : Adw.Bin {
                                             margin-end: 6;
 
                                             Button add_plain_field_button {
-                                                label: "Plain";
+                                                label: _("Plain");
                                                 halign: fill;
                                             }
 
                                             Button add_otp_field_button {
-                                                label: "OTP";
+                                                label: _("OTP");
                                                 halign: fill;
                                             }
 
                                             Button add_multiline_field_button {
-                                                label: "Multiline";
+                                                label: _("Multiline");
                                                 halign: fill;
                                             }
                                         };
@@ -196,7 +197,7 @@ template $EntryView : Adw.Bin {
                         hexpand: true;
 
                         Button delete_button {
-                            label: "Delete Entry";
+                            label: _("Delete Entry");
                             css-classes: [ "destructive-action"];
                         }
                     }

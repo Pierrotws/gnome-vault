@@ -92,7 +92,8 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
         if (email.isBlank()) email = keyEmail
         if (vaultName.isBlank()) {
             vaultName = repositoryName(url).takeIf { kind == Kind.DOWNLOAD || online }
-                ?: if (firstRun) "Passwords" else "Vault"
+                // Translators: default names of a new vault.
+                ?: if (firstRun) tr("Passwords") else tr("Vault")
         }
     }
 
@@ -107,14 +108,14 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (firstRun) "Set up Passel" else "Add a vault") },
+                title = { Text(if (firstRun) tr("Set up Passel") else tr("Add a vault")) },
                 navigationIcon = {
                     when {
                         index > 0 -> IconButton(onClick = ::back, enabled = idle) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                         }
                         !firstRun -> IconButton(onClick = model::stopAddingVault) {
-                            Icon(Icons.Default.Close, contentDescription = "Cancel")
+                            Icon(Icons.Default.Close, contentDescription = tr("Cancel"))
                         }
                     }
                 },
@@ -134,7 +135,7 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                 progress = { (index + 1f) / order.size },
                 modifier = Modifier.fillMaxWidth(),
             )
-            Text("Step ${index + 1} of ${order.size}", style = MaterialTheme.typography.labelMedium)
+            Text(tr("Step {step} of {total}", "step" to index + 1, "total" to order.size), style = MaterialTheme.typography.labelMedium)
             when (step) {
                 Step.WELCOME -> WelcomePage(onStart = { step = Step.KEY })
                 Step.KEY -> KeyPage(state, fingerprint, onSelect = { fingerprint = it }, model)
@@ -163,11 +164,11 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.End) {
                 when (step) {
                     Step.WELCOME, Step.KIND -> {}
-                    Step.KEY -> Button(onClick = { step = Step.KIND }, enabled = idle && fingerprint != null) { Text("Next") }
+                    Step.KEY -> Button(onClick = { step = Step.KIND }, enabled = idle && fingerprint != null) { Text(tr("Next")) }
                     Step.PLACE -> Button(
                         onClick = { step = Step.IDENTITY },
                         enabled = idle && (url.isNotBlank() || (kind == Kind.CREATE && !online)),
-                    ) { Text("Next") }
+                    ) { Text(tr("Next")) }
                     Step.IDENTITY -> Button(
                         onClick = {
                             when (kind) {
@@ -178,7 +179,7 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                             }
                         },
                         enabled = idle && vaultName.isNotBlank() && author.isNotBlank() && email.isNotBlank(),
-                    ) { Text(if (kind == Kind.CREATE) "Create the vault" else "Download the vault") }
+                    ) { Text(if (kind == Kind.CREATE) tr("Create the vault") else tr("Download the vault")) }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -188,14 +189,14 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
 
 @Composable
 private fun WelcomePage(onStart: () -> Unit) {
-    Text("Welcome to Passel", style = MaterialTheme.typography.headlineMedium)
+    Text(tr("Welcome to Passel"), style = MaterialTheme.typography.headlineMedium)
     Text(
-        "Passel keeps your passwords in a pass vault: one encrypted file per entry, " +
-            "with its whole history, in a git repository you choose. The same vault opens " +
-            "on your computers and phones.",
+        tr(
+            "Passel keeps your passwords in a pass vault: one encrypted file per entry, with its whole history, in a git repository you choose. The same vault opens on your computers and phones.",
+        ),
     )
-    Text("Setting it up takes a few steps: your key, then your vault.")
-    Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) { Text("Get started") }
+    Text(tr("Setting it up takes a few steps: your key, then your vault."))
+    Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) { Text(tr("Get started")) }
 }
 
 @Composable
@@ -208,46 +209,46 @@ private fun KeyPage(state: VaultState, selected: String?, onSelect: (String) -> 
     var email by rememberSaveable { mutableStateOf("") }
     val idle = state.busy == null
 
-    PageTitle("Your encryption key")
+    PageTitle(tr("Your encryption key"))
     Text(
-        "Entries are encrypted with an OpenPGP key. To open a vault made on a computer, " +
-            "import the backup of its key (gpg --export-secret-keys --armor <id>). " +
-            "A new vault can use a key created here.",
+        tr(
+            "Entries are encrypted with an OpenPGP key. To open a vault made on a computer, import the backup of its key (gpg --export-secret-keys --armor <id>). A new vault can use a key created here.",
+        ),
     )
     state.keys.forEach { key ->
         Choice(selected = key.fingerprint == selected, onClick = { onSelect(key.fingerprint) }) {
             KeyLine(key, model)
         }
     }
-    Text(if (state.keys.isEmpty()) "Get a key:" else "Or add another key:", style = MaterialTheme.typography.titleSmall)
+    Text(if (state.keys.isEmpty()) tr("Get a key:") else tr("Or add another key:"), style = MaterialTheme.typography.titleSmall)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { pickKey.launch(arrayOf("*/*")) }, enabled = idle) { Text("Import a key") }
-        OutlinedButton(onClick = { creating = !creating }, enabled = idle) { Text("Create a key") }
+        OutlinedButton(onClick = { pickKey.launch(arrayOf("*/*")) }, enabled = idle) { Text(tr("Import a key")) }
+        OutlinedButton(onClick = { creating = !creating }, enabled = idle) { Text(tr("Create a key")) }
     }
     if (creating) {
-        OutlinedTextField(name, { name = it }, label = { Text("Your name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(name, { name = it }, label = { Text(tr("Your name")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(
             email,
             { email = it },
-            label = { Text("Email (optional)") },
+            label = { Text(tr("Email (optional)")) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth(),
         )
         Button(onClick = { model.createKey(name, email); creating = false }, enabled = idle && name.isNotBlank()) {
-            Text("Create")
+            Text(tr("Create"))
         }
     }
 }
 
 @Composable
 private fun KindPage(selected: Kind?, onSelect: (Kind) -> Unit) {
-    PageTitle("Your vault")
+    PageTitle(tr("Your vault"))
     Choice(selected = selected == Kind.DOWNLOAD, onClick = { onSelect(Kind.DOWNLOAD) }) {
-        ChoiceText("I already have a vault", "Download it from its repository: made with Passel, or with pass and git.")
+        ChoiceText(tr("I already have a vault"), tr("Download it from its repository: made with Passel, or with pass and git."))
     }
     Choice(selected = selected == Kind.CREATE, onClick = { onSelect(Kind.CREATE) }) {
-        ChoiceText("Create a new vault", "Start an empty vault, encrypted with your key.")
+        ChoiceText(tr("Create a new vault"), tr("Start an empty vault, encrypted with your key."))
     }
 }
 
@@ -270,40 +271,43 @@ private fun PlacePage(
         OutlinedTextField(
             url,
             onUrl,
-            label = { Text("Address (https://…)") },
+            label = { Text(tr("Address (https://…)")) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(username, onUsername, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        PasswordField(token, onToken, "Access token", Modifier.fillMaxWidth())
+        OutlinedTextField(username, onUsername, label = { Text(tr("Username")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        PasswordField(token, onToken, tr("Access token"), Modifier.fillMaxWidth())
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { model.checkRemote(url, username, token) }, enabled = url.isNotBlank()) {
-                Text("Check")
+                // Translators: button that checks a repository address.
+                Text(tr("Check"))
             }
             state.remoteCheck?.takeIf { it.url == url.trim() }?.let { CheckResult(it.state, kind, onSwitchKind) }
         }
     }
 
     if (kind == Kind.DOWNLOAD) {
-        PageTitle("Where is your vault?")
+        PageTitle(tr("Where is your vault?"))
         Text(
-            "The HTTPS address of its repository, and a personal access token allowed " +
-                "to read and write it (GitHub: a fine-grained token with Contents read and write).",
+            tr(
+                "The HTTPS address of its repository, and a personal access token allowed to read and write it (GitHub: a fine-grained token with Contents read and write).",
+            ),
         )
         remoteFields()
     } else {
-        PageTitle("Where to keep a copy?")
+        PageTitle(tr("Where to keep a copy?"))
         Choice(selected = online, onClick = { onOnline(true) }) {
             ChoiceText(
-                "Online, in an empty repository",
-                "Recommended: a private repository you created for it (GitHub, GitLab…). " +
-                    "Your vault is backed up, and your other devices sync with it.",
+                tr("Online, in an empty repository"),
+                tr(
+                    "Recommended: a private repository you created for it (GitHub, GitLab…). Your vault is backed up, and your other devices sync with it.",
+                ),
             )
         }
         if (online) remoteFields()
         Choice(selected = !online, onClick = { onOnline(false) }) {
-            ChoiceText("Only on this phone", "No backup: losing this phone loses this vault.")
+            ChoiceText(tr("Only on this phone"), tr("No backup: losing this phone loses this vault."))
         }
     }
 }
@@ -314,22 +318,22 @@ private fun CheckResult(found: RemoteState?, kind: Kind, onSwitchKind: (Kind) ->
     val good = MaterialTheme.colorScheme.primary
     val bad = MaterialTheme.colorScheme.error
     val (text, color) = when (found) {
-        null -> "Checking…" to Color.Unspecified
+        null -> tr("Checking…") to Color.Unspecified
         RemoteState.NOT_EMPTY ->
-            if (kind == Kind.DOWNLOAD) "Found a vault" to good else "It already holds a vault" to bad
+            if (kind == Kind.DOWNLOAD) tr("Found a vault") to good else tr("It already holds a vault") to bad
         RemoteState.EMPTY ->
-            if (kind == Kind.CREATE) "Empty: ready for a new vault" to good else "This repository is empty" to bad
-        RemoteState.ACCESS_DENIED -> "The server refused this username or token" to bad
-        RemoteState.UNKNOWN_HOST -> "Unknown server key" to bad
-        RemoteState.UNREACHABLE -> "Nothing found at this address" to bad
+            if (kind == Kind.CREATE) tr("Empty: ready for a new vault") to good else tr("This repository is empty") to bad
+        RemoteState.ACCESS_DENIED -> tr("The server refused this username or token") to bad
+        RemoteState.UNKNOWN_HOST -> tr("Unknown server key") to bad
+        RemoteState.UNREACHABLE -> tr("Nothing found at this address") to bad
     }
     Column {
         Text(text, color = color, style = MaterialTheme.typography.bodyMedium)
         when {
             found == RemoteState.EMPTY && kind == Kind.DOWNLOAD ->
-                TextButton(onClick = { onSwitchKind(Kind.CREATE) }) { Text("Create a new vault there") }
+                TextButton(onClick = { onSwitchKind(Kind.CREATE) }) { Text(tr("Create a new vault there")) }
             found == RemoteState.NOT_EMPTY && kind == Kind.CREATE ->
-                TextButton(onClick = { onSwitchKind(Kind.DOWNLOAD) }) { Text("Download it instead") }
+                TextButton(onClick = { onSwitchKind(Kind.DOWNLOAD) }) { Text(tr("Download it instead")) }
         }
     }
 }
@@ -343,20 +347,20 @@ private fun IdentityPage(
     email: String,
     onEmail: (String) -> Unit,
 ) {
-    PageTitle("Last step")
+    PageTitle(tr("Last step"))
     OutlinedTextField(
         vaultName,
         onVaultName,
-        label = { Text("Name of the vault on this phone") },
+        label = { Text(tr("Name of the vault on this phone")) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
-    Text("The changes you make from this phone are signed with:", style = MaterialTheme.typography.bodyMedium)
-    OutlinedTextField(author, onAuthor, label = { Text("Your name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+    Text(tr("The changes you make from this phone are signed with:"), style = MaterialTheme.typography.bodyMedium)
+    OutlinedTextField(author, onAuthor, label = { Text(tr("Your name")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
     OutlinedTextField(
         email,
         onEmail,
-        label = { Text("Your email") },
+        label = { Text(tr("Your email")) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         modifier = Modifier.fillMaxWidth(),
@@ -394,15 +398,16 @@ fun KeyLine(key: KeyInfo, model: VaultViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     Column {
-        Text(key.userId ?: "Key", style = MaterialTheme.typography.bodyLarge)
+        // Translators: shown for a key without a name.
+        Text(key.userId ?: tr("Key"), style = MaterialTheme.typography.bodyLarge)
         Text(key.fingerprint.chunked(4).joinToString(" "), style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = {
             scope.launch {
                 val armored = model.publicKey(key.fingerprint) ?: return@launch
                 val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, armored)
-                context.startActivity(Intent.createChooser(send, "Share the public key"))
+                context.startActivity(Intent.createChooser(send, tr("Share the public key")))
             }
-        }) { Text("Share public key") }
+        }) { Text(tr("Share public key")) }
     }
 }
 

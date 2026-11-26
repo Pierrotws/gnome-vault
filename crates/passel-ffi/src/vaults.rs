@@ -8,6 +8,7 @@ use std::{
 };
 
 use passel_core::app::vaults::{unused_vault_dir, VaultList};
+use passel_core::i18n::gettext;
 use serde_json::{json, Value};
 
 /// Where the first version kept its only vault.
@@ -39,7 +40,7 @@ impl Vaults {
             Err(_) => {
                 let legacy = data_dir.join(LEGACY_DIR);
                 if legacy.join(".git").is_dir() {
-                    vaults.add(&legacy, "Passwords");
+                    vaults.add(&legacy, &gettext("Passwords"));
                     if let Err(err) = vaults.save() {
                         log::warn!("could not save the vault list: {err}");
                     }
@@ -126,9 +127,10 @@ impl Vaults {
     /// Adds the vault at `dir` (named `name`, made unique) and opens it.
     pub fn add(&mut self, dir: &Path, name: &str) {
         let name = name.trim();
+        let default_name = gettext("Passwords");
         let name = self
             .list
-            .unique_name(if name.is_empty() { "Passwords" } else { name });
+            .unique_name(if name.is_empty() { &default_name } else { name });
         self.list.add(dir);
         if let Some(vault) = self.list.get_mut(dir) {
             vault.name = name;

@@ -1,5 +1,6 @@
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
+use crate::i18n::gettext;
 use crate::{
     helpers::{clipboard, otp},
     pass::model::EntryField,
@@ -187,10 +188,12 @@ impl OtpFieldRow {
         imp.url_entry.set_visibility(revealed);
         if revealed {
             imp.reveal_url_button.set_icon_name("view-conceal-symbolic");
-            imp.reveal_url_button.set_tooltip_text(Some("Hide URL"));
+            imp.reveal_url_button
+                .set_tooltip_text(Some(&gettext("Hide URL")));
         } else {
             imp.reveal_url_button.set_icon_name("view-reveal-symbolic");
-            imp.reveal_url_button.set_tooltip_text(Some("Show URL"));
+            imp.reveal_url_button
+                .set_tooltip_text(Some(&gettext("Show URL")));
         }
     }
 
@@ -241,7 +244,7 @@ impl OtpFieldRow {
             url_entry.set_tooltip_text(None);
         } else {
             url_entry.add_css_class("error");
-            url_entry.set_tooltip_text(Some("OTP URL must start with otpauth://"));
+            url_entry.set_tooltip_text(Some(&gettext("OTP URL must start with otpauth://")));
         }
     }
 }

@@ -45,6 +45,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Recreated when the language changes: pick it up before drawing.
+        I18n.apply(resources.configuration)
         // Secrets stay out of screenshots and the recent-apps preview.
         // Debug builds allow captures, for testing.
         if (!BuildConfig.DEBUG) {
@@ -106,28 +108,28 @@ private fun PassphraseDialog(request: PromptRequest, onAnswer: (String?) -> Unit
     val mismatch = creating && passphrase != confirm
     AlertDialog(
         onDismissRequest = { onAnswer(null) },
-        title = { Text(if (creating) "Choose a passphrase" else "Unlock your key") },
+        title = { Text(if (creating) tr("Choose a passphrase") else tr("Unlock your key")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (request) {
                     is PromptRequest.Unlock -> {
                         Text(request.key.userId ?: request.key.fingerprint)
-                        if (request.retry) Text("Wrong passphrase, try again", color = MaterialTheme.colorScheme.error)
+                        if (request.retry) Text(tr("Wrong passphrase, try again"), color = MaterialTheme.colorScheme.error)
                     }
                     is PromptRequest.NewKey -> Text(
-                        "It protects the key for ${request.userId} on this phone and in its backups.",
+                        tr("It protects the key for {user} on this phone and in its backups.", "user" to request.userId),
                     )
                 }
-                PasswordField(passphrase, { passphrase = it }, "Passphrase")
-                if (creating) PasswordField(confirm, { confirm = it }, "Repeat it")
+                PasswordField(passphrase, { passphrase = it }, tr("Passphrase"))
+                if (creating) PasswordField(confirm, { confirm = it }, tr("Repeat it"))
             }
         },
         confirmButton = {
             TextButton(onClick = { onAnswer(passphrase) }, enabled = passphrase.isNotEmpty() && !mismatch) {
-                Text(if (creating) "Create" else "Unlock")
+                Text(if (creating) tr("Create") else tr("Unlock"))
             }
         },
-        dismissButton = { TextButton(onClick = { onAnswer(null) }) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = { onAnswer(null) }) { Text(tr("Cancel")) } },
     )
 }
 

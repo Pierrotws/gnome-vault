@@ -1,8 +1,9 @@
 using Gtk 4.0;
 using Adw 1;
+translation-domain "passel";
 
 Adw.Window new_entry_dialog {
-    title: "New Entry";
+    title: _("New Entry");
     modal: true;
     resizable: true;
     default-width: 640;
@@ -19,14 +20,14 @@ Adw.Window new_entry_dialog {
             margin-end: 18;
 
             Adw.PreferencesGroup {
-                title: "Entry";
+                title: _("Entry");
 
                 Adw.EntryRow name_row {
-                    title: "Name";
+                    title: _("Name");
                 }
 
                 Adw.EntryRow folder_row {
-                    title: "Parent Folder";
+                    title: _("Parent Folder");
                 }
             }
 
@@ -43,11 +44,11 @@ Adw.Window new_entry_dialog {
             margin-end: 18;
 
             Gtk.Button cancel_button {
-                label: "Cancel";
+                label: _("Cancel");
             }
 
             Gtk.Button create_button {
-                label: "Create";
+                label: _("Create");
                 sensitive: false;
                 styles ["suggested-action"]
             }

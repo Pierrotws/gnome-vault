@@ -18,8 +18,12 @@ resources = gnome.compile_resources(
 # Launcher entry and icons (assets/icons/make-icons.py makes the icons
 # from logo.png). The file names match the application id, so the
 # desktop shell ties the running window to them.
-install_data(
-  'io.pierrotws.Passel.desktop',
+i18n.merge_file(
+  input: 'io.pierrotws.Passel.desktop.in',
+  output: 'io.pierrotws.Passel.desktop',
+  type: 'desktop',
+  po_dir: meson.project_source_root() / 'po',
+  install: true,
   install_dir: datadir / 'applications',
 )
 foreach size : [16, 24, 32, 48, 64, 128, 256, 512]

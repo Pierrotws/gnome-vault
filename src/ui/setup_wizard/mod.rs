@@ -12,6 +12,7 @@ use adw::{prelude::*, subclass::prelude::*};
 use gtk::{gio, glib};
 
 use crate::app::setup;
+use crate::i18n::gettext;
 use crate::pass::store::{SetupPlan, SetupStep, StoreStatus, SyncTarget};
 
 glib::wrapper! {
@@ -186,15 +187,15 @@ impl SetupWizard {
         } else {
             match setup::folder_status(Path::new(path)) {
                 StoreStatus::Missing | StoreStatus::Empty | StoreStatus::Ready => None,
-                StoreStatus::PassWithoutGit => {
-                    Some("This folder already holds a password store. Choose an empty folder.")
-                }
-                StoreStatus::Unrelated => {
-                    Some("This folder is not empty. Choose an empty or new folder.")
-                }
+                StoreStatus::PassWithoutGit => Some(gettext(
+                    "This folder already holds a password store. Choose an empty folder.",
+                )),
+                StoreStatus::Unrelated => Some(gettext(
+                    "This folder is not empty. Choose an empty or new folder.",
+                )),
             }
         };
-        imp.vault_group.set_description(folder_problem);
+        imp.vault_group.set_description(folder_problem.as_deref());
         if folder_problem.is_some() {
             imp.path_row.add_css_class("error");
         } else {
@@ -275,7 +276,7 @@ impl SetupWizard {
 
         imp.error_label.set_visible(false);
         imp.skip_button.set_visible(false);
-        imp.apply_button.set_label("Create Vault");
+        imp.apply_button.set_label(&gettext("Create Vault"));
         imp.apply_button.set_sensitive(true);
         imp.review_back_button.set_sensitive(true);
         self.set_locked(false);
@@ -353,7 +354,7 @@ impl SetupWizard {
             }
         }
 
-        imp.apply_button.set_label("Open Vault");
+        imp.apply_button.set_label(&gettext("Open Vault"));
         self.emit_vault_created();
     }
 
@@ -372,7 +373,7 @@ impl SetupWizard {
         }
         imp.skip_button.set_visible(false);
         imp.error_label.set_visible(false);
-        imp.apply_button.set_label("Open Vault");
+        imp.apply_button.set_label(&gettext("Open Vault"));
         self.emit_vault_created();
     }
 
@@ -380,7 +381,7 @@ impl SetupWizard {
         let imp = self.imp();
         imp.error_label.set_label(message);
         imp.error_label.set_visible(true);
-        imp.apply_button.set_label("Retry");
+        imp.apply_button.set_label(&gettext("Retry"));
         imp.skip_button
             .set_visible(step.is_some_and(SetupStep::is_sync));
     }
@@ -428,7 +429,7 @@ fn flatten(
     match result {
         Ok(Ok(())) => Ok(()),
         Ok(Err(err)) => Err(err.to_string()),
-        Err(_) => Err("Setup task panicked unexpectedly".to_string()),
+        Err(_) => Err(gettext("Setup task panicked unexpectedly")),
     }
 }
 
@@ -437,37 +438,37 @@ fn step_text(step: SetupStep, plan: &SetupPlan, key_label: Option<&str>) -> (Str
     let to_folder = matches!(plan.sync, Some(SyncTarget::Folder(_)));
     let (title, subtitle) = match step {
         SetupStep::CreateFolder => (
-            "Create the vault folder",
+            gettext("Create the vault folder"),
             plan.store_dir.to_string_lossy().into_owned(),
         ),
         SetupStep::StartHistory => (
-            "Turn on history",
-            "Record every change so it can be undone".to_string(),
+            gettext("Turn on history"),
+            gettext("Record every change so it can be undone"),
         ),
         SetupStep::SaveRecipient => (
-            "Encrypt entries with your key",
+            gettext("Encrypt entries with your key"),
             key_label.unwrap_or(plan.recipient.as_str()).to_string(),
         ),
         SetupStep::CreateCopy => (
-            "Create the copy",
+            gettext("Create the copy"),
             plan.remote_url().unwrap_or_default().to_string(),
         ),
         SetupStep::ConnectRemote if to_folder => (
-            "Link the vault to its copy",
-            "Changes will be copied there".to_string(),
+            gettext("Link the vault to its copy"),
+            gettext("Changes will be copied there"),
         ),
         SetupStep::ConnectRemote => (
-            "Connect to the online copy",
+            gettext("Connect to the online copy"),
             plan.remote_url().unwrap_or_default().to_string(),
         ),
         SetupStep::Upload => (
             if to_folder {
-                "Fill the copy"
+                gettext("Fill the copy")
             } else {
-                "Upload the vault"
+                gettext("Upload the vault")
             },
-            "Send the first version".to_string(),
+            gettext("Send the first version"),
         ),
     };
-    (title.to_string(), subtitle)
+    (title, subtitle)
 }

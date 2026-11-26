@@ -12,6 +12,7 @@ use zeroize::Zeroizing;
 
 use crate::app::app_error::AppError;
 use crate::app::import;
+use crate::i18n::{gettext, gettext_f, ngettext_f};
 use crate::pass::import::{ImportSource, ImportedItem};
 
 use super::MainWindow;
@@ -58,42 +59,44 @@ impl MainWindow {
 impl ImportDialog {
     fn build() -> Self {
         let source_row = adw::ComboRow::builder()
-            .title("From")
+            .title(gettext("From"))
             .model(&gtk::StringList::new(&[
                 "KeePassXC (.kdbx)",
                 "Buttercup (.bcup)",
             ]))
             .build();
         let choose_button = gtk::Button::builder()
-            .label("Choose…")
+            .label(gettext("Choose…"))
             .valign(gtk::Align::Center)
             .build();
         let file_row = adw::ActionRow::builder()
-            .title("File")
-            .subtitle("No file chosen")
+            .title(gettext("File"))
+            .subtitle(gettext("No file chosen"))
             .use_markup(false)
             .build();
         file_row.add_suffix(&choose_button);
         let password_row = adw::PasswordEntryRow::builder()
-            .title("Master password")
+            .title(gettext("Master password"))
             .build();
         let from_group = adw::PreferencesGroup::builder()
-            .description("The master password only opens the file here; Passel does not keep it.")
+            .description(gettext(
+                "The master password only opens the file here; Passel does not keep it.",
+            ))
             .build();
         from_group.add(&source_row);
         from_group.add(&file_row);
         from_group.add(&password_row);
 
         let destination_row = adw::EntryRow::builder()
-            .title("Folder in this vault")
+            .title(gettext("Folder in this vault"))
             .text(default_destination(ImportSource::KeePassXc).as_str())
             .build();
         let into_group = adw::PreferencesGroup::builder()
-            .title("Into")
-            .description(
+            .title(gettext("Into"))
+            .description(gettext(
                 "Groups become folders inside it. A name already in use gets a number, \
                  e.g. “Bank (2)”.",
-            )
+            ))
             .build();
         into_group.add(&destination_row);
 
@@ -110,7 +113,7 @@ impl ImportDialog {
         status_box.append(&status_label);
 
         let action_button = gtk::Button::builder()
-            .label("Open File")
+            .label(gettext("Open File"))
             .halign(gtk::Align::End)
             .css_classes(["suggested-action"])
             .build();
@@ -133,7 +136,7 @@ impl ImportDialog {
         toolbar.set_content(Some(&content));
 
         let dialog = adw::Dialog::builder()
-            .title("Import Passwords")
+            .title(gettext("Import Passwords"))
             .content_width(520)
             .child(&toolbar)
             .build();
@@ -209,11 +212,18 @@ impl ImportDialog {
         let state = self.state.borrow();
         let (label, ready) = match &state.items {
             None => (
-                "Open File".to_string(),
+                gettext("Open File"),
                 state.file.is_some() && !self.password_row.text().is_empty(),
             ),
-            Some(items) if items.len() == 1 => ("Import 1 Entry".to_string(), true),
-            Some(items) => (format!("Import {} Entries", items.len()), !items.is_empty()),
+            Some(items) => (
+                ngettext_f(
+                    "Import {n} Entry",
+                    "Import {n} Entries",
+                    items.len() as u64,
+                    &[("n", &items.len().to_string())],
+                ),
+                !items.is_empty(),
+            ),
         };
         self.action_button.set_label(&label);
         self.action_button.set_sensitive(ready && !state.busy);
@@ -258,19 +268,19 @@ impl ImportDialog {
     fn choose_file(&self, window: &MainWindow) {
         let filter = gtk::FileFilter::new();
         let (name, pattern) = match self.source() {
-            ImportSource::KeePassXc => ("KeePassXC databases", "*.kdbx"),
-            ImportSource::Buttercup => ("Buttercup vaults", "*.bcup"),
+            ImportSource::KeePassXc => (gettext("KeePassXC databases"), "*.kdbx"),
+            ImportSource::Buttercup => (gettext("Buttercup vaults"), "*.bcup"),
         };
-        filter.set_name(Some(name));
+        filter.set_name(Some(&name));
         filter.add_pattern(pattern);
         let any = gtk::FileFilter::new();
-        any.set_name(Some("All files"));
+        any.set_name(Some(&gettext("All files")));
         any.add_pattern("*");
         let filters = gio::ListStore::new::<gtk::FileFilter>();
         filters.append(&filter);
         filters.append(&any);
         let dialog = gtk::FileDialog::builder()
-            .title("Choose a File to Import")
+            .title(gettext("Choose a File to Import"))
             .modal(true)
             .filters(&filters)
             .build();
@@ -302,24 +312,28 @@ impl ImportDialog {
         let password = Zeroizing::new(self.password_row.text().to_string());
         let source = self.source();
         self.state.borrow_mut().busy = true;
-        self.set_status(Some((None, "Opening the file…")));
+        self.set_status(Some((None, &gettext("Opening the file…"))));
         self.update();
 
         let ui = self.clone();
         glib::spawn_future_local(async move {
             let result = gio::spawn_blocking(move || import::read_file(source, &path, &password))
                 .await
-                .unwrap_or_else(|_| Err("The import stopped unexpectedly".to_string()));
+                .unwrap_or_else(|_| Err(gettext("The import stopped unexpectedly")));
             ui.state.borrow_mut().busy = false;
             match result {
                 Ok(items) => {
                     let message = if items.is_empty() {
-                        "This file has no entries to import.".to_string()
+                        gettext("This file has no entries to import.")
                     } else {
-                        format!(
-                            "Found {} in {} (the trash is left out).",
-                            count(items.len(), "entry", "entries"),
-                            count(import::group_count(&items), "group", "groups")
+                        gettext_f(
+                            // Translators: {entries} is "1 entry" or "5 entries",
+                            // {groups} is "1 group" or "3 groups".
+                            "Found {entries} in {groups} (the trash is left out).",
+                            &[
+                                ("entries", &entries(items.len())),
+                                ("groups", &groups(import::group_count(&items))),
+                            ],
                         )
                     };
                     ui.set_status(Some((Some(!items.is_empty()), &message)));
@@ -342,7 +356,7 @@ impl ImportDialog {
         let source = self.source();
         let autopush = window.controller().borrow().autopush();
         self.state.borrow_mut().busy = true;
-        self.set_status(Some((None, "Encrypting and saving the entries…")));
+        self.set_status(Some((None, &gettext("Encrypting and saving the entries…"))));
         self.update();
 
         let ui = self.clone();
@@ -388,31 +402,48 @@ impl MainWindow {
         if let Err(err) = self.reload_changes_view() {
             log::debug!("history unavailable: {err}");
         }
-        let place = if destination.as_os_str().is_empty() {
-            "the vault".to_string()
-        } else {
-            format!("“{}”", destination.display())
-        };
+        let folder = destination.display().to_string();
+        let in_root = destination.as_os_str().is_empty();
         let body = match summary {
-            Some(summary) if summary.renamed > 0 => format!(
-                "Added {} to {place}. {} a number because the name was already in use.",
-                count(summary.written, "entry", "entries"),
-                count(summary.renamed, "entry got", "entries got")
+            Some(summary) => {
+                let written = entries(summary.written);
+                let added = if in_root {
+                    // Translators: {entries} is "1 entry" or "5 entries".
+                    gettext_f("Added {entries} to the vault.", &[("entries", &written)])
+                } else {
+                    gettext_f(
+                        // Translators: {entries} is "1 entry" or "5 entries".
+                        "Added {entries} to “{folder}”.",
+                        &[("entries", &written), ("folder", &folder)],
+                    )
+                };
+                if summary.renamed > 0 {
+                    let renamed = ngettext_f(
+                        "{n} entry got a number because the name was already in use.",
+                        "{n} entries got a number because the name was already in use.",
+                        summary.renamed as u64,
+                        &[("n", &summary.renamed.to_string())],
+                    );
+                    format!("{added} {renamed}")
+                } else {
+                    added
+                }
+            }
+            None if in_root => gettext(
+                "The entries were added to the vault and saved, but uploading them failed. \
+                 Use Changes to try again.",
             ),
-            Some(summary) => format!(
-                "Added {} to {place}.",
-                count(summary.written, "entry", "entries")
-            ),
-            None => format!(
-                "The entries were added to {place} and saved, but uploading them failed. \
-                 Use Changes to try again."
+            None => gettext_f(
+                "The entries were added to “{folder}” and saved, but uploading them failed. \
+                 Use Changes to try again.",
+                &[("folder", &folder)],
             ),
         };
         let dialog = adw::AlertDialog::builder()
-            .heading("Import Finished")
+            .heading(gettext("Import Finished"))
             .body(body)
             .build();
-        dialog.add_responses(&[("ok", "OK")]);
+        dialog.add_responses(&[("ok", &gettext("OK"))]);
         dialog.set_default_response(Some("ok"));
         dialog.set_close_response("ok");
         dialog.present(Some(self));
@@ -420,10 +451,30 @@ impl MainWindow {
 }
 
 fn default_destination(source: ImportSource) -> String {
-    format!("Imported/{}", source.name())
+    gettext_f(
+        // Translators: the suggested folder for imported entries;
+        // {source} is KeePassXC or Buttercup.
+        "Imported/{source}",
+        &[("source", source.name())],
+    )
 }
 
 /// "1 entry", "2 entries".
-fn count(n: usize, one: &str, many: &str) -> String {
-    format!("{n} {}", if n == 1 { one } else { many })
+fn entries(n: usize) -> String {
+    ngettext_f(
+        "{n} entry",
+        "{n} entries",
+        n as u64,
+        &[("n", &n.to_string())],
+    )
+}
+
+/// "1 group", "2 groups".
+fn groups(n: usize) -> String {
+    ngettext_f(
+        "{n} group",
+        "{n} groups",
+        n as u64,
+        &[("n", &n.to_string())],
+    )
 }
