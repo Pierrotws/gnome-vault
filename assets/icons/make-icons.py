@@ -8,7 +8,11 @@ Writes, from the repository root:
 - assets/icons/passel.ico: the Windows icon (program, installer,
   shortcuts);
 - android/app/src/main/res/mipmap-*/ic_launcher_foreground.png: the
-  Android adaptive icon's foreground (its background is white).
+  Android adaptive icon's foreground (its background is white);
+- assets/android/store/icon.png and feature-graphic.png: the Google Play
+  store listing's app icon and feature graphic (the text of the latter is
+  in feature-graphic.svg). Uploaded by hand in Play Console, Grow users >
+  Store presence > Store listings, with the screenshots next to them.
 """
 
 import subprocess
@@ -30,14 +34,20 @@ WINDOWS_SIZES = [16, 20, 24, 32, 40, 48, 64, 256]
 # keeps the margin other launcher icons have.
 ANDROID_DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
 ANDROID_LAYER_DP, ANDROID_CONTENT_DP = 108, 48
+# Of the 108 dp layer, launchers show the central 72 dp.
+ANDROID_VISIBLE_DP = 72
+STORE = ROOT / "assets/android/store"
+PLAY_ICON_SIZE = 512
+# Where the logo goes in feature-graphic.svg: left, top, side.
+LOGO_BOX = (72, 90, 320)
 
 
-def render(size: int) -> Image.Image:
-    """Rasterizes the SVG to a `size`x`size` image, transparent background."""
+def render(width: int, height: int | None = None, svg: Path = SVG) -> Image.Image:
+    """Rasterizes `svg` to `width`x`height` (square by default)."""
     with tempfile.TemporaryDirectory() as tmp:
         png = Path(tmp) / "logo.png"
         subprocess.run(
-            ["rsvg-convert", "-w", str(size), "-h", str(size), "-o", str(png), str(SVG)],
+            ["rsvg-convert", "-w", str(width), "-h", str(height or width), "-o", str(png), str(svg)],
             check=True,
         )
         return Image.open(png).convert("RGBA")
@@ -77,6 +87,23 @@ def main() -> None:
         dest = ROOT / f"android/app/src/main/res/mipmap-{density}/ic_launcher_foreground.png"
         dest.parent.mkdir(parents=True, exist_ok=True)
         canvas.save(dest, optimize=True)
+
+    # The Play store listing's icon: a full-bleed 512 px square (Play rounds
+    # its corners), the launcher icon as a phone shows it: the logo on white,
+    # 48 dp of the visible 72 dp.
+    play = Image.new("RGB", (PLAY_ICON_SIZE, PLAY_ICON_SIZE), "white")
+    inner = round(PLAY_ICON_SIZE * ANDROID_CONTENT_DP / ANDROID_VISIBLE_DP)
+    logo = content.resize((inner, inner), Image.LANCZOS)
+    offset = (PLAY_ICON_SIZE - inner) // 2
+    play.paste(logo, (offset, offset), logo)
+    play.save(STORE / "icon.png", optimize=True)
+
+    # Play's feature graphic: the background and text, then the logo.
+    feature = render(1024, 500, STORE / "feature-graphic.svg").convert("RGB")
+    left, top, side = LOGO_BOX
+    logo = content.resize((side, side), Image.LANCZOS)
+    feature.paste(logo, (left, top), logo)
+    feature.save(STORE / "feature-graphic.png", optimize=True)
 
 
 if __name__ == "__main__":

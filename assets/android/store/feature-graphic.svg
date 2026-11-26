@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <!-- Google Play's feature graphic, without the logo: make-icons.py
+       draws assets/logo.svg in the empty square on the left
+       (LOGO_BOX there) and writes feature-graphic.png. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6f3ff"/>
+      <stop offset="1" stop-color="#e3dafe"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <!-- Sheets echoing the logo's, behind the text. -->
+  <circle cx="1010" cy="-30" r="230" fill="#cdbcfd" opacity="0.35"/>
+  <circle cx="930" cy="560" r="170" fill="#ab91fb" opacity="0.18"/>
+  <g font-family="Inter, sans-serif" fill="#17306a">
+    <text x="440" y="215" font-family="Inter Display, Inter, sans-serif" font-size="104" font-weight="700" letter-spacing="-2">Passel</text>
+    <text x="444" y="270" font-size="30" font-weight="600">Your passwords, in a vault you own</text>
+    <g font-size="23" font-weight="500" fill="#3c4a78">
+      <circle cx="453" cy="324" r="6" fill="#25e475"/>
+      <text x="469" y="332">Encrypted with your own OpenPGP key</text>
+      <circle cx="453" cy="364" r="6" fill="#25e475"/>
+      <text x="469" y="372">Synced with Google Drive or git</text>
+      <circle cx="453" cy="404" r="6" fill="#25e475"/>
+      <text x="469" y="412">Works with pass and its other apps</text>
+    </g>
+  </g>
+</svg>
