@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -97,14 +97,14 @@ jobs:
 
       - name: Upload artifacts (untagged run)
         if: "!startsWith(github.ref, 'refs/tags/')"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: passel-deb
           path: '*.deb'
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: '*.deb'
 
@@ -126,7 +126,7 @@ jobs:
             git curl
 
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -166,14 +166,14 @@ jobs:
 
       - name: Upload artifacts (untagged run)
         if: "!startsWith(github.ref, 'refs/tags/')"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: passel-arch-bin
           path: 'passel-*-x86_64.tar.gz'
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: 'passel-*-x86_64.tar.gz'
 
@@ -196,7 +196,7 @@ jobs:
         run: git config --global core.autocrlf false
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: MSYS2
         uses: msys2/setup-msys2@v2
@@ -245,14 +245,14 @@ jobs:
 
       - name: Upload artifacts (untagged run)
         if: "!startsWith(github.ref, 'refs/tags/')"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: passel-windows-installer
           path: 'passel-*-x86_64-setup.exe'
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: 'passel-*-x86_64-setup.exe'
 
@@ -274,7 +274,7 @@ jobs:
         run: pacman -Syu --noconfirm git openssh pacman-contrib
 
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
 
@@ -385,6 +385,12 @@ jobs:
       - name: Rust Android targets
         if: env.CONFIGURED == 'true'
         run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+
+      # msgfmt compiles the translations into the library (passel-ffi's
+      # build.rs).
+      - name: gettext
+        if: env.CONFIGURED == 'true'
+        run: sudo apt-get install -y --no-install-recommends gettext
 
       - name: Cache cargo
         if: env.CONFIGURED == 'true'
