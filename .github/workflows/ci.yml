@@ -189,13 +189,15 @@ jobs:
       # Link MSYS2's libgit2 and libssh2 instead of building copies.
       LIBGIT2_NO_VENDOR: 1
       LIBSSH2_SYS_USE_PKG_CONFIG: 1
-      CARGO_HOME: ${{ runner.temp }}/cargo-home
     steps:
       # Byte-identical sources: CRLF would change the .po and .ui files
-      # meson compiles, and the test fixtures.
-      - name: Keep LF line endings
+      # meson compiles, and the test fixtures. CARGO_HOME at a path the
+      # cache step can name (job env cannot use the runner context).
+      - name: Keep LF line endings, place CARGO_HOME
         shell: pwsh
-        run: git config --global core.autocrlf false
+        run: |
+          /usr/bin/git config --global core.autocrlf false
+          "CARGO_HOME=$env:RUNNER_TEMP\cargo-home" >> $env:GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@v7
