@@ -196,7 +196,7 @@ jobs:
       - name: Keep LF line endings, place CARGO_HOME
         shell: pwsh
         run: |
-          /usr/bin/git config --global core.autocrlf false
+          git config --global core.autocrlf false
           "CARGO_HOME=$env:RUNNER_TEMP\cargo-home" >> $env:GITHUB_ENV
 
       - name: Checkout
