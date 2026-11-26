@@ -1,0 +1,1 @@
+Passwords in a pass vault you own, OpenPGP-encrypted, synced with Drive or git
