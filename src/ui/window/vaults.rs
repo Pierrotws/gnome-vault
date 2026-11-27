@@ -351,7 +351,7 @@ impl MainWindow {
             } else if !info.has_history {
                 // Translators: a vault's state in the vault list.
                 gettext("no history")
-            } else if info.remote_url.is_some() {
+            } else if info.remote_url.is_some() || info.bundle_path.is_some() || info.on_drive {
                 // Translators: a vault's state in the vault list.
                 gettext("history, synced")
             } else {
@@ -553,8 +553,47 @@ impl MainWindow {
         history_group.add(&history_row);
         page.add(&history_group);
 
-        // Sync (needs history)
-        if info.has_history {
+        // Sync (needs history): a copy kept as a file (a bundle file, Google
+        // Drive) is shown as it is.
+        let copy_place = if info.on_drive {
+            Some((gettext("Kept on Google Drive"), String::new()))
+        } else {
+            info.bundle_path.as_ref().map(|bundle| {
+                (
+                    gettext("Copied to a file"),
+                    bundle.to_string_lossy().into_owned(),
+                )
+            })
+        };
+        if let Some((title, subtitle)) = copy_place.filter(|_| info.has_history) {
+            let sync_group = adw::PreferencesGroup::builder()
+                .title(gettext("Sync"))
+                .build();
+            let copy_row = adw::ActionRow::builder()
+                .title(title)
+                .subtitle(subtitle)
+                .subtitle_selectable(true)
+                .use_markup(false)
+                .build();
+            sync_group.add(&copy_row);
+            let autopush_row = adw::SwitchRow::builder()
+                .title(gettext("Push changes automatically"))
+                .subtitle(gettext("Upload after every saved change"))
+                .active(vault.autopush)
+                .build();
+            autopush_row.connect_active_notify(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                #[strong]
+                path_buf,
+                move |row| {
+                    let autopush = row.is_active();
+                    window.update_vault_config(&path_buf, |vault| vault.autopush = autopush);
+                }
+            ));
+            sync_group.add(&autopush_row);
+            page.add(&sync_group);
+        } else if info.has_history {
             let sync_group = adw::PreferencesGroup::builder()
                 .title(gettext("Sync"))
                 .description(gettext(

@@ -207,13 +207,41 @@ pub struct OtpCode {
     pub period: u32,
 }
 
+/// Where a vault's copy is kept.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum Storage {
+    /// One bundle file on the user's Google Drive, which the app
+    /// downloads and uploads: see [`Passel::merge_bundle`].
+    GoogleDrive,
+    /// A git repository (`remote_url`): see [`Passel::sync`].
+    Git,
+    /// One bundle file the user picked (`copy_location`, a document the
+    /// app reads and writes): see [`Passel::merge_bundle`].
+    File,
+    /// A folder the user picked (`copy_location`), holding a bare git
+    /// repository that the app copies in and out: see
+    /// [`Passel::merge_folder`].
+    Folder,
+    /// Nowhere: only on this device.
+    Device,
+}
+
 /// A vault on this device.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct VaultInfo {
     /// Stable id (its folder in the app's storage, e.g. `vaults/work`).
     pub id: String,
     pub name: String,
+    pub storage: Storage,
     pub remote_url: Option<String>,
+    /// The Drive file holding a [`Storage::GoogleDrive`] vault, once
+    /// uploaded.
+    pub drive_file_id: Option<String>,
+    /// The Drive file's version this vault last merged or uploaded.
+    pub drive_version: Option<String>,
+    /// Where a [`Storage::File`] or [`Storage::Folder`] copy is (for the
+    /// app: a document or folder URI).
+    pub copy_location: Option<String>,
     /// The vault the entry calls work on.
     pub active: bool,
 }
@@ -245,12 +273,18 @@ pub enum RemoteState {
     NotHttps,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct SyncResult {
     /// Commits made elsewhere, now here.
     pub received: u32,
-    /// Commits made here, now on the remote.
+    /// Commits made here, now on the remote (for a copy the app writes:
+    /// to write).
     pub sent: u32,
+    /// Entries changed both here and in a copy the app keeps (Google
+    /// Drive, a file, a folder): the copy's version is in place, and this
+    /// device's was kept as a new entry at each of these paths
+    /// (`web/site (conflict).gpg`).
+    pub kept_copies: Vec<String>,
 }
 
 /// The app's Passel: keyring, credentials and vault, under `data_dir`.
@@ -396,12 +430,7 @@ impl Passel {
         self.vault_list()
             .listed()
             .into_iter()
-            .map(|vault| VaultInfo {
-                remote_url: store::remote_url(&vault.dir),
-                id: vault.id,
-                name: vault.name,
-                active: vault.active,
-            })
+            .map(|vault| vault_info(&vault.dir, vault.id, vault.name, vault.active))
             .collect()
     }
 
@@ -501,6 +530,7 @@ impl Passel {
             recipient,
             sync: remote_url.map(SyncTarget::Remote),
             autopush: true,
+            download: false,
         };
         store::check_setup_plan(&plan).map_err(|err| match err {
             StoreError::InvalidRecipient => {
@@ -535,6 +565,141 @@ impl Passel {
         })
     }
 
+    /// Creates a new, empty vault `name` encrypted for `recipient`, kept
+    /// in a copy the app writes (`storage`: Google Drive, a file or a
+    /// folder, at `location` for the last two). The app then writes the
+    /// copy ([`Passel::write_bundle`] or [`Passel::push_folder`]).
+    pub fn create_copied_vault(
+        &self,
+        name: String,
+        recipient: String,
+        storage: Storage,
+        location: Option<String>,
+        author_name: String,
+        author_email: String,
+    ) -> Result<VaultInfo, PasselError> {
+        let copy = copy_name(storage).ok_or_else(|| PasselError::failed("not a copy"))?;
+        let created = self.create_vault(name, recipient, None, author_name, author_email)?;
+        let dir = self.vault_dir()?;
+        store::set_storage(&dir, copy)?;
+        if let Some(location) = &location {
+            git::set_local_config(&dir, COPY_LOCATION_KEY, location)?;
+        }
+        Ok(VaultInfo {
+            storage,
+            copy_location: location,
+            ..created.vault
+        })
+    }
+
+    /// Makes a vault `name` on this device from a copy the app read to
+    /// `path` (a bundle file, or for [`Storage::Folder`] a folder holding
+    /// a bare repository), kept there (`storage`, at `location`) from now
+    /// on, and opens it. This device's commits are signed `author_name
+    /// <author_email>`.
+    pub fn download_copied_vault(
+        &self,
+        name: String,
+        storage: Storage,
+        path: String,
+        location: Option<String>,
+        author_name: String,
+        author_email: String,
+    ) -> Result<VaultInfo, PasselError> {
+        let copy = copy_name(storage).ok_or_else(|| PasselError::failed("not a copy"))?;
+        let _guard = self.lock_vault();
+        let dir = self.vault_list().new_dir(&name);
+        let made = if storage == Storage::Folder {
+            store::clone_vault_folder(Path::new(&path), &dir, copy, &author_name, &author_email)
+        } else {
+            store::clone_vault_bundle(Path::new(&path), &dir, copy, &author_name, &author_email)
+        };
+        let made = made
+            .map_err(PasselError::from)
+            .and_then(|()| match &location {
+                Some(location) => Ok(git::set_local_config(&dir, COPY_LOCATION_KEY, location)?),
+                None => Ok(()),
+            });
+        if let Err(err) = made {
+            let _ = std::fs::remove_dir_all(&dir);
+            return Err(err);
+        }
+        Ok(self.register(&dir, &name))
+    }
+
+    /// Writes the open vault's history to `out_path` as a bundle file,
+    /// for its copy (Google Drive, a file); once stored, call
+    /// [`Passel::copy_written`] (for Drive: [`Passel::drive_uploaded`]).
+    pub fn write_bundle(&self, out_path: String) -> Result<(), PasselError> {
+        let _guard = self.lock_vault();
+        Ok(store::write_vault_bundle(
+            &self.vault_dir()?,
+            Path::new(&out_path),
+        )?)
+    }
+
+    /// Takes the changes of the open vault's copy, a bundle file the app
+    /// read to `bundle_path` (from Google Drive: at `drive_version`).
+    /// When `sent` is not zero, the copy lacks this device's changes:
+    /// write it again.
+    pub fn merge_bundle(
+        &self,
+        bundle_path: String,
+        drive_version: Option<String>,
+    ) -> Result<SyncResult, PasselError> {
+        let _guard = self.lock_vault();
+        let dir = self.vault_dir()?;
+        let copy = self.copy_of(&dir)?;
+        let merge = store::merge_vault_bundle(&dir, Path::new(&bundle_path), copy)?;
+        if let Some(version) = drive_version {
+            git::set_local_config(&dir, DRIVE_VERSION_KEY, &version)?;
+        }
+        Ok(sync_result(merge))
+    }
+
+    /// Takes the changes of the open vault's folder copy, which the app
+    /// copied to `folder_path`. When `sent` is not zero,
+    /// [`Passel::push_folder`].
+    pub fn merge_folder(&self, folder_path: String) -> Result<SyncResult, PasselError> {
+        let _guard = self.lock_vault();
+        let dir = self.vault_dir()?;
+        let copy = self.copy_of(&dir)?;
+        Ok(sync_result(store::merge_vault_folder(
+            &dir,
+            Path::new(&folder_path),
+            copy,
+        )?))
+    }
+
+    /// Sends the open vault into `folder_path` (a bare repository, made
+    /// when missing), for the app to copy back to the vault's folder;
+    /// then call [`Passel::copy_written`].
+    pub fn push_folder(&self, folder_path: String) -> Result<(), PasselError> {
+        let _guard = self.lock_vault();
+        Ok(store::push_vault_folder(
+            &self.vault_dir()?,
+            Path::new(&folder_path),
+        )?)
+    }
+
+    /// The app wrote the open vault's copy, as it is now.
+    pub fn copy_written(&self) -> Result<(), PasselError> {
+        let _guard = self.lock_vault();
+        let dir = self.vault_dir()?;
+        let copy = self.copy_of(&dir)?;
+        Ok(store::copy_written(&dir, copy)?)
+    }
+
+    /// The app uploaded the open vault (as written) to Drive file
+    /// `file_id`, now at `version`.
+    pub fn drive_uploaded(&self, file_id: String, version: String) -> Result<(), PasselError> {
+        let _guard = self.lock_vault();
+        let dir = self.vault_dir()?;
+        git::set_local_config(&dir, DRIVE_FILE_KEY, &file_id)?;
+        git::set_local_config(&dir, DRIVE_VERSION_KEY, &version)?;
+        Ok(store::copy_written(&dir, store::DRIVE_STORAGE)?)
+    }
+
     /// Deletes this device's copy of a vault (its remote keeps its own)
     /// and opens the next one, if any.
     pub fn remove_vault(&self, id: String) -> Result<(), PasselError> {
@@ -555,6 +720,22 @@ impl Passel {
     pub fn sync(&self) -> Result<SyncResult, PasselError> {
         let _guard = self.lock_vault();
         let dir = self.vault_dir()?;
+        match storage(&dir) {
+            Storage::GoogleDrive | Storage::File | Storage::Folder => {
+                return Err(PasselError::failed(gettext(
+                    "This vault is kept in a copy the app syncs",
+                )))
+            }
+            // Kept on this device only: nothing to exchange.
+            Storage::Device => {
+                return Ok(SyncResult {
+                    received: 0,
+                    sent: 0,
+                    kept_copies: Vec::new(),
+                })
+            }
+            Storage::Git => {}
+        }
         // A vault set up before https was required may still point at
         // another kind of address: it stays usable here, but unsynced.
         if store::remote_url(&dir).is_some_and(|url| !remote_allowed(&url)) {
@@ -564,14 +745,32 @@ impl Passel {
         Ok(SyncResult {
             received: saturating_u32(report.received),
             sent: saturating_u32(report.sent),
+            kept_copies: Vec::new(),
         })
     }
 
-    /// Local changes not sent to the remote yet.
+    /// The open vault's recipients (its `.gpg-id`) when none of their
+    /// secret keys is on this device: its entries cannot be opened until
+    /// one is imported ([`Passel::import_key`]). Empty when one is.
+    pub fn missing_vault_keys(&self) -> Vec<String> {
+        let Ok(dir) = self.vault_dir() else {
+            return Vec::new();
+        };
+        store::missing_vault_keys(&dir).unwrap_or_else(|err| {
+            log::warn!("could not check the vault's key: {err}");
+            Vec::new()
+        })
+    }
+
+    /// Local changes not sent to the remote (or Google Drive) yet.
     pub fn unsynced_count(&self) -> u32 {
         self.vault_dir()
             .ok()
-            .and_then(|dir| store::unpushed_count(&dir, None).ok())
+            .and_then(|dir| match storage(&dir) {
+                Storage::Git => store::unpushed_count(&dir, None).ok(),
+                Storage::Device => Some(0),
+                copied => store::copy_unsent_count(&dir, copy_name(copied)?).ok(),
+            })
             .map(saturating_u32)
             .unwrap_or(0)
     }
@@ -653,12 +852,14 @@ impl Passel {
             .into_iter()
             .find(|vault| vault.dir == dir)
             .expect("just added");
-        VaultInfo {
-            remote_url: store::remote_url(dir),
-            id: listed.id,
-            name: listed.name,
-            active: listed.active,
-        }
+        vault_info(dir, listed.id, listed.name, listed.active)
+    }
+
+    /// The open vault's kind of copy, when the app keeps one.
+    fn copy_of(&self, dir: &Path) -> Result<&'static str, PasselError> {
+        copy_name(storage(dir)).ok_or_else(|| {
+            PasselError::failed(gettext("This vault is not kept in a copy the app syncs"))
+        })
     }
 
     fn lock_vault(&self) -> std::sync::MutexGuard<'_, ()> {
@@ -689,6 +890,57 @@ fn not_https_error() -> PasselError {
     PasselError::failed(gettext(
         "Only https:// addresses are supported, so the vault is always sent encrypted",
     ))
+}
+
+/// The vault's git configuration keys for its copy (its kind is
+/// [`store::STORAGE_KEY`]; without one, its git remote decides).
+const DRIVE_FILE_KEY: &str = "passel.driveFileId";
+const DRIVE_VERSION_KEY: &str = "passel.driveVersion";
+const COPY_LOCATION_KEY: &str = "passel.copyLocation";
+
+fn storage(dir: &Path) -> Storage {
+    match store::storage(dir).as_deref() {
+        Some(store::DRIVE_STORAGE) => Storage::GoogleDrive,
+        Some(store::BUNDLE_STORAGE) => Storage::File,
+        Some(store::FOLDER_STORAGE) => Storage::Folder,
+        _ if store::remote_url(dir).is_some() => Storage::Git,
+        _ => Storage::Device,
+    }
+}
+
+/// The core's name for a kind of copy the app keeps.
+fn copy_name(storage: Storage) -> Option<&'static str> {
+    match storage {
+        Storage::GoogleDrive => Some(store::DRIVE_STORAGE),
+        Storage::File => Some(store::BUNDLE_STORAGE),
+        Storage::Folder => Some(store::FOLDER_STORAGE),
+        Storage::Git | Storage::Device => None,
+    }
+}
+
+fn vault_info(dir: &Path, id: String, name: String, active: bool) -> VaultInfo {
+    VaultInfo {
+        id,
+        name,
+        storage: storage(dir),
+        remote_url: store::remote_url(dir),
+        drive_file_id: git::local_config(dir, DRIVE_FILE_KEY),
+        drive_version: git::local_config(dir, DRIVE_VERSION_KEY),
+        copy_location: git::local_config(dir, COPY_LOCATION_KEY),
+        active,
+    }
+}
+
+fn sync_result(merge: store::CopyMerge) -> SyncResult {
+    SyncResult {
+        received: saturating_u32(merge.report.received),
+        sent: saturating_u32(merge.report.sent),
+        kept_copies: merge
+            .kept_copies
+            .iter()
+            .map(|path| entry_label(path))
+            .collect(),
+    }
 }
 
 fn save_list(vaults: &Vaults) {

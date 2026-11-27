@@ -75,6 +75,18 @@ impl SetupWizard {
             self,
             move |_| wizard.save_backup()
         ));
+        // "Back", or "Later" when asking for a downloaded vault's key.
+        imp.key_back_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = wizard)]
+            self,
+            move |_| {
+                if wizard.imp().vault_key_needed.take().is_some() {
+                    wizard.emit_vault_created();
+                } else {
+                    wizard.imp().navigation.pop();
+                }
+            }
+        ));
         imp.key_next_button.connect_clicked(glib::clone!(
             #[weak(rename_to = wizard)]
             self,
@@ -84,6 +96,12 @@ impl SetupWizard {
 
     pub(super) fn reset_key_page(&self) {
         let imp = self.imp();
+        imp.vault_key_needed.replace(None);
+        imp.create_key_row.set_visible(true);
+        imp.key_back_button.set_label(&gettext("Back"));
+        imp.key_description.set_label(&gettext(
+            "Passel encrypts every entry with a GPG key. Only this key, unlocked with its passphrase, can open them.",
+        ));
         imp.key_name_row.set_text("");
         imp.key_email_row.set_text("");
         imp.key_file.replace(None);
@@ -120,13 +138,32 @@ impl SetupWizard {
             gtk::INVALID_LIST_POSITION
         });
 
-        imp.use_key_row.set_visible(has_keys);
+        imp.use_key_row
+            .set_visible(has_keys && imp.vault_key_needed.borrow().is_none());
         if has_keys && select.is_some() {
             imp.use_key_check.set_active(true);
         } else if !has_keys && imp.use_key_check.is_active() {
             imp.create_key_check.set_active(true);
         }
         self.update_key_page();
+    }
+
+    /// A vault was downloaded, and none of `recipients` (its keys) is on
+    /// this computer: asks for the backup of one, or to do it later.
+    pub(super) fn ask_vault_key(&self, recipients: Vec<String>) {
+        let imp = self.imp();
+        imp.key_description.set_label(&gettext_f(
+            "The vault is downloaded. Its entries are encrypted for {keys}, whose secret key is not on this computer yet: import its backup to open them.",
+            &[("keys", &recipients.join(", "))],
+        ));
+        imp.vault_key_needed.replace(Some(recipients));
+        imp.use_key_row.set_visible(false);
+        imp.create_key_row.set_visible(false);
+        imp.import_key_check.set_active(true);
+        imp.key_back_button.set_label(&gettext("Later"));
+        self.set_key_status(KeyStatus::Hidden);
+        self.update_key_page();
+        imp.navigation.push_by_tag("key");
     }
 
     fn key_mode(&self) -> KeyMode {
@@ -221,6 +258,37 @@ impl SetupWizard {
                         wizard.set_key_status(KeyStatus::Done(&gettext(
                             "Key created. Save a backup of it before you continue.",
                         )));
+                    },
+                );
+            }
+            KeyMode::Import if imp.vault_key_needed.borrow().is_some() => {
+                let Some(path) = imp.key_file.borrow().clone() else {
+                    return;
+                };
+                let Some(dir) = imp
+                    .run
+                    .borrow()
+                    .as_ref()
+                    .map(|run| run.plan.store_dir.clone())
+                else {
+                    return;
+                };
+                self.run_key_task(
+                    &gettext("Importing the key… GPG may ask for its passphrase."),
+                    move || {
+                        setup::import_key(&path)?;
+                        Ok(setup::missing_vault_keys(&dir))
+                    },
+                    |wizard, missing: Vec<String>| {
+                        if missing.is_empty() {
+                            wizard.imp().vault_key_needed.replace(None);
+                            wizard.emit_vault_created();
+                        } else {
+                            wizard.load_recipients(None);
+                            wizard.set_key_status(KeyStatus::Failed(&gettext(
+                                "Key imported, but it does not open this vault.",
+                            )));
+                        }
                     },
                 );
             }

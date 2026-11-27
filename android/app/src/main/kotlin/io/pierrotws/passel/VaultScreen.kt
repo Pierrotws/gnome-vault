@@ -1,5 +1,7 @@
 package io.pierrotws.passel
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -43,6 +46,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.pierrotws.passel.core.Storage
+
+/** The open vault's key is not on this phone: its entries cannot be opened until it is imported. */
+@Composable
+private fun MissingKeyCard(state: VaultState, model: VaultViewModel) {
+    val pickKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(model::importKey)
+    }
+    OutlinedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                tr("This vault’s key is not on this phone: import its backup to open the entries."),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            state.keyMissing.forEach { Text(keyLabel(it), style = MaterialTheme.typography.bodySmall) }
+            TextButton(onClick = { pickKey.launch(arrayOf("*/*")) }, enabled = state.busy == null) {
+                Text(tr("Import a key"))
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,9 +111,12 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { model.sync() }, enabled = state.busy == null) {
-                        BadgedBox(badge = { if (state.unsynced > 0) Badge { Text("${state.unsynced}") } }) {
-                            Icon(Icons.Default.Refresh, contentDescription = tr("Sync"))
+                    // A vault only on this phone has nothing to sync with.
+                    if (active?.storage != Storage.DEVICE) {
+                        IconButton(onClick = { model.sync() }, enabled = state.busy == null) {
+                            BadgedBox(badge = { if (state.unsynced > 0) Badge { Text("${state.unsynced}") } }) {
+                                Icon(Icons.Default.Refresh, contentDescription = tr("Sync"))
+                            }
                         }
                     }
                     IconButton(onClick = model::lock) { Icon(Icons.Default.Lock, contentDescription = tr("Lock")) }
@@ -140,6 +167,7 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             if (state.busy != null) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (state.keyMissing.isNotEmpty()) MissingKeyCard(state, model)
             OutlinedTextField(
                 value = state.query,
                 onValueChange = model::setQuery,
@@ -178,7 +206,9 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
             title = { Text(tr("Remove {name} from this phone?", "name" to active.name)) },
             text = {
                 Text(
-                    if (state.unsynced > 0) {
+                    if (active.storage == Storage.DEVICE) {
+                        tr("This vault is only on this phone: its entries will be lost for good.")
+                    } else if (state.unsynced > 0) {
                         trn(
                             "The copy on your remote stays as it is; you can download it again. {n} change not synced yet will be lost.",
                             "The copy on your remote stays as it is; you can download it again. {n} changes not synced yet will be lost.",

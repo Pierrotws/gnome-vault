@@ -36,6 +36,16 @@ pub fn available_recipients() -> Vec<GpgRecipient> {
     }
 }
 
+/// The recipients of the vault at `dir` when none of their secret keys
+/// is on this computer (its entries cannot be opened yet); empty when one
+/// is, or when that cannot be told (the reason is logged).
+pub fn missing_vault_keys(dir: &Path) -> Vec<String> {
+    store::missing_vault_keys(dir).unwrap_or_else(|err| {
+        log::warn!("Could not check the vault's key: {err}");
+        Vec::new()
+    })
+}
+
 /// Classifies a folder typed into the wizard.
 pub fn folder_status(dir: &Path) -> StoreStatus {
     store::check_store(dir)

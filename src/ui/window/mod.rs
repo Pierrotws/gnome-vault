@@ -17,6 +17,8 @@ use gtk::{gio, glib};
 
 use crate::app::changes;
 use crate::app::controller::AppController;
+use crate::app::drive::{self as vault_drive, DriveError};
+use crate::helpers::google;
 use crate::i18n::{gettext, gettext_f};
 use crate::pass::model::{PassNode, PassNodeKind};
 use crate::ui::vault_view::{build_group_selection, build_selection_from_nodes_with_autoexpand};
@@ -893,6 +895,11 @@ impl MainWindow {
             }
         };
         self.update_vault_subtitle(count);
+        // A vault on Google Drive sends each change right away, like a
+        // push after every save.
+        if count > 0 && self.controller().borrow().autopush() && self.open_vault_on_drive() {
+            self.drive_sync(false);
+        }
         if count == 0 {
             badge.set_visible(false);
         } else {
@@ -1033,6 +1040,96 @@ impl MainWindow {
         imp.content_stack.set_visible_child_name("changes");
     }
 
+    fn open_vault_on_drive(&self) -> bool {
+        self.open_store_dir().is_some_and(|dir| {
+            crate::pass::store::storage(&dir).as_deref() == Some(crate::pass::store::DRIVE_STORAGE)
+        })
+    }
+
+    /// Syncs the open vault with its Google Drive file. `interactive`: the
+    /// user asked (Push), so a sign-in that expired opens the browser and
+    /// failures are shown; otherwise they are only logged, and the change
+    /// waits for the next sync.
+    fn drive_sync(&self, interactive: bool) {
+        let imp = self.imp();
+        if imp.drive_syncing.get() {
+            return;
+        }
+        let Some(store_dir) = self.open_store_dir() else {
+            return;
+        };
+        let name = imp
+            .vaults
+            .borrow()
+            .active()
+            .map(|vault| vault.name.clone())
+            .unwrap_or_else(|| gettext("Passwords"));
+        imp.drive_syncing.set(true);
+        let window = self.clone();
+        glib::spawn_future_local(async move {
+            let (dir, vault) = (store_dir.clone(), name.clone());
+            let mut result = gio::spawn_blocking(move || drive_sync_now(&dir, &vault))
+                .await
+                .unwrap_or(Err(DriveError::Unreachable));
+            if interactive && matches!(result, Err(DriveError::SignIn)) {
+                result = match google::begin_sign_in() {
+                    Ok(sign_in) => {
+                        window.open_uri(&sign_in.url);
+                        let (dir, vault) = (store_dir.clone(), name.clone());
+                        gio::spawn_blocking(move || {
+                            sign_in.finish()?;
+                            drive_sync_now(&dir, &vault)
+                        })
+                        .await
+                        .unwrap_or(Err(DriveError::Unreachable))
+                    }
+                    Err(err) => Err(err),
+                };
+            }
+            window.imp().drive_syncing.set(false);
+            match result {
+                Ok(merge) => {
+                    if let Err(err) = window.reload_vault_tree() {
+                        window.show_error_dialog(&err.to_string());
+                    }
+                    if let Err(err) = window.reload_changes_view() {
+                        window.show_error_dialog(&err.to_string());
+                    }
+                    if !merge.kept_copies.is_empty() {
+                        window.show_message_dialog(
+                            &gettext("Changed in Two Places"),
+                            &gettext_f(
+                                "Changed both here and on Google Drive: this computer’s version is kept as {entries}. Check it, then delete the one you do not need.",
+                                &[("entries", &merge.kept_copies.join(", "))],
+                            ),
+                        );
+                    }
+                }
+                Err(err) if interactive => window.show_error_dialog(&err.to_string()),
+                Err(err) => log::info!("Google Drive sync: {err}"),
+            }
+        });
+    }
+
+    fn open_uri(&self, uri: &str) {
+        gtk::UriLauncher::new(uri).launch(Some(self), gio::Cancellable::NONE, |result| {
+            if let Err(err) = result {
+                log::warn!("Failed to open a link: {err}");
+            }
+        });
+    }
+
+    fn show_message_dialog(&self, heading: &str, message: &str) {
+        let dialog = adw::AlertDialog::builder()
+            .heading(heading)
+            .body(message)
+            .build();
+        dialog.add_responses(&[("ok", &gettext("OK"))]);
+        dialog.set_default_response(Some("ok"));
+        dialog.set_close_response("ok");
+        dialog.present(Some(self));
+    }
+
     fn show_error_dialog(&self, message: &str) {
         let dialog = adw::AlertDialog::builder()
             .heading(gettext("Error"))
@@ -1045,6 +1142,10 @@ impl MainWindow {
     }
 
     fn push_changes(&self) {
+        if self.open_vault_on_drive() {
+            self.drive_sync(true);
+            return;
+        }
         // Push runs on a worker thread so the UI does not freeze for the
         // duration of the network round-trip. The reload_changes_view that
         // follows is fast (filesystem only) and happens back on the main loop.
@@ -1069,6 +1170,11 @@ impl MainWindow {
             if let Err(err) = result {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
                 return;
+            }
+            // A vault copied to a bundle file may have taken changes from
+            // it (see store::sync_bundle_file).
+            if let Err(err) = window.reload_vault_tree() {
+                window.imp().entry_view.show_error_dialog(&err.to_string());
             }
             if let Err(err) = window.reload_changes_view() {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
@@ -1107,4 +1213,13 @@ fn app_settings() -> gio::Settings {
         Some("passel"),
     );
     gio::Settings::new_full(&schema, Some(&backend), None)
+}
+
+/// One Google Drive sync of the vault at `dir` (blocks).
+fn drive_sync_now(
+    dir: &std::path::Path,
+    vault_name: &str,
+) -> Result<crate::pass::store::CopyMerge, DriveError> {
+    let api = google::connect()?;
+    vault_drive::sync(dir, vault_name, &api, &std::env::temp_dir())
 }

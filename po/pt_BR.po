@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-26 12:54+0100\n"
+"POT-Creation-Date: 2026-11-27 16:57+0100\n"
 "PO-Revision-Date: 2026-11-26 00:00+0100\n"
 "Last-Translator: Passel contributors\n"
 "Language-Team: Brazilian Portuguese\n"
@@ -20,7 +20,7 @@ msgstr "Adicionar um campo"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
 msgid "Back"
 msgstr "Voltar"
 
@@ -131,6 +131,8 @@ msgstr "Ela protege a chave de {user} neste telefone e nos backups dele."
 
 #. Translators: button that skips saving the key backup for now.
 #: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/key.rs
 msgid "Later"
 msgstr "Mais tarde"
 
@@ -195,6 +197,30 @@ msgid "Wrong passphrase, try again"
 msgstr "Frase secreta incorreta, tente novamente"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "A file"
+msgstr "Um arquivo"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "A folder"
+msgstr "Uma pasta"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"A folder or a file holding the vault: on this phone, an SD card, a USB "
+"drive, or in a storage app."
+msgstr ""
+"Uma pasta ou um arquivo com o cofre: neste telefone, num cartão SD, num pen "
+"drive ou num app de armazenamento."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "A vault that Passel saved to your Google Drive."
+msgstr "Um cofre que o Passel salvou no seu Google Drive."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "A “.bundle” file made by Passel or git."
+msgstr "Um arquivo “.bundle” criado pelo Passel ou pelo git."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Access token"
 msgstr "Token de acesso"
 
@@ -207,6 +233,28 @@ msgstr "Adicionar um cofre"
 msgid "Address (https://…)"
 msgstr "Endereço (https://…)"
 
+#. Translators: tag of the git choice: it needs some technical knowledge, but is the most capable.
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui
+msgid "Advanced · recommended"
+msgstr "Avançado · recomendado"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"An empty private repository you created for it (GitHub, GitLab…). Your vault "
+"is backed up with its whole history, and opens with pass and Passel on your "
+"computers too."
+msgstr ""
+"Um repositório privado vazio criado para isso (GitHub, GitLab…). Seu cofre "
+"fica com backup de todo o histórico e também abre com pass e Passel nos seus "
+"computadores."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/drive.rs
+#, rust-format
+msgid "Changed on {date}"
+msgstr "Alterado em {date}"
+
 #. Translators: button that checks a repository address.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 #: assets/ui/setup_wizard.ui
@@ -216,6 +264,21 @@ msgstr "Verificar"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Checking…"
 msgstr "Verificando…"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui src/ui/window/import_dialog.rs
+msgid "Choose…"
+msgstr "Escolher…"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/drive.rs
+msgid "Connected to Google Drive"
+msgstr "Conectado ao Google Drive"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Connecting to Google Drive"
+msgstr "Conectando ao Google Drive"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Create a key"
@@ -234,15 +297,11 @@ msgid "Create the vault"
 msgstr "Criar o cofre"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid ""
-"Download it from its repository: made with Passel, or with pass and git."
-msgstr "Baixe-o do repositório dele: criado com o Passel ou com pass e git."
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Download it instead"
 msgstr "Baixá-lo em vez disso"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/mod.rs
 msgid "Download the vault"
 msgstr "Baixar o cofre"
 
@@ -274,14 +333,33 @@ msgid "Get a key:"
 msgstr "Obter uma chave:"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Get it from Google Drive, a git repository, or a folder or file: made with "
+"Passel, or with pass and git."
+msgstr ""
+"Pegue-o do Google Drive, de um repositório git ou de uma pasta ou arquivo: "
+"criado com o Passel, ou com pass e git."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Get started"
 msgstr "Começar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui
+msgid "Git repository"
+msgstr "Repositório git"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
+msgid "Google Drive"
+msgstr "Google Drive"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "I already have a vault"
 msgstr "Já tenho um cofre"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Import a key"
 msgstr "Importar uma chave"
 
@@ -310,20 +388,21 @@ msgid "Next"
 msgstr "Próximo"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "No backup: losing this phone loses this vault."
-msgstr "Sem backup: perder este telefone significa perder este cofre."
+#: src/ui/setup_wizard/drive.rs
+msgid "No Passel vault on this Google Drive"
+msgstr "Nenhum cofre do Passel neste Google Drive"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Nothing chosen yet"
+msgstr "Nada escolhido ainda"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Nothing found at this address"
 msgstr "Nada encontrado neste endereço"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Online, in an empty repository"
-msgstr "On-line, em um repositório vazio"
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Only on this phone"
-msgstr "Somente neste telefone"
+msgid "On this phone"
+msgstr "Neste telefone"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Or add another key:"
@@ -331,41 +410,64 @@ msgstr "Ou adicionar outra chave:"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid ""
-"Passel keeps your passwords in a pass vault: one encrypted file per entry, "
-"with its whole history, in a git repository you choose. The same vault opens "
-"on your computers and phones."
+"Passel keeps a copy in one “.bundle” file, easy to move or send. On a "
+"computer, git clone opens it."
 msgstr ""
-"O Passel guarda suas senhas em um cofre pass: um arquivo criptografado por "
-"entrada, com todo o histórico, em um repositório git de sua escolha. O mesmo "
-"cofre abre nos seus computadores e telefones."
+"O Passel guarda uma cópia num único arquivo “.bundle”, fácil de mover ou "
+"enviar. No computador, o git clone o abre."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Passel keeps a copy named “passwords.git” in the folder you choose: a git "
+"repository, which pass and Passel on a computer open too."
+msgstr ""
+"O Passel guarda uma cópia chamada “passwords.git” na pasta que você "
+"escolher: um repositório git, que o pass e o Passel também abrem no "
+"computador."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Passel keeps your passwords in a pass vault: one encrypted file per entry, "
+"with its whole history. Keep it on your Google Drive, in a git repository, "
+"or in a folder or file of your own."
+msgstr ""
+"O Passel guarda suas senhas em um cofre do pass: um arquivo criptografado "
+"por entrada, com todo o histórico. Guarde-o no seu Google Drive, num "
+"repositório git, ou numa pasta ou arquivo seu."
 
 #. Translators: the name given to pass's default vault folder
 #. (~/.password-store); the user can rename it.
 #. Translators: default names of a new vault.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 #: crates/passel-core/src/app/vaults.rs crates/passel-ffi/src/vaults.rs
+#: src/ui/window/mod.rs
 msgid "Passwords"
 msgstr "Senhas"
 
+#. Translators: tag of the recommended choice.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid ""
-"Recommended: a private repository you created for it (GitHub, GitLab…). Your "
-"vault is backed up, and your other devices sync with it."
-msgstr ""
-"Recomendado: um repositório privado criado para isso (GitHub, GitLab…). Seu "
-"cofre fica com backup, e seus outros dispositivos sincronizam com ele."
+msgid "Recommended"
+msgstr "Recomendado"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Save a backup"
 msgstr "Salvar um backup"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Saved on your Google account and synced with your other phones: just sign "
+"in. Passel only sees the files it makes there."
+msgstr ""
+"Salvo na sua conta Google e sincronizado com seus outros telefones: basta "
+"entrar. O Passel só vê os arquivos que cria lá."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Set up Passel"
 msgstr "Configurar o Passel"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Setting it up takes a few steps: your key, then your vault."
-msgstr "A configuração leva poucas etapas: sua chave e, depois, seu cofre."
+msgid "Setting it up takes a few steps: your vault, then your key."
+msgstr "A configuração leva alguns passos: seu cofre e depois sua chave."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Share public key"
@@ -374,6 +476,10 @@ msgstr "Compartilhar chave pública"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Share the public key"
 msgstr "Compartilhar a chave pública"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Sign in with Google"
+msgstr "Entrar com o Google"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Start an empty vault, encrypted with your key."
@@ -402,6 +508,21 @@ msgid "The server refused this username or token"
 msgstr "O servidor recusou este nome de usuário ou token"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"The “passwords.git” folder made by Passel or git, or the folder holding it."
+msgstr ""
+"A pasta “passwords.git” criada pelo Passel ou pelo git, ou a pasta que a "
+"contém."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/drive.rs
+#, rust-format
+msgid "This Google Drive already holds {n} vault."
+msgid_plural "This Google Drive already holds {n} vaults."
+msgstr[0] "Este Google Drive já tem {n} cofre."
+msgstr[1] "Este Google Drive já tem {n} cofres."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "This repository is empty"
 msgstr "Este repositório está vazio"
 
@@ -428,12 +549,28 @@ msgid "Welcome to Passel"
 msgstr "Boas-vindas ao Passel"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Where is the vault on this phone?"
+msgstr "Onde está o cofre neste telefone?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Where is your vault?"
 msgstr "Onde está seu cofre?"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Where to keep a copy?"
-msgstr "Onde guardar uma cópia?"
+msgid "Where on this phone?"
+msgstr "Onde neste telefone?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Where to keep your vault?"
+msgstr "Onde guardar seu cofre?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"With a copy in a folder or a file you choose: an SD card, a USB drive, or a "
+"folder synced by Syncthing or Nextcloud."
+msgstr ""
+"Com uma cópia numa pasta ou arquivo que você escolher: um cartão SD, um pen "
+"drive ou uma pasta sincronizada pelo Syncthing ou Nextcloud."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Your email"
@@ -451,6 +588,14 @@ msgstr "Seu nome"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Your vault"
 msgstr "Seu cofre"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"{name} is downloaded. Its entries are encrypted for this key, which is not "
+"on this phone yet: import its backup to open them."
+msgstr ""
+"{name} foi baixado. As entradas dele estão criptografadas para esta chave, "
+"que ainda não está neste telefone: importe o backup dela para abri-las."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Current vault"
@@ -496,7 +641,7 @@ msgid "Switch vault"
 msgstr "Trocar de cofre"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
-#: assets/ui/setup_wizard.ui src/ui/window/vaults.rs
+#: src/ui/window/vaults.rs
 msgid "Sync"
 msgstr "Sincronizar"
 
@@ -521,6 +666,19 @@ msgstr[1] ""
 "novamente. {n} alterações ainda não sincronizadas serão perdidas."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "This vault is only on this phone: its entries will be lost for good."
+msgstr ""
+"Este cofre está só neste telefone: as entradas dele serão perdidas para "
+"sempre."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid ""
+"This vault’s key is not on this phone: import its backup to open the entries."
+msgstr ""
+"A chave deste cofre não está neste telefone: importe o backup dela para "
+"abrir as entradas."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Turn off biometric unlock"
 msgstr "Desativar o desbloqueio biométrico"
 
@@ -542,6 +700,35 @@ msgstr "Desbloqueio biométrico ativado"
 #: crates/passel-core/src/helpers/pgp/mod.rs crates/passel-ffi/src/lib.rs
 msgid "Cancelled"
 msgstr "Cancelado"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid ""
+"Changed both here and in the vault’s copy: this phone’s version is kept as "
+"{entries}. Check it, then delete the one you do not need."
+msgstr ""
+"Alterado aqui e na cópia do cofre: a versão deste telefone foi mantida como "
+"{entries}. Confira e depois apague a que você não precisa."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid ""
+"Changed both here and on Google Drive: this phone's version is kept as "
+"{entries}. Check it, then delete the one you do not need."
+msgstr ""
+"Alterado aqui e no Google Drive: a versão deste telefone foi mantida como "
+"{entries}. Confira e depois apague a que você não precisa."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Could not connect to Google Drive"
+msgstr "Não foi possível conectar ao Google Drive"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/app/drive.rs
+msgid "Could not reach Google Drive"
+msgstr "Não foi possível acessar o Google Drive"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Could not reach the vault’s copy"
+msgstr "Não foi possível acessar a cópia do cofre"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Could not read this file"
@@ -572,6 +759,16 @@ msgid "Downloading the vault"
 msgstr "Baixando o cofre"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/app/drive.rs
+msgid "Google Drive changed during the sync: sync again"
+msgstr "O Google Drive mudou durante a sincronização: sincronize de novo"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/app/drive.rs
+msgid "Google Drive refused access"
+msgstr "O Google Drive recusou o acesso"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Importing the key"
 msgstr "Importando a chave"
 
@@ -586,6 +783,10 @@ msgstr "Bloqueado: a biometria ou a frase secreta será pedida novamente"
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Locked: the passphrase will be asked again"
 msgstr "Bloqueado: a frase secreta será solicitada novamente"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "No Passel vault in this folder"
+msgstr "Nenhum cofre do Passel nesta pasta"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Removing the vault"
@@ -612,12 +813,38 @@ msgid "Syncing"
 msgstr "Sincronizando"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Tap Sync to sign in to Google Drive again"
+msgstr "Toque em Sincronizar para entrar de novo no Google Drive"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "The remote refused your username or token"
 msgstr "O repositório remoto recusou seu nome de usuário ou token"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "The vault’s copy changed during the sync: sync again"
+msgstr "A cópia do cofre mudou durante a sincronização: sincronize de novo"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/helpers/git.rs
+msgid "This file is not a Passel vault"
+msgstr "Este arquivo não é um cofre do Passel"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "This folder already holds a vault: download it instead"
+msgstr "Esta pasta já tem um cofre: baixe-o em vez disso"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "This key does not open {name}"
+msgstr "Esta chave não abre {name}"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Up to date"
 msgstr "Atualizado"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/app/drive.rs
+msgid "Your Google Drive is full"
+msgstr "Seu Google Drive está cheio"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid ""
@@ -876,18 +1103,23 @@ msgid "Visual density of vault tree rows"
 msgstr "Densidade visual das linhas da árvore do cofre"
 
 #: assets/ui/setup_wizard.ui
+msgid "A git folder"
+msgstr "Uma pasta git"
+
+#: assets/ui/setup_wizard.ui
 msgid ""
-"A USB drive, or a folder synced by Nextcloud or Syncthing. No account needed."
+"A private repository on a service like GitHub, with the vault’s whole "
+"history. pass and Passel open it on your other computers and phone."
 msgstr ""
-"Um pendrive ou uma pasta sincronizada pelo Nextcloud ou Syncthing. Nenhuma "
-"conta necessária."
+"Um repositório privado num serviço como o GitHub, com todo o histórico do "
+"cofre. O pass e o Passel o abrem nos seus outros computadores e no telefone."
 
 #: assets/ui/setup_wizard.ui
 msgid "A secret key saved from another computer, e.g. a .asc file."
 msgstr ""
 "Uma chave secreta salva de outro computador, por exemplo um arquivo .asc."
 
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
 msgid ""
 "Any of these services offers free private repositories. If you have no "
 "account yet, pick one and create it on the service’s website."
@@ -902,18 +1134,6 @@ msgstr "Arquivo de backup"
 #: assets/ui/setup_wizard.ui
 msgid "Choose the folder that will hold your encrypted entries."
 msgstr "Escolha a pasta que guardará suas entradas criptografadas."
-
-#: assets/ui/setup_wizard.ui src/ui/window/import_dialog.rs
-msgid "Choose…"
-msgstr "Escolher…"
-
-#: assets/ui/setup_wizard.ui
-msgid "Copy to a Folder or Drive"
-msgstr "Cópia em uma pasta ou unidade"
-
-#: assets/ui/setup_wizard.ui
-msgid "Copy to a folder or drive"
-msgstr "Copiar para uma pasta ou unidade"
 
 #: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
 msgid "Create Vault"
@@ -943,17 +1163,10 @@ msgstr ""
 "As entradas são criptografadas, mas os nomes delas (como “Banco/meubanco”) "
 "não. Mantenha sempre o repositório privado."
 
-#: assets/ui/setup_wizard.ui
-msgid "Entries never leave this computer."
-msgstr "As entradas nunca saem deste computador."
-
-#: assets/ui/setup_wizard.ui src/ui/window/vaults.rs
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/sync.rs
+#: src/ui/window/vaults.rs
 msgid "Folder"
 msgstr "Pasta"
-
-#: assets/ui/setup_wizard.ui
-msgid "Folder Copy"
-msgstr "Cópia em pasta"
 
 #: assets/ui/setup_wizard.ui
 msgid ""
@@ -963,6 +1176,14 @@ msgstr ""
 "Em seguida, o GPG pedirá que você escolha uma frase secreta. Escolha uma da "
 "qual vá se lembrar: sem ela, ninguém consegue abrir suas entradas, nem mesmo "
 "você."
+
+#: assets/ui/setup_wizard.ui
+msgid "Git Repository"
+msgstr "Repositório git"
+
+#: assets/ui/setup_wizard.ui
+msgid "I Already Have a Vault"
+msgstr "Já tenho um cofre"
 
 #: assets/ui/setup_wizard.ui
 msgid ""
@@ -978,17 +1199,14 @@ msgstr "Importar uma chave de um arquivo de backup"
 
 #: assets/ui/setup_wizard.ui
 msgid ""
-"In a private repository on a free service like GitHub. Works from anywhere."
+"In a folder or a file you choose: a USB drive, or a folder synced by "
+"Nextcloud or Syncthing. No account needed."
 msgstr ""
-"Em um repositório privado em um serviço gratuito como o GitHub. Funciona de "
-"qualquer lugar."
-
-#: assets/ui/setup_wizard.ui
-msgid "Keep an online copy"
-msgstr "Manter uma cópia on-line"
+"Numa pasta ou arquivo que você escolher: um pen drive ou uma pasta "
+"sincronizada pelo Nextcloud ou Syncthing. Não precisa de conta."
 
 #: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
-#: src/ui/window/import_dialog.rs
+#: src/ui/setup_wizard/sync.rs src/ui/window/import_dialog.rs
 msgid "No file chosen"
 msgstr "Nenhum arquivo escolhido"
 
@@ -997,36 +1215,56 @@ msgid "No folder chosen"
 msgstr "Nenhuma pasta escolhida"
 
 #: assets/ui/setup_wizard.ui
-msgid "Online Copy"
-msgstr "Cópia on-line"
+msgid "On This Computer"
+msgstr "Neste computador"
 
 #: assets/ui/setup_wizard.ui
-msgid "Only on this computer"
-msgstr "Somente neste computador"
+msgid "On this computer"
+msgstr "Neste computador"
 
 #: assets/ui/setup_wizard.ui
-msgid ""
-"Passel can keep an encrypted copy of your vault somewhere else, so you can "
-"use it from another computer or your phone."
-msgstr ""
-"O Passel pode manter uma cópia criptografada do seu cofre em outro lugar, "
-"para você usá-lo em outro computador ou no seu telefone."
+msgid "One file"
+msgstr "Um único arquivo"
 
 #: assets/ui/setup_wizard.ui
 msgid ""
-"Passel creates an encrypted copy named “passwords.git” in the folder you "
-"choose, and keeps it up to date as you save changes."
+"One file on your Google account, synced with your other computers and "
+"phones: just sign in. Passel only sees the files it makes there."
 msgstr ""
-"O Passel cria uma cópia criptografada chamada “passwords.git” na pasta "
-"escolhida e a mantém atualizada à medida que você salva alterações."
+"Um arquivo na sua conta Google, sincronizado com seus outros computadores e "
+"telefones: basta entrar. O Passel só vê os arquivos que cria lá."
 
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
+msgid ""
+"Passel creates an encrypted copy in the folder you choose, and keeps it up "
+"to date as you save changes."
+msgstr ""
+"O Passel cria uma cópia criptografada na pasta que você escolher e a mantém "
+"atualizada a cada alteração salva."
+
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
 msgid ""
 "Passel encrypts every entry with a GPG key. Only this key, unlocked with its "
 "passphrase, can open them."
 msgstr ""
 "O Passel criptografa cada entrada com uma chave GPG. Somente essa chave, "
 "desbloqueada com a frase secreta dela, pode abri-las."
+
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
+msgid ""
+"Passel keeps an encrypted copy of your vault somewhere else: it is backed "
+"up, and you can use it from another computer or your phone."
+msgstr ""
+"O Passel guarda uma cópia criptografada do seu cofre em outro lugar: ela "
+"fica com backup, e você pode usá-la de outro computador ou do telefone."
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"Passel keeps the vault as one file in a “Passel” folder of your Google "
+"Drive. It only sees the files it makes there."
+msgstr ""
+"O Passel guarda o cofre como um único arquivo numa pasta “Passel” do seu "
+"Google Drive. Ele só vê os arquivos que cria lá."
 
 #: assets/ui/setup_wizard.ui
 msgid ""
@@ -1065,24 +1303,36 @@ msgid "Service"
 msgstr "Serviço"
 
 #: assets/ui/setup_wizard.ui
+msgid "Sign In with Google"
+msgstr "Entrar com o Google"
+
+#: assets/ui/setup_wizard.ui
 msgid "Skip Sync"
 msgstr "Pular sincronização"
+
+#: assets/ui/setup_wizard.ui
+msgid "Storage"
+msgstr "Armazenamento"
 
 #: assets/ui/setup_wizard.ui
 msgid "The usual choice if you have never used GPG."
 msgstr "A escolha mais comum se você nunca usou o GPG."
 
 #: assets/ui/setup_wizard.ui
-msgid "Use It on Other Devices?"
-msgstr "Usar em outros dispositivos?"
-
-#: assets/ui/setup_wizard.ui
 msgid "Use a key from this computer"
 msgstr "Usar uma chave deste computador"
 
 #: assets/ui/setup_wizard.ui
+msgid "Vaults on This Google Drive"
+msgstr "Cofres neste Google Drive"
+
+#: assets/ui/setup_wizard.ui
 msgid "Welcome"
 msgstr "Boas-vindas"
+
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
+msgid "Where to Keep Your Vault?"
+msgstr "Onde guardar o seu cofre?"
 
 #: assets/ui/setup_wizard.ui
 msgid "Your Encryption Key"
@@ -1091,6 +1341,21 @@ msgstr "Sua chave de criptografia"
 #: assets/ui/setup_wizard.ui
 msgid "Your Vault"
 msgstr "Seu cofre"
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"“passwords.bundle”: a single file, which a folder synced by Nextcloud or "
+"Syncthing never delivers half-written. git clone opens it."
+msgstr ""
+"“passwords.bundle”: um único arquivo, que uma pasta sincronizada pelo "
+"Nextcloud ou Syncthing nunca entrega pela metade. O git clone o abre."
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"“passwords.git”: git, pass and Passel on another computer use it as it is."
+msgstr ""
+"“passwords.git”: git, pass e Passel usam a pasta como ela é em outro "
+"computador."
 
 #: assets/ui/vault_view.ui
 msgid "Search entries and groups"
@@ -1179,6 +1444,14 @@ msgstr "Nenhum cofre aberto"
 msgid "Saved locally but failed to push to remote"
 msgstr "Salvo localmente, mas o envio para o repositório remoto falhou"
 
+#: crates/passel-core/src/app/drive.rs src/ui/setup_wizard/drive.rs
+msgid "Google Drive is not available in this build"
+msgstr "O Google Drive não está disponível nesta versão"
+
+#: crates/passel-core/src/app/drive.rs
+msgid "Sign in to Google Drive again"
+msgstr "Entre de novo no Google Drive"
+
 #: crates/passel-core/src/helpers/git.rs
 msgid "(no message)"
 msgstr "(sem mensagem)"
@@ -1195,6 +1468,10 @@ msgstr[0] ""
 msgstr[1] ""
 "{n} entradas foram alteradas aqui e no repositório remoto; nada foi alterado "
 "aqui"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid "Could not read or write the vault’s copy"
+msgstr "Não foi possível ler ou gravar a cópia do cofre"
 
 #: crates/passel-core/src/helpers/git.rs
 msgid "Current git HEAD has no branch name"
@@ -1234,6 +1511,10 @@ msgstr "Reverter o commit {commit} gerou conflitos"
 #: crates/passel-core/src/helpers/git.rs
 msgid "Unknown author"
 msgstr "Autor desconhecido"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid "conflict"
+msgstr "conflito"
 
 #: crates/passel-core/src/helpers/git.rs
 msgid ""
@@ -1461,11 +1742,28 @@ msgid "This repository already holds a vault: download it instead"
 msgstr "Este repositório já contém um cofre: baixe-o em vez disso"
 
 #: crates/passel-ffi/src/lib.rs
+msgid "This vault is kept in a copy the app syncs"
+msgstr "Este cofre fica numa cópia que o aplicativo sincroniza"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "This vault is not kept in a copy the app syncs"
+msgstr "Este cofre não fica numa cópia que o aplicativo sincroniza"
+
+#: crates/passel-ffi/src/lib.rs
 #, rust-format
 msgid "{entries} changed both here and on the remote"
 msgid_plural "{entries} changed both here and on the remote"
 msgstr[0] "{entries}: alterada aqui e no repositório remoto"
 msgstr[1] "{entries}: alteradas aqui e no repositório remoto"
+
+#: src/helpers/google.rs
+msgid "Passel is connected to Google Drive. You can close this tab."
+msgstr "O Passel está conectado ao Google Drive. Você pode fechar esta aba."
+
+#: src/helpers/google.rs
+msgid "Passel was not given access to Google Drive. You can close this tab."
+msgstr ""
+"O Passel não recebeu acesso ao Google Drive. Você pode fechar esta aba."
 
 #: src/ui/changes_view/mod.rs src/ui/window/mod.rs
 msgid "Discard later changes"
@@ -1614,6 +1912,26 @@ msgid_plural "{n} entries"
 msgstr[0] "{n} entrada"
 msgstr[1] "{n} entradas"
 
+#: src/ui/setup_wizard/drive.rs
+msgid "Connecting to Google Drive…"
+msgstr "Conectando ao Google Drive…"
+
+#: src/ui/setup_wizard/drive.rs
+msgid "Continue in your browser, then come back here."
+msgstr "Continue no seu navegador e depois volte aqui."
+
+#: src/ui/setup_wizard/drive.rs
+msgid "Create a New Vault There"
+msgstr "Criar um novo cofre lá"
+
+#: src/ui/setup_wizard/drive.rs
+msgid "Download One Instead"
+msgstr "Baixar um em vez disso"
+
+#: src/ui/setup_wizard/drive.rs
+msgid "Sign in to use your Google Drive."
+msgstr "Entre para usar o seu Google Drive."
+
 #: src/ui/setup_wizard/hosts.rs
 msgid "Choose Private"
 msgstr "Escolha Private"
@@ -1722,6 +2040,10 @@ msgid "Key files"
 msgstr "Arquivos de chave"
 
 #: src/ui/setup_wizard/key.rs
+msgid "Key imported, but it does not open this vault."
+msgstr "Chave importada, mas ela não abre este cofre."
+
+#: src/ui/setup_wizard/key.rs
 msgid "Key imported."
 msgstr "Chave importada."
 
@@ -1737,9 +2059,23 @@ msgstr "Salvando o backup… O GPG pedirá a frase secreta da chave."
 msgid "The key task stopped unexpectedly"
 msgstr "A tarefa da chave parou inesperadamente"
 
+#: src/ui/setup_wizard/key.rs
+#, rust-format
+msgid ""
+"The vault is downloaded. Its entries are encrypted for {keys}, whose secret "
+"key is not on this computer yet: import its backup to open them."
+msgstr ""
+"O cofre foi baixado. As entradas dele estão criptografadas para {keys}, cuja "
+"chave secreta ainda não está neste computador: importe o backup dela para "
+"abri-las."
+
 #: src/ui/setup_wizard/mod.rs
 msgid "Changes will be copied there"
 msgstr "As alterações serão copiadas para lá"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Changes will be synced there"
+msgstr "As alterações serão sincronizadas lá"
 
 #: src/ui/setup_wizard/mod.rs
 msgid "Connect to the online copy"
@@ -1754,6 +2090,10 @@ msgid "Create the vault folder"
 msgstr "Criar a pasta do cofre"
 
 #: src/ui/setup_wizard/mod.rs
+msgid "Download Vault"
+msgstr "Baixar o cofre"
+
+#: src/ui/setup_wizard/mod.rs
 msgid "Encrypt entries with your key"
 msgstr "Criptografar as entradas com sua chave"
 
@@ -1762,12 +2102,21 @@ msgid "Fill the copy"
 msgstr "Preencher a cópia"
 
 #: src/ui/setup_wizard/mod.rs
+msgid "Keep the vault on Google Drive"
+msgstr "Guardar o cofre no Google Drive"
+
+#: src/ui/setup_wizard/mod.rs
 msgid "Link the vault to its copy"
 msgstr "Vincular o cofre à cópia"
 
 #: src/ui/setup_wizard/mod.rs
 msgid "Open Vault"
 msgstr "Abrir cofre"
+
+#: src/ui/setup_wizard/mod.rs
+msgid ""
+"Passel downloads it, with its whole history, and keeps it in sync there."
+msgstr "O Passel o baixa, com todo o histórico, e o mantém sincronizado lá."
 
 #: src/ui/setup_wizard/mod.rs
 msgid "Record every change so it can be undone"
@@ -1786,6 +2135,22 @@ msgid "Setup task panicked unexpectedly"
 msgstr "A configuração parou inesperadamente"
 
 #: src/ui/setup_wizard/mod.rs
+msgid ""
+"The address of the vault’s repository, which this computer’s SSH key can "
+"read and write."
+msgstr ""
+"O endereço do repositório do cofre, que a chave SSH deste computador pode "
+"ler e gravar."
+
+#: src/ui/setup_wizard/mod.rs
+msgid ""
+"The “passwords.git” folder made by Passel or git (or the folder holding it), "
+"or a “.bundle” file."
+msgstr ""
+"A pasta “passwords.git” criada pelo Passel ou pelo git (ou a pasta que a "
+"contém), ou um arquivo “.bundle”."
+
+#: src/ui/setup_wizard/mod.rs
 msgid "This folder already holds a password store. Choose an empty folder."
 msgstr ""
 "Esta pasta já contém um armazenamento de senhas. Escolha uma pasta vazia."
@@ -1801,6 +2166,14 @@ msgstr "Ativar o histórico"
 #: src/ui/setup_wizard/mod.rs
 msgid "Upload the vault"
 msgstr "Enviar o cofre"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Upload to Google Drive"
+msgstr "Enviar para o Google Drive"
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Where Is Your Vault?"
+msgstr "Onde está o seu cofre?"
 
 #: src/ui/setup_wizard/sync.rs
 msgid "Access denied. Add your SSH key to the service, then check again."
@@ -1837,12 +2210,28 @@ msgid "Choose a Folder for the Copy"
 msgstr "Escolher uma pasta para a cópia"
 
 #: src/ui/setup_wizard/sync.rs
+msgid "Choose the Vault’s File"
+msgstr "Escolher o arquivo do cofre"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Choose the Vault’s Folder"
+msgstr "Escolher a pasta do cofre"
+
+#: src/ui/setup_wizard/sync.rs
 msgid "Continue Anyway"
 msgstr "Continuar mesmo assim"
 
 #: src/ui/setup_wizard/sync.rs
 msgid "Copy Key"
 msgstr "Copiar chave"
+
+#: src/ui/setup_wizard/sync.rs src/ui/window/import_dialog.rs
+msgid "File"
+msgstr "Arquivo"
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Found a vault."
+msgstr "Cofre encontrado."
 
 #: src/ui/setup_wizard/sync.rs
 msgid "How to Create One"
@@ -1859,6 +2248,14 @@ msgid ""
 msgstr ""
 "Nenhum repositório encontrado neste endereço. Verifique o endereço e sua "
 "conexão com a internet."
+
+#: src/ui/setup_wizard/sync.rs
+msgid ""
+"No vault in this folder: choose the “passwords.git” folder, or the folder "
+"holding it."
+msgstr ""
+"Nenhum cofre nesta pasta: escolha a pasta “passwords.git” ou a pasta que a "
+"contém."
 
 #: src/ui/setup_wizard/sync.rs
 msgid "Open the SSH Keys Page"
@@ -1890,6 +2287,10 @@ msgstr ""
 "conta."
 
 #: src/ui/setup_wizard/sync.rs
+msgid "This folder already has a “passwords.bundle”. Choose another folder."
+msgstr "Esta pasta já tem um “passwords.bundle”. Escolha outra pasta."
+
+#: src/ui/setup_wizard/sync.rs
 msgid "This folder already has a “passwords.git”. Choose another folder."
 msgstr "Esta pasta já contém um “passwords.git”. Escolha outra pasta."
 
@@ -1915,6 +2316,10 @@ msgstr ""
 msgid ""
 "This repository already has content. Create a new, empty one for the vault."
 msgstr "Este repositório já tem conteúdo. Crie um novo, vazio, para o cofre."
+
+#: src/ui/setup_wizard/sync.rs
+msgid "This repository is empty: there is no vault to download."
+msgstr "Este repositório está vazio: não há cofre para baixar."
 
 #: src/ui/setup_wizard/sync.rs
 msgid ""
@@ -1965,10 +2370,6 @@ msgstr "Escolher um arquivo para importar"
 #: src/ui/window/import_dialog.rs
 msgid "Encrypting and saving the entries…"
 msgstr "Criptografando e salvando as entradas…"
-
-#: src/ui/window/import_dialog.rs
-msgid "File"
-msgstr "Arquivo"
 
 #: src/ui/window/import_dialog.rs
 msgid "Folder in this vault"
@@ -2087,6 +2488,19 @@ msgstr ""
 "recuperar algo."
 
 #: src/ui/window/mod.rs
+#, rust-format
+msgid ""
+"Changed both here and on Google Drive: this computer’s version is kept as "
+"{entries}. Check it, then delete the one you do not need."
+msgstr ""
+"Alterado aqui e no Google Drive: a versão deste computador foi mantida como "
+"{entries}. Confira e depois apague a que você não precisa."
+
+#: src/ui/window/mod.rs
+msgid "Changed in Two Places"
+msgstr "Alterado em dois lugares"
+
+#: src/ui/window/mod.rs
 msgid "Changes discarded"
 msgstr "Alterações descartadas"
 
@@ -2193,6 +2607,10 @@ msgid "Branch (empty: current branch)"
 msgstr "Branch (vazio: branch atual)"
 
 #: src/ui/window/vaults.rs
+msgid "Copied to a file"
+msgstr "Copiado num arquivo"
+
+#: src/ui/window/vaults.rs
 #, rust-format
 msgid "Could not save the vault list: {error}"
 msgstr "Não foi possível salvar a lista de cofres: {error}"
@@ -2204,6 +2622,10 @@ msgstr "Pasta não encontrada"
 #: src/ui/window/vaults.rs
 msgid "History"
 msgstr "Histórico"
+
+#: src/ui/window/vaults.rs
+msgid "Kept on Google Drive"
+msgstr "Guardado no Google Drive"
 
 #: src/ui/window/vaults.rs
 msgid "Leave the address empty to keep this vault on this computer only."

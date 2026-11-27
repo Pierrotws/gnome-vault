@@ -26,11 +26,23 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                     <property name="title" translatable="yes">Welcome to Passel</property>
                     <property name="description" translatable="yes">Passel keeps your passwords in an encrypted folder that works with pass. Let’s set one up.</property>
                     <property name="child">
-                      <object class="GtkButton" id="create_button">
-                        <property name="label" translatable="yes">Create a New Vault</property>
+                      <object class="GtkBox">
+                        <property name="orientation">1</property>
                         <property name="halign">3</property>
-                        <property name="css-classes">suggested-action
+                        <property name="spacing">12</property>
+                        <child>
+                          <object class="GtkButton" id="create_button">
+                            <property name="label" translatable="yes">Create a New Vault</property>
+                            <property name="css-classes">suggested-action
 pill</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="download_button">
+                            <property name="label" translatable="yes">I Already Have a Vault</property>
+                            <property name="css-classes">pill</property>
+                          </object>
+                        </child>
                       </object>
                     </property>
                   </object>
@@ -149,7 +161,7 @@ pill</property>
                               </object>
                             </child>
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="key_description">
                                 <property name="label" translatable="yes">Passel encrypts every entry with a GPG key. Only this key, unlocked with its passphrase, can open them.</property>
                                 <property name="wrap">true</property>
                                 <property name="xalign">0</property>
@@ -171,7 +183,7 @@ pill</property>
                                   </object>
                                 </child>
                                 <child>
-                                  <object class="AdwActionRow">
+                                  <object class="AdwActionRow" id="create_key_row">
                                     <property name="title" translatable="yes">Create a new key</property>
                                     <property name="subtitle" translatable="yes">The usual choice if you have never used GPG.</property>
                                     <property name="activatable-widget">create_key_check</property>
@@ -307,7 +319,7 @@ pill</property>
         <child>
           <object class="AdwNavigationPage">
             <property name="tag">sync</property>
-            <property name="title" translatable="yes">Sync</property>
+            <property name="title" translatable="yes">Storage</property>
             <property name="child">
               <object class="AdwToolbarView">
                 <child type="top">
@@ -331,15 +343,15 @@ pill</property>
                             <property name="orientation">1</property>
                             <property name="spacing">18</property>
                             <child>
-                              <object class="GtkLabel">
-                                <property name="label" translatable="yes">Use It on Other Devices?</property>
+                              <object class="GtkLabel" id="sync_title">
+                                <property name="label" translatable="yes">Where to Keep Your Vault?</property>
                                 <property name="wrap">true</property>
                                 <property name="css-classes">title-1</property>
                               </object>
                             </child>
                             <child>
-                              <object class="GtkLabel">
-                                <property name="label" translatable="yes">Passel can keep an encrypted copy of your vault somewhere else, so you can use it from another computer or your phone.</property>
+                              <object class="GtkLabel" id="sync_description">
+                                <property name="label" translatable="yes">Passel keeps an encrypted copy of your vault somewhere else: it is backed up, and you can use it from another computer or your phone.</property>
                                 <property name="wrap">true</property>
                                 <property name="xalign">0</property>
                                 <property name="css-classes">dim-label</property>
@@ -348,25 +360,12 @@ pill</property>
                             <child>
                               <object class="AdwPreferencesGroup">
                                 <child>
-                                  <object class="AdwActionRow" id="online_row">
-                                    <property name="title" translatable="yes">Keep an online copy</property>
-                                    <property name="subtitle" translatable="yes">In a private repository on a free service like GitHub. Works from anywhere.</property>
-                                    <property name="activatable-widget">online_check</property>
+                                  <object class="AdwActionRow" id="drive_row">
+                                    <property name="title" translatable="yes">Google Drive</property>
+                                    <property name="subtitle" translatable="yes">One file on your Google account, synced with your other computers and phones: just sign in. Passel only sees the files it makes there.</property>
+                                    <property name="activatable-widget">drive_check</property>
                                     <child type="prefix">
-                                      <object class="GtkCheckButton" id="online_check">
-                                        <property name="valign">3</property>
-                                        <property name="active">true</property>
-                                      </object>
-                                    </child>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="AdwActionRow" id="folder_row">
-                                    <property name="title" translatable="yes">Copy to a folder or drive</property>
-                                    <property name="subtitle" translatable="yes">A USB drive, or a folder synced by Nextcloud or Syncthing. No account needed.</property>
-                                    <property name="activatable-widget">folder_check</property>
-                                    <child type="prefix">
-                                      <object class="GtkCheckButton" id="folder_check">
+                                      <object class="GtkCheckButton" id="drive_check">
                                         <property name="valign">3</property>
                                         <property name="group">online_check</property>
                                       </object>
@@ -374,12 +373,33 @@ pill</property>
                                   </object>
                                 </child>
                                 <child>
-                                  <object class="AdwActionRow" id="local_row">
-                                    <property name="title" translatable="yes">Only on this computer</property>
-                                    <property name="subtitle" translatable="yes">Entries never leave this computer.</property>
-                                    <property name="activatable-widget">local_check</property>
+                                  <object class="AdwActionRow" id="online_row">
+                                    <property name="title" translatable="yes">Git repository</property>
+                                    <property name="subtitle" translatable="yes">A private repository on a service like GitHub, with the vault’s whole history. pass and Passel open it on your other computers and phone.</property>
+                                    <property name="activatable-widget">online_check</property>
                                     <child type="prefix">
-                                      <object class="GtkCheckButton" id="local_check">
+                                      <object class="GtkCheckButton" id="online_check">
+                                        <property name="valign">3</property>
+                                        <property name="active">true</property>
+                                      </object>
+                                    </child>
+                                    <child type="suffix">
+                                      <object class="GtkLabel" id="online_tag">
+                                        <property name="label" translatable="yes">Advanced · recommended</property>
+                                        <property name="valign">3</property>
+                                        <property name="css-classes">caption
+dim-label</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow" id="folder_row">
+                                    <property name="title" translatable="yes">On this computer</property>
+                                    <property name="subtitle" translatable="yes">In a folder or a file you choose: a USB drive, or a folder synced by Nextcloud or Syncthing. No account needed.</property>
+                                    <property name="activatable-widget">folder_check</property>
+                                    <child type="prefix">
+                                      <object class="GtkCheckButton" id="folder_check">
                                         <property name="valign">3</property>
                                         <property name="group">online_check</property>
                                       </object>
@@ -418,7 +438,7 @@ pill</property>
         <child>
           <object class="AdwNavigationPage">
             <property name="tag">online</property>
-            <property name="title" translatable="yes">Online Copy</property>
+            <property name="title" translatable="yes">Git Repository</property>
             <property name="child">
               <object class="AdwToolbarView">
                 <child type="top">
@@ -443,13 +463,13 @@ pill</property>
                             <property name="spacing">18</property>
                             <child>
                               <object class="GtkLabel">
-                                <property name="label" translatable="yes">Online Copy</property>
+                                <property name="label" translatable="yes">Git Repository</property>
                                 <property name="wrap">true</property>
                                 <property name="css-classes">title-1</property>
                               </object>
                             </child>
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="online_description">
                                 <property name="label" translatable="yes">Any of these services offers free private repositories. If you have no account yet, pick one and create it on the service’s website.</property>
                                 <property name="wrap">true</property>
                                 <property name="xalign">0</property>
@@ -482,7 +502,7 @@ pill</property>
                               </object>
                             </child>
                             <child>
-                              <object class="AdwPreferencesGroup">
+                              <object class="AdwPreferencesGroup" id="host_group">
                                 <child>
                                   <object class="AdwComboRow" id="host_row">
                                     <property name="title" translatable="yes">Service</property>
@@ -564,7 +584,7 @@ pill</property>
         <child>
           <object class="AdwNavigationPage">
             <property name="tag">folder</property>
-            <property name="title" translatable="yes">Folder Copy</property>
+            <property name="title" translatable="yes">On This Computer</property>
             <property name="child">
               <object class="AdwToolbarView">
                 <child type="top">
@@ -589,17 +609,47 @@ pill</property>
                             <property name="spacing">18</property>
                             <child>
                               <object class="GtkLabel">
-                                <property name="label" translatable="yes">Copy to a Folder or Drive</property>
+                                <property name="label" translatable="yes">On This Computer</property>
                                 <property name="wrap">true</property>
                                 <property name="css-classes">title-1</property>
                               </object>
                             </child>
                             <child>
-                              <object class="GtkLabel">
-                                <property name="label" translatable="yes">Passel creates an encrypted copy named “passwords.git” in the folder you choose, and keeps it up to date as you save changes.</property>
+                              <object class="GtkLabel" id="folder_description">
+                                <property name="label" translatable="yes">Passel creates an encrypted copy in the folder you choose, and keeps it up to date as you save changes.</property>
                                 <property name="wrap">true</property>
                                 <property name="xalign">0</property>
                                 <property name="css-classes">dim-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwPreferencesGroup">
+                                <child>
+                                  <object class="AdwActionRow" id="git_folder_row">
+                                    <property name="title" translatable="yes">A git folder</property>
+                                    <property name="subtitle" translatable="yes">“passwords.git”: git, pass and Passel on another computer use it as it is.</property>
+                                    <property name="activatable-widget">git_folder_check</property>
+                                    <child type="prefix">
+                                      <object class="GtkCheckButton" id="git_folder_check">
+                                        <property name="valign">3</property>
+                                        <property name="active">true</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow" id="bundle_file_row">
+                                    <property name="title" translatable="yes">One file</property>
+                                    <property name="subtitle" translatable="yes">“passwords.bundle”: a single file, which a folder synced by Nextcloud or Syncthing never delivers half-written. git clone opens it.</property>
+                                    <property name="activatable-widget">bundle_file_check</property>
+                                    <child type="prefix">
+                                      <object class="GtkCheckButton" id="bundle_file_check">
+                                        <property name="valign">3</property>
+                                        <property name="group">git_folder_check</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
                               </object>
                             </child>
                             <child>
@@ -630,6 +680,131 @@ pill</property>
                                 <child>
                                   <object class="GtkButton" id="folder_next_button">
                                     <property name="label" translatable="yes">Next</property>
+                                    <property name="css-classes">suggested-action</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwNavigationPage">
+            <property name="tag">drive</property>
+            <property name="title" translatable="yes">Google Drive</property>
+            <property name="child">
+              <object class="AdwToolbarView">
+                <child type="top">
+                  <object class="AdwHeaderBar">
+                    <property name="show-back-button">false</property>
+                  </object>
+                </child>
+                <property name="content">
+                  <object class="GtkScrolledWindow">
+                    <property name="hscrollbar-policy">2</property>
+                    <property name="child">
+                      <object class="AdwClamp">
+                        <property name="maximum-size">560</property>
+                        <property name="valign">3</property>
+                        <property name="margin-top">24</property>
+                        <property name="margin-bottom">24</property>
+                        <property name="margin-start">24</property>
+                        <property name="margin-end">24</property>
+                        <property name="child">
+                          <object class="GtkBox">
+                            <property name="orientation">1</property>
+                            <property name="spacing">18</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label" translatable="yes">Google Drive</property>
+                                <property name="wrap">true</property>
+                                <property name="css-classes">title-1</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label" translatable="yes">Passel keeps the vault as one file in a “Passel” folder of your Google Drive. It only sees the files it makes there.</property>
+                                <property name="wrap">true</property>
+                                <property name="xalign">0</property>
+                                <property name="css-classes">dim-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="drive_status_box">
+                                <property name="spacing">8</property>
+                                <child>
+                                  <object class="GtkSpinner" id="drive_spinner">
+                                    <property name="valign">3</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkImage" id="drive_icon">
+                                    <property name="valign">3</property>
+                                    <property name="visible">false</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="drive_status_label">
+                                    <property name="wrap">true</property>
+                                    <property name="xalign">0</property>
+                                    <property name="hexpand">true</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="drive_sign_in_button">
+                                <property name="label" translatable="yes">Sign In with Google</property>
+                                <property name="halign">3</property>
+                                <property name="visible">false</property>
+                                <property name="css-classes">pill
+suggested-action</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwPreferencesGroup" id="drive_vaults_group">
+                                <property name="title" translatable="yes">Vaults on This Google Drive</property>
+                                <property name="visible">false</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="drive_hint_box">
+                                <property name="spacing">12</property>
+                                <property name="visible">false</property>
+                                <child>
+                                  <object class="GtkLabel" id="drive_hint_label">
+                                    <property name="wrap">true</property>
+                                    <property name="xalign">0</property>
+                                    <property name="hexpand">true</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkButton" id="drive_switch_button">
+                                    <property name="valign">3</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox">
+                                <property name="halign">2</property>
+                                <property name="spacing">12</property>
+                                <child>
+                                  <object class="GtkButton" id="drive_back_button">
+                                    <property name="label" translatable="yes">Back</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkButton" id="drive_next_button">
+                                    <property name="label" translatable="yes">Next</property>
+                                    <property name="sensitive">false</property>
                                     <property name="css-classes">suggested-action</property>
                                   </object>
                                 </child>

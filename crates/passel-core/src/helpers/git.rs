@@ -10,6 +10,7 @@ use git2::{
     ResetType, Sort,
 };
 
+use super::bundle;
 use super::git_credentials::credential_provider;
 pub use super::git_credentials::{
     install_credential_provider, remote_host, Credential, CredentialProvider, CredentialRequest,
@@ -63,6 +64,10 @@ pub enum GitError {
         entries: Vec<String>,
         kept_as: Option<String>,
     },
+    /// A vault's copy (a bundle file) could not be read or written.
+    Io(std::io::Error),
+    /// A file given as a vault's copy is not one.
+    NotAVault,
 }
 
 // Display intentionally drops the inner `git2::Error` message (and the
@@ -101,6 +106,8 @@ impl std::fmt::Display for GitError {
                 entries.len() as u64,
                 &[("n", &entries.len().to_string())],
             ),
+            GitError::Io(_) => gettext("Could not read or write the vault’s copy"),
+            GitError::NotAVault => gettext("This file is not a Passel vault"),
             GitError::NoSignature => gettext(
                 "git user.name and user.email are not set; configure them with `git config --global user.name '...'` and `git config --global user.email '...'`",
             ),
@@ -741,44 +748,24 @@ pub fn sync(project_dir: &Path, branch: Option<&str>) -> Result<SyncReport, GitE
         .and_then(|r| r.target());
     let upstream = upstream_oid_for_branch(&repo, &branch).ok();
 
-    let mut report = SyncReport::default();
-    let new_local = match (local, upstream) {
-        // Nothing on the remote yet: everything local is new to it.
-        (Some(local), None) => {
-            report.sent = count_commits(&repo, local)?;
-            local
+    let (merge, new_local) = match take_upstream(
+        &repo,
+        &local_ref,
+        (local, upstream),
+        is_checked_out,
+        &remote_name,
+        OnConflict::Fail,
+    ) {
+        Err(GitError::MergeConflicts { entries, .. }) => {
+            let kept_as =
+                local.and_then(|local| keep_unmerged(&repo, &remote_name, &local_ref, local));
+            return Err(GitError::MergeConflicts { entries, kept_as });
         }
-        // A fresh clone of an empty remote that then received commits.
-        (None, Some(upstream)) => {
-            report.received = count_commits(&repo, upstream)?;
-            move_branch(&repo, &local_ref, upstream, is_checked_out)?;
-            upstream
-        }
-        (None, None) => return Ok(report),
-        (Some(local), Some(upstream)) => {
-            let (ahead, behind) = repo.graph_ahead_behind(local, upstream)?;
-            report.received = behind;
-            report.sent = ahead;
-            match (ahead, behind) {
-                (_, 0) => local,
-                (0, _) => {
-                    move_branch(&repo, &local_ref, upstream, is_checked_out)?;
-                    upstream
-                }
-                _ => {
-                    let merged = match merge_commit(&repo, local, upstream, &remote_name) {
-                        Err(GitError::MergeConflicts { entries, .. }) => {
-                            let kept_as = keep_unmerged(&repo, &remote_name, &local_ref, local);
-                            return Err(GitError::MergeConflicts { entries, kept_as });
-                        }
-                        other => other?,
-                    };
-                    move_branch(&repo, &local_ref, merged, is_checked_out)?;
-                    report.sent += 1;
-                    merged
-                }
-            }
-        }
+        other => other?,
+    };
+    let report = merge.report;
+    let Some(new_local) = new_local else {
+        return Ok(report);
     };
 
     if report.sent > 0 {
@@ -791,6 +778,277 @@ pub fn sync(project_dir: &Path, branch: Option<&str>) -> Result<SyncReport, GitE
         update_tracking_ref(&repo, &remote_name, &remote_ref, new_local)?;
     }
     Ok(report)
+}
+
+/// What a merge does with an entry changed on both sides.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OnConflict {
+    /// Change nothing and fail with [`GitError::MergeConflicts`].
+    Fail,
+    /// Take the other side's version, and keep this side's as a copy
+    /// beside it: see [`CopyMerge::kept_copies`].
+    KeepBoth,
+}
+
+/// What [`merge_from_copy`] did.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CopyMerge {
+    pub report: SyncReport,
+    /// Entries changed both here and in the copy: the copy's version took
+    /// their place, and this device's was kept under these new paths
+    /// (`web/site (conflict).gpg`), so nothing is lost.
+    pub kept_copies: Vec<String>,
+}
+
+/// Moves the local branch to include `upstream`'s commits: a fast-forward,
+/// or a merge commit (named after `source`) when both sides changed.
+/// Returns what was exchanged and the branch's new tip (`None` when both
+/// sides are empty). `sent` counts the local commits `upstream` lacks,
+/// the merge commit included. Conflicting edits are handled as
+/// `on_conflict` says; when they fail, nothing is touched and
+/// [`GitError::MergeConflicts`] (without `kept_as`) is returned.
+fn take_upstream(
+    repo: &Repository,
+    local_ref: &str,
+    (local, upstream): (Option<Oid>, Option<Oid>),
+    is_checked_out: bool,
+    source: &str,
+    on_conflict: OnConflict,
+) -> Result<(CopyMerge, Option<Oid>), GitError> {
+    let mut report = SyncReport::default();
+    let mut kept_copies = Vec::new();
+    let new_local = match (local, upstream) {
+        // Nothing on the remote yet: everything local is new to it.
+        (Some(local), None) => {
+            report.sent = count_commits(repo, local)?;
+            local
+        }
+        // A fresh clone of an empty remote that then received commits.
+        (None, Some(upstream)) => {
+            report.received = count_commits(repo, upstream)?;
+            move_branch(repo, local_ref, upstream, is_checked_out)?;
+            upstream
+        }
+        (None, None) => return Ok((CopyMerge::default(), None)),
+        (Some(local), Some(upstream)) => {
+            let (ahead, behind) = repo.graph_ahead_behind(local, upstream)?;
+            report.received = behind;
+            report.sent = ahead;
+            match (ahead, behind) {
+                (_, 0) => local,
+                (0, _) => {
+                    move_branch(repo, local_ref, upstream, is_checked_out)?;
+                    upstream
+                }
+                _ => {
+                    let (merged, kept) = merge_commit(repo, local, upstream, source, on_conflict)?;
+                    kept_copies = kept;
+                    move_branch(repo, local_ref, merged, is_checked_out)?;
+                    report.sent += 1;
+                    merged
+                }
+            }
+        }
+    };
+    Ok((
+        CopyMerge {
+            report,
+            kept_copies,
+        },
+        Some(new_local),
+    ))
+}
+
+/// Takes the commits of another copy of the vault, the repository
+/// `source_dir` (e.g. a folder copy, bare or not), into the branch
+/// checked out in `project_dir`, like [`sync`] does from a remote, but
+/// sends nothing back: the caller writes the copy afterwards when `sent`
+/// is not zero ([`push_to_copy`]). An entry changed on both sides never
+/// stops it: see [`CopyMerge::kept_copies`].
+///
+/// The source's HEAD branch is fetched into `refs/remotes/<name>/<branch>`
+/// (named after the local branch, whatever the source calls its own). A
+/// source without commits only counts the local ones as `sent`.
+pub fn merge_from_copy(
+    project_dir: &Path,
+    source_dir: &Path,
+    name: &str,
+) -> Result<CopyMerge, GitError> {
+    let repo = open_repository(project_dir)?;
+    let branch = checked_out_branch(&repo)?;
+    let tracking = format!("refs/remotes/{name}/{branch}");
+
+    let source = open_repository(source_dir)?;
+    let source_ref = source
+        .find_reference("HEAD")?
+        .symbolic_target()
+        .map(str::to_string)
+        .ok_or(GitError::NoHeadName)?;
+    if source.refname_to_id(&source_ref).is_ok() {
+        let url = source_dir
+            .to_str()
+            .ok_or_else(|| GitError::MissingWorkdir(source_dir.to_path_buf()))?;
+        let mut remote = repo.remote_anonymous(url)?;
+        remote.fetch(&[format!("+{source_ref}:{tracking}")], None, None)?;
+    }
+    merge_tracking(&repo, &branch, name)
+}
+
+/// Like [`merge_from_copy`], from the bundle file at `bundle_path`
+/// (written by [`write_bundle`] on another device).
+pub fn merge_from_bundle(
+    project_dir: &Path,
+    bundle_path: &Path,
+    name: &str,
+) -> Result<CopyMerge, GitError> {
+    let repo = open_repository(project_dir)?;
+    let branch = checked_out_branch(&repo)?;
+    let header = bundle::read_header(bundle_path).map_err(bundle_error)?;
+    if let Some((_, tip)) = header.branch(Some(&branch)) {
+        if repo.find_commit(tip).is_err() {
+            bundle::import_pack(&repo, bundle_path, &header).map_err(|_| GitError::NotAVault)?;
+            repo.find_commit(tip).map_err(|_| GitError::NotAVault)?;
+        }
+        repo.reference(
+            &format!("refs/remotes/{name}/{branch}"),
+            tip,
+            true,
+            "copy read",
+        )?;
+    }
+    merge_tracking(&repo, &branch, name)
+}
+
+/// Merges `refs/remotes/<name>/<branch>` into the checked-out `branch`.
+fn merge_tracking(repo: &Repository, branch: &str, name: &str) -> Result<CopyMerge, GitError> {
+    let local_ref = format!("refs/heads/{branch}");
+    let local = repo.refname_to_id(&local_ref).ok();
+    let upstream = repo
+        .refname_to_id(&format!("refs/remotes/{name}/{branch}"))
+        .ok();
+    let (merge, _) = take_upstream(
+        repo,
+        &local_ref,
+        (local, upstream),
+        true,
+        name,
+        OnConflict::KeepBoth,
+    )?;
+    Ok(merge)
+}
+
+/// Writes the history of the checked-out branch to `out`, a bundle file
+/// (see [`bundle`]). The caller then records it with
+/// [`mark_copy_synced`].
+pub fn write_bundle(project_dir: &Path, out: &Path) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let branch = checked_out_branch(&repo)?;
+    let tip = repo
+        .refname_to_id(&format!("refs/heads/{branch}"))
+        .map_err(|_| GitError::NoHeadTarget)?;
+    bundle::write(&repo, &branch, tip, out)?;
+    Ok(())
+}
+
+/// Makes a new vault at `dir` (missing or empty) from the bundle file at
+/// `bundle_path`, checked out on the bundle's HEAD branch.
+pub fn clone_bundle(bundle_path: &Path, dir: &Path) -> Result<(), GitError> {
+    let header = bundle::read_header(bundle_path).map_err(bundle_error)?;
+    let (branch, tip) = header.branch(None).ok_or(GitError::NotAVault)?;
+    let mut options = git2::RepositoryInitOptions::new();
+    options.initial_head(&branch);
+    let repo = Repository::init_opts(dir, &options)?;
+    // A link in a vault from elsewhere could point anywhere on this
+    // device: check links out as plain files.
+    repo.config()?.set_bool("core.symlinks", false)?;
+    bundle::import_pack(&repo, bundle_path, &header).map_err(|_| GitError::NotAVault)?;
+    repo.find_commit(tip).map_err(|_| GitError::NotAVault)?;
+    repo.reference(&format!("refs/heads/{branch}"), tip, false, "clone")?;
+    repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
+    Ok(())
+}
+
+/// Sends the checked-out branch to the folder copy `copy_dir` (a bare
+/// repository, made with [`init_bare`]). Refused when the copy has
+/// commits this vault lacks: [`merge_from_copy`] it first.
+pub fn push_to_copy(project_dir: &Path, copy_dir: &Path) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let branch = checked_out_branch(&repo)?;
+    let url = copy_dir
+        .to_str()
+        .ok_or_else(|| GitError::MissingWorkdir(copy_dir.to_path_buf()))?;
+    let mut remote = repo.remote_anonymous(url)?;
+    let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
+    remote.push(&[refspec], None)?;
+    Ok(())
+}
+
+fn bundle_error(err: std::io::Error) -> GitError {
+    if err.kind() == std::io::ErrorKind::InvalidData {
+        GitError::NotAVault
+    } else {
+        GitError::Io(err)
+    }
+}
+
+/// Records that the copy `name` now holds the checked-out branch as it is
+/// (it was just uploaded): see [`merge_from_copy`] and [`ahead_of_copy`].
+pub fn mark_copy_synced(project_dir: &Path, name: &str) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let branch = checked_out_branch(&repo)?;
+    let Ok(head) = repo.refname_to_id(&format!("refs/heads/{branch}")) else {
+        // Nothing committed yet: nothing to record.
+        return Ok(());
+    };
+    repo.reference(
+        &format!("refs/remotes/{name}/{branch}"),
+        head,
+        true,
+        "copy synced",
+    )?;
+    Ok(())
+}
+
+/// Local commits the copy `name` does not have yet: all of them when it
+/// never received any.
+pub fn ahead_of_copy(project_dir: &Path, name: &str) -> Result<usize, GitError> {
+    let repo = open_repository(project_dir)?;
+    let branch = checked_out_branch(&repo)?;
+    let Ok(local) = repo.refname_to_id(&format!("refs/heads/{branch}")) else {
+        return Ok(0);
+    };
+    match repo.refname_to_id(&format!("refs/remotes/{name}/{branch}")) {
+        Ok(copy) => Ok(repo.graph_ahead_behind(local, copy)?.0),
+        Err(_) => count_commits(&repo, local),
+    }
+}
+
+/// The checked-out branch's name, even while it is unborn (no commit yet).
+fn checked_out_branch(repo: &Repository) -> Result<String, GitError> {
+    repo.find_reference("HEAD")?
+        .symbolic_target()
+        .and_then(|target| target.strip_prefix("refs/heads/"))
+        .map(str::to_string)
+        .ok_or(GitError::NoHeadName)
+}
+
+/// A value of the vault's own git configuration (`.git/config`).
+pub fn local_config(project_dir: &Path, key: &str) -> Option<String> {
+    let repo = open_repository(project_dir).ok()?;
+    let config = repo
+        .config()
+        .ok()?
+        .open_level(git2::ConfigLevel::Local)
+        .ok()?;
+    config.get_string(key).ok()
+}
+
+/// Sets a value of the vault's own git configuration.
+pub fn set_local_config(project_dir: &Path, key: &str, value: &str) -> Result<(), GitError> {
+    let repo = open_repository(project_dir)?;
+    let mut config = repo.config()?.open_level(git2::ConfigLevel::Local)?;
+    config.set_str(key, value)?;
+    Ok(())
 }
 
 /// Sends a branch that could not be merged to the remote under a side
@@ -861,17 +1119,24 @@ fn move_branch(
     Ok(())
 }
 
-/// Creates the merge commit of `local` and `upstream`, or fails with
-/// [`GitError::MergeConflicts`] without touching anything.
+/// Creates the merge commit of `local` and `upstream`. Entries changed on
+/// both sides fail with [`GitError::MergeConflicts`] without touching
+/// anything, or are kept twice (see [`OnConflict::KeepBoth`]): then the
+/// paths of this side's copies are returned.
 fn merge_commit(
     repo: &Repository,
     local: Oid,
     upstream: Oid,
     remote_name: &str,
-) -> Result<Oid, GitError> {
+    on_conflict: OnConflict,
+) -> Result<(Oid, Vec<String>), GitError> {
     let ours = repo.find_commit(local)?;
     let theirs = repo.find_commit(upstream)?;
     let mut index = repo.merge_commits(&ours, &theirs, None)?;
+    let mut kept_copies = Vec::new();
+    if index.has_conflicts() && on_conflict == OnConflict::KeepBoth {
+        kept_copies = keep_both_sides(&mut index)?;
+    }
     if index.has_conflicts() {
         let entries = index
             .conflicts()?
@@ -894,7 +1159,71 @@ fn merge_commit(
         &tree,
         &[&ours, &theirs],
     )?;
-    Ok(oid)
+    Ok((oid, kept_copies))
+}
+
+/// Settles every conflict of a merge `index` without losing a version:
+/// the other side's entry takes the path, and this side's is added as
+/// `<name> (conflict).gpg` (numbered when taken) next to it. An entry
+/// deleted on one side and changed on the other stays, changed. Returns
+/// the paths of the copies.
+fn keep_both_sides(index: &mut git2::Index) -> Result<Vec<String>, GitError> {
+    /// Stage bits of an index entry's flags (0 = merged).
+    const STAGE_MASK: u16 = 0x3000;
+    /// Path length bits of an index entry's flags.
+    const NAME_MASK: u16 = 0x0fff;
+    fn merged(mut entry: git2::IndexEntry, path: Vec<u8>) -> git2::IndexEntry {
+        entry.flags = (entry.flags & !(STAGE_MASK | NAME_MASK))
+            | u16::try_from(path.len())
+                .unwrap_or(NAME_MASK)
+                .min(NAME_MASK);
+        entry.path = path;
+        entry
+    }
+
+    let conflicts = index.conflicts()?.collect::<Result<Vec<_>, _>>()?;
+    let mut kept = Vec::new();
+    for conflict in conflicts {
+        let Some(path) = [&conflict.our, &conflict.their, &conflict.ancestor]
+            .into_iter()
+            .flatten()
+            .map(|entry| entry.path.clone())
+            .next()
+        else {
+            continue;
+        };
+        let path_str = String::from_utf8_lossy(&path).into_owned();
+        index.conflict_remove(Path::new(&path_str))?;
+        match (conflict.our, conflict.their) {
+            (Some(our), Some(their)) => {
+                index.add(&merged(their, path.clone()))?;
+                match conflict_copy_path(index, &path_str) {
+                    Some(copy) => {
+                        index.add(&merged(our, copy.clone().into_bytes()))?;
+                        kept.push(copy);
+                    }
+                    // Not an entry (e.g. .gpg-id): the other side's wins.
+                    None => log::warn!("merge: kept the other side of a non-entry file"),
+                }
+            }
+            (Some(one), None) | (None, Some(one)) => index.add(&merged(one, path))?,
+            (None, None) => {}
+        }
+    }
+    Ok(kept)
+}
+
+/// `web/site.gpg` → the first of `web/site (conflict).gpg`,
+/// `web/site (conflict 2).gpg`… not in `index`; `None` for a file that is
+/// not an entry.
+fn conflict_copy_path(index: &git2::Index, path: &str) -> Option<String> {
+    let stem = path.strip_suffix(".gpg")?;
+    (1..)
+        .map(|n| match n {
+            1 => format!("{stem} ({}).gpg", gettext("conflict")),
+            n => format!("{stem} ({} {n}).gpg", gettext("conflict")),
+        })
+        .find(|copy| index.get_path(Path::new(copy), 0).is_none())
 }
 
 fn current_branch(repo: &Repository) -> Result<String, GitError> {
@@ -952,10 +1281,15 @@ fn upstream_oid_for_branch(repo: &Repository, branch: &str) -> Result<Oid, GitEr
         .ok_or(GitError::NoHeadTarget)
 }
 
+/// The branch's remote: its configured one, else the vault's copy kept
+/// as a file or folder (`passel.storage`: its tracking refs are
+/// `refs/remotes/<storage>/…`, see [`merge_from_bundle`]), else
+/// "origin".
 fn remote_name_for_branch(repo: &Repository, branch: &str) -> Result<String, GitError> {
     let config = repo.config()?;
     Ok(config
         .get_string(&format!("branch.{branch}.remote"))
+        .or_else(|_| config.get_string("passel.storage"))
         .unwrap_or_else(|_| "origin".to_string()))
 }
 
@@ -1539,6 +1873,226 @@ mod tests {
         assert!(report.received >= 1);
         assert_eq!(vault.read(&vault.phone, "shared.gpg"), "phone v2");
         assert_eq!(unpushed_count(&vault.phone, None).unwrap(), 0);
+    }
+
+    /// A vault shared through copies of its folder (as Google Drive keeps
+    /// it): `phone` merges `drive`, a copy of the desktop's vault.
+    #[test]
+    fn merge_from_copy_takes_commits_and_counts_what_to_upload() {
+        let vault = SharedVault::new("git-copy-merge");
+        let phone = &vault.phone;
+        // Never uploaded: everything local is new to the copy.
+        assert_eq!(ahead_of_copy(phone, "drive").unwrap(), 1);
+
+        // The copy is the desktop's folder, one commit ahead.
+        vault.write(&vault.desktop, "desktop.gpg", "from desktop");
+        let merge = merge_from_copy(phone, &vault.desktop, "drive").unwrap();
+        assert_eq!(
+            merge.report,
+            SyncReport {
+                received: 1,
+                sent: 0
+            }
+        );
+        assert!(merge.kept_copies.is_empty());
+        assert_eq!(vault.read(phone, "desktop.gpg"), "from desktop");
+        assert_eq!(ahead_of_copy(phone, "drive").unwrap(), 0);
+
+        // Both sides changed different entries: a merge, to upload.
+        vault.write(&vault.desktop, "desktop.gpg", "desktop v2");
+        vault.write(phone, "phone.gpg", "from phone");
+        let merge = merge_from_copy(phone, &vault.desktop, "drive").unwrap();
+        assert_eq!(
+            merge.report,
+            SyncReport {
+                received: 1,
+                sent: 2
+            }
+        );
+        assert_eq!(vault.read(phone, "desktop.gpg"), "desktop v2");
+        assert_eq!(ahead_of_copy(phone, "drive").unwrap(), 2);
+        mark_copy_synced(phone, "drive").unwrap();
+        assert_eq!(ahead_of_copy(phone, "drive").unwrap(), 0);
+        // The git remote is left alone.
+        assert_eq!(unpushed_count(phone, None).unwrap(), 4);
+    }
+
+    #[test]
+    fn merge_from_copy_keeps_both_versions_of_an_entry() {
+        let vault = SharedVault::new("git-copy-conflict");
+        let phone = &vault.phone;
+        vault.write(&vault.desktop, "shared.gpg", "desktop v2");
+        vault.write(phone, "shared.gpg", "phone v2");
+
+        let merge = merge_from_copy(phone, &vault.desktop, "drive").unwrap();
+        assert_eq!(merge.kept_copies, vec!["shared (conflict).gpg"]);
+        assert_eq!(vault.read(phone, "shared.gpg"), "desktop v2");
+        assert_eq!(vault.read(phone, "shared (conflict).gpg"), "phone v2");
+        assert_eq!(merge.report.received, 1);
+        assert_eq!(merge.report.sent, 2, "the phone's commit and the merge");
+        let repo = Repository::open(phone).unwrap();
+        assert!(
+            repo.statuses(None).unwrap().is_empty(),
+            "nothing left uncommitted"
+        );
+        assert_eq!(
+            repo.head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .parent_count(),
+            2
+        );
+
+        // A second conflict on the same entry picks the next free name.
+        vault.write(&vault.desktop, "shared.gpg", "desktop v3");
+        vault.write(phone, "shared.gpg", "phone v3");
+        let merge = merge_from_copy(phone, &vault.desktop, "drive").unwrap();
+        assert_eq!(merge.kept_copies, vec!["shared (conflict 2).gpg"]);
+        assert_eq!(vault.read(phone, "shared (conflict 2).gpg"), "phone v3");
+    }
+
+    #[test]
+    fn merge_from_copy_fills_an_empty_vault() {
+        let vault = SharedVault::new("git-copy-empty");
+        let empty = vault.root.join("empty");
+        init_repo(&empty);
+        let merge = merge_from_copy(&empty, &vault.desktop, "drive").unwrap();
+        assert_eq!(
+            merge.report,
+            SyncReport {
+                received: 1,
+                sent: 0
+            }
+        );
+        assert_eq!(vault.read(&empty, "shared.gpg"), "v1");
+
+        // And an empty copy only counts the local commits.
+        let blank = vault.root.join("blank");
+        init_repo(&blank);
+        let merge = merge_from_copy(&vault.desktop, &blank, "drive").unwrap();
+        assert_eq!(
+            merge.report,
+            SyncReport {
+                received: 0,
+                sent: 1
+            }
+        );
+    }
+
+    /// A vault shared through bundle files (as Google Drive or a synced
+    /// folder keep it).
+    #[test]
+    fn bundles_carry_the_vault_both_ways() {
+        let vault = SharedVault::new("git-bundle");
+        let phone = &vault.phone;
+        let desktop_file = vault.root.join("desktop.bundle");
+        vault.write(&vault.desktop, "desktop.gpg", "from desktop");
+        write_bundle(&vault.desktop, &desktop_file).unwrap();
+
+        // A new device starts from the file alone.
+        let tablet = vault.root.join("tablet");
+        clone_bundle(&desktop_file, &tablet).unwrap();
+        assert_eq!(vault.read(&tablet, "desktop.gpg"), "from desktop");
+        assert_eq!(current_branch_name(&tablet).as_deref(), Some("main"));
+        let repo = Repository::open(&tablet).unwrap();
+        assert!(repo.statuses(None).unwrap().is_empty());
+        assert!(repo.remotes().unwrap().is_empty(), "no remote to push to");
+
+        // Stock git clones it too, when installed.
+        let cloned = vault.root.join("git-clone");
+        if let Ok(output) = std::process::Command::new("git")
+            .arg("clone")
+            .arg("--quiet")
+            .arg(&desktop_file)
+            .arg(&cloned)
+            .output()
+        {
+            assert!(output.status.success(), "{output:?}");
+            assert_eq!(vault.read(&cloned, "desktop.gpg"), "from desktop");
+        }
+
+        // The phone merges it, with a change of its own: both sides kept.
+        vault.write(&vault.desktop, "shared.gpg", "desktop v2");
+        write_bundle(&vault.desktop, &desktop_file).unwrap();
+        vault.write(phone, "shared.gpg", "phone v2");
+        let merge = merge_from_bundle(phone, &desktop_file, "drive").unwrap();
+        assert_eq!(merge.report.received, 2);
+        assert_eq!(merge.kept_copies, vec!["shared (conflict).gpg"]);
+        assert_eq!(vault.read(phone, "shared.gpg"), "desktop v2");
+        assert_eq!(vault.read(phone, "shared (conflict).gpg"), "phone v2");
+        assert_eq!(ahead_of_copy(phone, "drive").unwrap(), 2);
+
+        // Merging the same file again takes nothing new.
+        let again = merge_from_bundle(phone, &desktop_file, "drive").unwrap();
+        assert_eq!(again.report.received, 0);
+        assert!(again.kept_copies.is_empty());
+
+        // The phone's bundle brings the merge back to the desktop.
+        let phone_file = vault.root.join("phone.bundle");
+        write_bundle(phone, &phone_file).unwrap();
+        mark_copy_synced(phone, "drive").unwrap();
+        assert_eq!(ahead_of_copy(phone, "drive").unwrap(), 0);
+        let back = merge_from_bundle(&vault.desktop, &phone_file, "drive").unwrap();
+        assert_eq!(back.report.sent, 0, "a fast-forward");
+        assert_eq!(
+            vault.read(&vault.desktop, "shared (conflict).gpg"),
+            "phone v2"
+        );
+    }
+
+    #[test]
+    fn a_file_that_is_not_a_bundle_is_not_a_vault() {
+        let vault = SharedVault::new("git-bundle-junk");
+        let junk = vault.root.join("junk.bundle");
+        fs::write(&junk, "password-store/\0\0").unwrap();
+        assert!(matches!(
+            merge_from_bundle(&vault.phone, &junk, "drive"),
+            Err(GitError::NotAVault)
+        ));
+        assert!(matches!(
+            clone_bundle(&junk, &vault.root.join("new")),
+            Err(GitError::NotAVault)
+        ));
+
+        // A real header over a broken pack.
+        let mut bytes = Vec::new();
+        let tip = Repository::open(&vault.desktop)
+            .unwrap()
+            .refname_to_id("refs/heads/main")
+            .unwrap();
+        bytes.extend(format!("# v2 git bundle\n{tip} refs/heads/main\n\nPACKjunk").bytes());
+        fs::write(&junk, bytes).unwrap();
+        assert!(matches!(
+            clone_bundle(&junk, &vault.root.join("new2")),
+            Err(GitError::NotAVault)
+        ));
+    }
+
+    /// A folder copy (a bare repository) written by [`push_to_copy`], read
+    /// by [`merge_from_copy`].
+    #[test]
+    fn folder_copies_carry_the_vault_both_ways() {
+        let vault = SharedVault::new("git-folder-copy");
+        let phone = &vault.phone;
+        let folder = vault.root.join("passwords.git");
+        init_bare(&folder, "main").unwrap();
+        vault.write(phone, "phone.gpg", "from phone");
+        push_to_copy(phone, &folder).unwrap();
+
+        vault.write(&vault.desktop, "desktop.gpg", "from desktop");
+        let merge = merge_from_copy(&vault.desktop, &folder, "folder").unwrap();
+        assert_eq!(merge.report.received, 1);
+        assert_eq!(vault.read(&vault.desktop, "phone.gpg"), "from phone");
+        push_to_copy(&vault.desktop, &folder).unwrap();
+
+        // The phone is now behind the folder: a push is refused until
+        // it merges.
+        vault.write(phone, "phone.gpg", "phone v2");
+        assert!(push_to_copy(phone, &folder).is_err());
+        merge_from_copy(phone, &folder, "folder").unwrap();
+        push_to_copy(phone, &folder).unwrap();
+        assert_eq!(vault.read(phone, "desktop.gpg"), "from desktop");
     }
 
     #[test]

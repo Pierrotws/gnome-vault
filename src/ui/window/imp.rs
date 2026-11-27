@@ -116,6 +116,8 @@ pub struct MainWindow {
     pub settings: OnceCell<gio::Settings>,
     pub loaded_changes_count: Cell<usize>,
     pub autoload_running: Cell<bool>,
+    /// A Google Drive sync of the open vault is running.
+    pub drive_syncing: Cell<bool>,
     /// Shared with the autoload worker thread; the polling tick and the
     /// worker both honor it so a "Load entries at startup" toggle in
     /// preferences can stop an in-flight cache warmup.

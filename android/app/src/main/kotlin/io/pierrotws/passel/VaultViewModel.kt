@@ -1,7 +1,10 @@
 package io.pierrotws.passel
 
 import android.app.Application
+import android.app.PendingIntent
+import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.pierrotws.passel.core.Entry
@@ -10,8 +13,14 @@ import io.pierrotws.passel.core.KeyInfo
 import io.pierrotws.passel.core.Passel
 import io.pierrotws.passel.core.PasselException
 import io.pierrotws.passel.core.RemoteState
+import io.pierrotws.passel.core.Storage
+import io.pierrotws.passel.core.SyncResult
 import io.pierrotws.passel.core.VaultInfo
+import java.io.File
+import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +57,16 @@ data class VaultState(
     val biometricUnlock: Boolean = false,
     /** A key just created here, to offer saving a backup of. */
     val keyToBackUp: String? = null,
+    /** Google asks the user to pick an account or allow Drive access: show it. */
+    val driveConsent: PendingIntent? = null,
+    /** The wizard's Google Drive is connected: the vaults found there. */
+    val driveVaults: List<DriveFile>? = null,
+    /** Google needs the user to sign in (no access given yet): show the button. */
+    val driveSignIn: Boolean = false,
+    /** A vault was just downloaded and its key is not on this phone. */
+    val vaultKeyNeeded: VaultKeyNeed? = null,
+    /** The open vault's key is not on this phone: its recipients. */
+    val keyMissing: List<String> = emptyList(),
 ) {
     val activeVault: VaultInfo? get() = vaults.firstOrNull { it.active }
     val hasVault: Boolean get() = activeVault != null
@@ -55,6 +74,9 @@ data class VaultState(
     val filtered: List<EntryRef>
         get() = if (query.isBlank()) entries else entries.filter { it.path.contains(query.trim(), ignoreCase = true) }
 }
+
+/** The key a downloaded vault [vaultName] needs: one of [recipients]. */
+data class VaultKeyNeed(val vaultName: String, val recipients: List<String>)
 
 /**
  * The app's state and actions. Every Passel call blocks (and may wait for
@@ -101,8 +123,20 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             bytes.fill(0)
         }
         reload()
-        say(tr("Key imported"))
+        val need = state.value.vaultKeyNeeded
+        when {
+            need == null -> say(tr("Key imported"))
+            passel.missingVaultKeys().isEmpty() -> {
+                finishVaultKey()
+                vaultReady(need.vaultName)
+            }
+            else -> say(tr("This key does not open {name}", "name" to need.vaultName))
+        }
     }
+
+    /** Leaves the wizard after a download, with or without the vault's key. */
+    fun finishVaultKey() =
+        mutableState.update { it.copy(addingVault = false, vaultKeyNeeded = null, driveVaults = null) }
 
     fun createKey(name: String, email: String) = run(tr("Creating the key")) {
         val fingerprint = passel.createKey(name, email)
@@ -164,9 +198,12 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---- Vault -----------------------------------------------------------
 
-    fun startAddingVault() = mutableState.update { it.copy(addingVault = true, remoteCheck = null, open = null) }
+    fun startAddingVault() =
+        mutableState.update { it.copy(addingVault = true, remoteCheck = null, driveVaults = null, driveSignIn = false, open = null) }
 
-    fun stopAddingVault() = mutableState.update { it.copy(addingVault = false, remoteCheck = null) }
+    fun stopAddingVault() = mutableState.update {
+        it.copy(addingVault = false, remoteCheck = null, driveVaults = null, driveSignIn = false, vaultKeyNeeded = null)
+    }
 
     /** Checks what is at [url] (with this login), for the wizard. */
     fun checkRemote(url: String, username: String, token: String) {
@@ -188,10 +225,8 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             val login = useLogin(url.trim(), username, token)
             val vault = passel.cloneVault(name.trim(), url.trim(), author.trim(), email.trim())
             login?.let(app.remoteSecrets::save)
-            mutableState.update { it.copy(addingVault = false, remoteCheck = null) }
-            reload()
-            val count = state.value.entries.size
-            say(trn("{name} is ready: {n} entry", "{name} is ready: {n} entries", count, "name" to vault.name, "n" to count))
+            mutableState.update { it.copy(remoteCheck = null) }
+            vaultDownloaded(vault)
         }
 
     /** [url] is null to keep the vault on this phone only. */
@@ -244,7 +279,7 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sync(quiet: Boolean = false) = run(if (quiet) null else tr("Syncing")) {
-        val result = passel.sync()
+        val result = syncActive(interactive = !quiet)
         reload()
         if (!quiet || result.received > 0u) {
             say(
@@ -257,6 +292,360 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 },
             )
+        }
+        keptCopiesMessage(result)?.let(::say)
+    }
+
+    /** Syncs the open vault with its remote, Google Drive, or its file or folder copy. */
+    private suspend fun syncActive(interactive: Boolean): SyncResult {
+        val vault = passel.vaults().firstOrNull { it.active }
+        return when (vault?.storage) {
+            Storage.GOOGLE_DRIVE -> driveSync(interactive)
+            Storage.FILE -> fileSync(vault)
+            Storage.FOLDER -> folderSync(vault)
+            else -> passel.sync()
+        }
+    }
+
+    private fun keptCopiesMessage(result: SyncResult): String? =
+        result.keptCopies.takeIf { it.isNotEmpty() }?.let { copies ->
+            if (passel.vaults().firstOrNull { it.active }?.storage == Storage.GOOGLE_DRIVE) {
+                tr(
+                    "Changed both here and on Google Drive: this phone's version is kept as {entries}. Check it, then delete the one you do not need.",
+                    "entries" to copies.joinToString(),
+                )
+            } else {
+                tr(
+                    "Changed both here and in the vault’s copy: this phone’s version is kept as {entries}. Check it, then delete the one you do not need.",
+                    "entries" to copies.joinToString(),
+                )
+            }
+        }
+
+    // ---- Google Drive -------------------------------------------------------
+
+    private var consentAnswer: CompletableDeferred<String?>? = null
+
+    private var driveCheck: Job? = null
+
+    /**
+     * Connects the wizard to Google Drive without asking when Google already
+     * gave access; otherwise (or when it fails) asks for the sign-in button.
+     */
+    fun checkDrive() {
+        if (driveCheck?.isActive == true) return
+        driveCheck = viewModelScope.launch(Dispatchers.IO) {
+            val vaults = try {
+                withDrive(interactive = false) { it.vaults() }
+            } catch (e: Exception) {
+                Log.i("Passel", "Google Drive is not connected yet: ${e.message}")
+                null
+            }
+            mutableState.update { if (vaults != null) it.copy(driveVaults = vaults) else it.copy(driveSignIn = true) }
+        }
+    }
+
+    /** Signs in to Google Drive (the user tapped the button) and lists the vaults there. */
+    fun connectDrive() = run(tr("Connecting to Google Drive")) {
+        val vaults = withDrive(interactive = true) { it.vaults() }
+        mutableState.update { it.copy(driveVaults = vaults, driveSignIn = false) }
+    }
+
+    /** The consent screen of [VaultState.driveConsent] is showing. */
+    fun driveConsentShown() = mutableState.update { it.copy(driveConsent = null) }
+
+    /** The consent screen ended ([data]: its result). */
+    fun finishDriveConsent(data: Intent?) {
+        consentAnswer?.complete(app.driveAuth.tokenFromConsent(data))
+    }
+
+    fun downloadDriveVault(file: DriveFile, name: String, author: String, email: String) =
+        run(tr("Downloading the vault")) {
+            val vault = withDrive(interactive = true) { drive ->
+                withTempFile { bundle ->
+                    drive.download(file.id, bundle)
+                    passel.downloadCopiedVault(
+                        name.trim(), Storage.GOOGLE_DRIVE, bundle.path, null, author.trim(), email.trim(),
+                    ).also { passel.driveUploaded(file.id, file.version) }
+                }
+            }
+            vaultDownloaded(vault)
+        }
+
+    fun createDriveVault(name: String, fingerprint: String, author: String, email: String) =
+        run(tr("Creating the vault")) {
+            val vault = passel.createCopiedVault(name.trim(), fingerprint, Storage.GOOGLE_DRIVE, null, author.trim(), email.trim())
+            vaultCreated(vault) { driveSync(interactive = true) }
+        }
+
+    // ---- File and folder copies ---------------------------------------------
+
+    /** A new vault copied to a [LocalCopy.FOLDER_NAME] folder made in the folder [tree]. */
+    fun createFolderVault(tree: Uri, name: String, fingerprint: String, author: String, email: String) =
+        run(tr("Creating the vault")) {
+            val copy = withLocalCopy { FolderCopy.create(app, tree) }
+            val vault = passel.createCopiedVault(
+                name.trim(), fingerprint, Storage.FOLDER, copy.uri.toString(), author.trim(), email.trim(),
+            )
+            vaultCreated(vault) { folderSync(vault) }
+        }
+
+    /** A new vault copied to the file [document] (just made by the picker). */
+    fun createFileVault(document: Uri, name: String, fingerprint: String, author: String, email: String) =
+        run(tr("Creating the vault")) {
+            val vault = passel.createCopiedVault(
+                name.trim(), fingerprint, Storage.FILE, document.toString(), author.trim(), email.trim(),
+            )
+            vaultCreated(vault) { fileSync(vault) }
+        }
+
+    /** Makes a vault from the folder copy in (or at) the folder [tree]. */
+    fun downloadFolderVault(tree: Uri, name: String, author: String, email: String) =
+        run(tr("Downloading the vault")) {
+            val vault = withLocalCopy {
+                val copy = FolderCopy.find(app, tree) ?: throw PasselException.Failed(tr("No Passel vault in this folder"))
+                withScratchDir { dir ->
+                    copy.download(dir)
+                    passel.downloadCopiedVault(
+                        name.trim(), Storage.FOLDER, dir.path, copy.uri.toString(), author.trim(), email.trim(),
+                    )
+                }
+            }
+            vaultDownloaded(vault)
+        }
+
+    /** Makes a vault from the file copy [document]. */
+    fun downloadFileVault(document: Uri, name: String, author: String, email: String) =
+        run(tr("Downloading the vault")) {
+            val vault = withLocalCopy {
+                withTempFile { bundle ->
+                    FileCopy(app, document).read(bundle) ?: throw PasselException.Failed(tr("This file is not a Passel vault"))
+                    passel.downloadCopiedVault(
+                        name.trim(), Storage.FILE, bundle.path, document.toString(), author.trim(), email.trim(),
+                    )
+                }
+            }
+            vaultDownloaded(vault)
+        }
+
+    /**
+     * A vault was downloaded: done, unless this phone lacks its key, which
+     * the wizard then asks for.
+     */
+    private fun vaultDownloaded(vault: VaultInfo) {
+        reload()
+        val missing = passel.missingVaultKeys()
+        if (missing.isNotEmpty()) {
+            mutableState.update { it.copy(vaultKeyNeeded = VaultKeyNeed(vault.name, missing), driveVaults = null) }
+            return
+        }
+        mutableState.update { it.copy(addingVault = false, driveVaults = null) }
+        vaultReady(vault.name)
+    }
+
+    private fun vaultReady(name: String) {
+        val count = state.value.entries.size
+        say(trn("{name} is ready: {n} entry", "{name} is ready: {n} entries", count, "name" to name, "n" to count))
+    }
+
+    /** A vault was made here: writes its copy right away ([write]). */
+    private suspend fun vaultCreated(vault: VaultInfo, write: suspend () -> SyncResult) {
+        mutableState.update { it.copy(addingVault = false, driveVaults = null) }
+        reload()
+        say(
+            try {
+                write()
+                tr("{name} is ready", "name" to vault.name)
+            } catch (e: PasselException) {
+                tr("{name} is ready on this phone. Not sent yet: {error}", "name" to vault.name, "error" to describe(e))
+            },
+        )
+        reload()
+    }
+
+    /**
+     * Exchanges the open vault with its file copy: merges the file when it
+     * holds something, then writes it when it lacks this vault's changes,
+     * unless it changed in between (then tries again).
+     */
+    private fun fileSync(vault: VaultInfo): SyncResult = withLocalCopy {
+        val copy = FileCopy(app, Uri.parse(vault.copyLocation ?: throw PasselException.Failed(tr("Could not reach the vault’s copy"))))
+        var received = 0u
+        var keptCopies = emptyList<String>()
+        repeat(COPY_ATTEMPTS) {
+            withTempFile { bundle ->
+                val read = copy.read(bundle)
+                if (read != null) {
+                    val merged = passel.mergeBundle(bundle.path, null)
+                    received += merged.received
+                    keptCopies = keptCopies + merged.keptCopies
+                }
+                val unsent = passel.unsyncedCount()
+                if (read != null && unsent == 0u) return@withLocalCopy SyncResult(received, 0u, keptCopies)
+                passel.writeBundle(bundle.path)
+                val changed = withTempFile { now -> copy.read(now) != read }
+                if (!changed) {
+                    copy.write(bundle)
+                    passel.copyWritten()
+                    return@withLocalCopy SyncResult(received, unsent, keptCopies)
+                }
+            }
+        }
+        throw PasselException.Failed(tr("The vault’s copy changed during the sync: sync again"))
+    }
+
+    /**
+     * Exchanges the open vault with its folder copy, through a scratch
+     * copy of the folder: merges it, sends this vault's changes into the
+     * scratch copy, then writes what changed back.
+     */
+    private fun folderSync(vault: VaultInfo): SyncResult = withLocalCopy {
+        val copy = FolderCopy(app, Uri.parse(vault.copyLocation ?: throw PasselException.Failed(tr("Could not reach the vault’s copy"))))
+        var received = 0u
+        var keptCopies = emptyList<String>()
+        repeat(COPY_ATTEMPTS) {
+            withScratchDir { dir ->
+                val snapshot = copy.download(dir)
+                if (!snapshot.isEmpty) {
+                    val merged = passel.mergeFolder(dir.path)
+                    received += merged.received
+                    keptCopies = keptCopies + merged.keptCopies
+                }
+                val unsent = passel.unsyncedCount()
+                if (!snapshot.isEmpty && unsent == 0u) return@withLocalCopy SyncResult(received, 0u, keptCopies)
+                passel.pushFolder(dir.path)
+                try {
+                    copy.upload(dir, snapshot)
+                } catch (e: CopyChangedException) {
+                    return@withScratchDir
+                }
+                passel.copyWritten()
+                return@withLocalCopy SyncResult(received, unsent, keptCopies)
+            }
+        }
+        throw PasselException.Failed(tr("The vault’s copy changed during the sync: sync again"))
+    }
+
+    /** Runs [block] on a file or folder copy, explaining what can go wrong there. */
+    private inline fun <T> withLocalCopy(block: () -> T): T = try {
+        block()
+    } catch (e: CopyExistsException) {
+        throw PasselException.Failed(tr("This folder already holds a vault: download it instead"))
+    } catch (e: IOException) {
+        Log.i("Passel", "copy: ${e.javaClass.simpleName}")
+        throw PasselException.Failed(tr("Could not reach the vault’s copy"))
+    } catch (e: SecurityException) {
+        Log.i("Passel", "copy: access lost")
+        throw PasselException.Failed(tr("Could not reach the vault’s copy"))
+    }
+
+    /** A scratch folder in the app's storage, deleted after [block]. */
+    private inline fun <T> withScratchDir(block: (File) -> T): T {
+        val dir = File(app.cacheDir, "copy-" + java.util.UUID.randomUUID())
+        try {
+            return block(dir)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    /**
+     * Exchanges the open vault with its Drive file: downloads and merges
+     * it when it changed, then uploads this vault when Drive lacks some of
+     * its changes. Another device uploading in between is caught by
+     * checking the file's version just before uploading.
+     */
+    private suspend fun driveSync(interactive: Boolean): SyncResult = withDrive(interactive) { drive ->
+        var received = 0u
+        var keptCopies = emptyList<String>()
+        repeat(DRIVE_ATTEMPTS) {
+            val vault = passel.vaults().first { it.active }
+            // Null for a vault not uploaded yet, or whose file was deleted
+            // from Drive: it gets a new one.
+            val current = vault.driveFileId?.let(drive::file)
+            if (current != null && current.version != vault.driveVersion) {
+                val merged = withTempFile { bundle ->
+                    drive.download(current.id, bundle)
+                    passel.mergeBundle(bundle.path, current.version)
+                }
+                received += merged.received
+                keptCopies = keptCopies + merged.keptCopies
+            }
+            val unsent = passel.unsyncedCount()
+            if (current != null && unsent == 0u) return@withDrive SyncResult(received, 0u, keptCopies)
+            val uploaded = withTempFile { bundle ->
+                passel.writeBundle(bundle.path)
+                when {
+                    current == null -> drive.create(vault.name, bundle)
+                    // Changed meanwhile: merge that first.
+                    drive.file(current.id)?.version != current.version -> null
+                    else -> drive.update(current.id, bundle)
+                }
+            } ?: return@repeat
+            passel.driveUploaded(uploaded.id, uploaded.version)
+            return@withDrive SyncResult(received, unsent, keptCopies)
+        }
+        throw PasselException.Failed(tr("Google Drive changed during the sync: sync again"))
+    }
+
+    /**
+     * Runs [block] with a Drive client. With [interactive], the user may be
+     * asked to choose an account or allow access; otherwise that fails.
+     * An expired token is renewed once.
+     */
+    private suspend fun <T> withDrive(interactive: Boolean, block: (DriveClient) -> T): T {
+        var token = driveToken(interactive)
+        repeat(2) { attempt ->
+            try {
+                return block(DriveClient(token))
+            } catch (e: DriveException) {
+                if (e.code != 401 || attempt > 0) throw driveFailure(e)
+                app.driveAuth.clearToken(token)
+                token = driveToken(interactive)
+            } catch (e: IOException) {
+                throw driveFailure(e)
+            }
+        }
+        error("unreachable")
+    }
+
+    private suspend fun driveToken(interactive: Boolean): String {
+        val result = try {
+            app.driveAuth.authorize()
+        } catch (e: Exception) {
+            Log.i("Passel", "Google authorization failed: ${e.javaClass.simpleName} ${e.message}")
+            throw PasselException.Failed(tr("Could not connect to Google Drive"))
+        }
+        return when (result) {
+            is DriveAuth.Result.Token -> result.token
+            is DriveAuth.Result.NeedsConsent -> {
+                if (!interactive) throw PasselException.Failed(tr("Tap Sync to sign in to Google Drive again"))
+                val answer = CompletableDeferred<String?>()
+                consentAnswer = answer
+                mutableState.update { it.copy(driveConsent = result.intent) }
+                try {
+                    answer.await() ?: throw PasselException.Cancelled()
+                } finally {
+                    consentAnswer = null
+                    mutableState.update { it.copy(driveConsent = null) }
+                }
+            }
+        }
+    }
+
+    private fun driveFailure(e: IOException): PasselException = when {
+        e is DriveException && (e.code == 401 || e.code == 403) -> PasselException.Failed(tr("Google Drive refused access"))
+        e is DriveException && e.code == 507 -> PasselException.Failed(tr("Your Google Drive is full"))
+        else -> PasselException.Failed(tr("Could not reach Google Drive"))
+    }
+
+    /** A temporary file for a bundle, deleted after [block]. */
+    private inline fun <T> withTempFile(block: (File) -> T): T {
+        val file = File.createTempFile("vault", DriveClient.SUFFIX, app.cacheDir)
+        try {
+            return block(file)
+        } finally {
+            file.delete()
         }
     }
 
@@ -303,9 +692,9 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     // ---- Plumbing -----------------------------------------------------------
 
     /** Sends a change right away; offline, it stays committed here. */
-    private fun syncAfterChange() {
+    private suspend fun syncAfterChange() {
         try {
-            passel.sync()
+            syncActive(interactive = false).let { result -> keptCopiesMessage(result)?.let(::say) }
             reload()
         } catch (e: PasselException) {
             reload()
@@ -319,13 +708,21 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         val hasVault = vaults.any { it.active }
         val entries = if (hasVault) passel.entries() else emptyList()
         val unsynced = if (hasVault) passel.unsyncedCount().toInt() else 0
+        val keyMissing = if (hasVault) passel.missingVaultKeys() else emptyList()
         val biometricUnlock = app.biometrics.anyEnrolled()
         mutableState.update {
-            it.copy(keys = keys, vaults = vaults, entries = entries, unsynced = unsynced, biometricUnlock = biometricUnlock)
+            it.copy(
+                keys = keys,
+                vaults = vaults,
+                entries = entries,
+                unsynced = unsynced,
+                keyMissing = keyMissing,
+                biometricUnlock = biometricUnlock,
+            )
         }
     }
 
-    private fun run(label: String?, block: () -> Unit) {
+    private fun run(label: String?, block: suspend () -> Unit) {
         viewModelScope.launch {
             mutableState.update { it.copy(busy = label) }
             var succeeded = false
@@ -360,5 +757,13 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             "entries" to e.entries.joinToString(),
         )
         is PasselException.Failed -> e.reason
+    }
+
+    private companion object {
+        /** Syncs retried when another device uploads at the same time. */
+        const val DRIVE_ATTEMPTS = 3
+
+        /** Same for a file or folder copy (a synced folder, another phone…). */
+        const val COPY_ATTEMPTS = 3
     }
 }

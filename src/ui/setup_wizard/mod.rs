@@ -1,6 +1,7 @@
 //! First-run wizard: collects a [`SetupPlan`] over a few pages, then runs
 //! its steps on a worker thread with live progress on the review page.
 
+mod drive;
 mod hosts;
 mod imp;
 mod key;
@@ -11,7 +12,9 @@ use std::path::{Path, PathBuf};
 use adw::{prelude::*, subclass::prelude::*};
 use gtk::{gio, glib};
 
-use crate::app::setup;
+use crate::app::app_error::AppError;
+use crate::app::{drive as vault_drive, setup};
+use crate::helpers::google;
 use crate::i18n::gettext;
 use crate::pass::store::{SetupPlan, SetupStep, StoreStatus, SyncTarget};
 
@@ -91,6 +94,47 @@ impl SetupWizard {
         imp.navigation.pop_to_tag("welcome");
         self.update_vault_next();
         self.reset_sync();
+        self.reset_drive();
+        self.set_mode(false);
+    }
+
+    /// Switches between creating a vault and downloading an existing one:
+    /// the same pages, worded for each.
+    fn set_mode(&self, download: bool) {
+        let imp = self.imp();
+        imp.download.set(download);
+        if download {
+            imp.sync_title.set_label(&gettext("Where Is Your Vault?"));
+            imp.sync_description.set_label(&gettext(
+                "Passel downloads it, with its whole history, and keeps it in sync there.",
+            ));
+            imp.online_description.set_label(&gettext(
+                "The address of the vault’s repository, which this computer’s SSH key can read and write.",
+            ));
+            imp.folder_description.set_label(&gettext(
+                "The “passwords.git” folder made by Passel or git (or the folder holding it), or a “.bundle” file.",
+            ));
+        } else {
+            imp.sync_title
+                .set_label(&gettext("Where to Keep Your Vault?"));
+            imp.sync_description.set_label(&gettext(
+                "Passel keeps an encrypted copy of your vault somewhere else: it is backed up, and you can use it from another computer or your phone.",
+            ));
+            imp.online_description.set_label(&gettext(
+                "Any of these services offers free private repositories. If you have no account yet, pick one and create it on the service’s website.",
+            ));
+            imp.folder_description.set_label(&gettext(
+                "Passel creates an encrypted copy in the folder you choose, and keeps it up to date as you save changes.",
+            ));
+        }
+        // Creating a repository is only explained for a new vault.
+        imp.host_group.set_visible(!download);
+        if download {
+            imp.host_row.set_selected(0);
+        }
+        self.update_host_steps();
+        self.update_check_status();
+        self.update_copy_row();
     }
 
     /// Emitted with `true` while the wizard must not be closed.
@@ -136,11 +180,22 @@ impl SetupWizard {
         imp.create_button.connect_clicked(glib::clone!(
             #[weak(rename_to = wizard)]
             self,
-            move |_| wizard.imp().navigation.push_by_tag("vault")
+            move |_| {
+                wizard.set_mode(false);
+                wizard.imp().navigation.push_by_tag("vault");
+            }
         ));
+        imp.download_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = wizard)]
+            self,
+            move |_| {
+                wizard.set_mode(true);
+                wizard.imp().navigation.push_by_tag("vault");
+            }
+        ));
+        self.setup_drive();
         for back in [
             &*imp.vault_back_button,
-            &*imp.key_back_button,
             &*imp.sync_back_button,
             &*imp.online_back_button,
             &*imp.folder_back_button,
@@ -160,10 +215,16 @@ impl SetupWizard {
             self,
             move |_| wizard.update_vault_next()
         ));
+        // A new vault's key comes next; a downloaded one brings its own,
+        // asked for after the download only if this computer lacks it.
         imp.vault_next_button.connect_clicked(glib::clone!(
             #[weak(rename_to = wizard)]
             self,
-            move |_| wizard.imp().navigation.push_by_tag("key")
+            move |_| {
+                let imp = wizard.imp();
+                imp.navigation
+                    .push_by_tag(if imp.download.get() { "sync" } else { "key" });
+            }
         ));
 
         imp.apply_button.connect_clicked(glib::clone!(
@@ -223,6 +284,7 @@ impl SetupWizard {
                 .unwrap_or_default(),
             sync: self.sync_target(),
             autopush: imp.autopush.get(),
+            download: imp.download.get(),
         }
     }
 
@@ -245,11 +307,13 @@ impl SetupWizard {
         }
         let plan = self.build_plan();
         let key_label = self.selected_recipient().map(|(_, label)| label);
+        let drive_name = self.chosen_drive_name();
         let rows = plan
             .steps()
             .into_iter()
             .map(|step| {
-                let (title, subtitle) = step_text(step, &plan, key_label.as_deref());
+                let (title, subtitle) =
+                    step_text(step, &plan, key_label.as_deref(), drive_name.as_deref());
                 // Subtitles hold paths, URLs and key labels like
                 // `Name <mail@host>`: turn markup off before setting them.
                 let row = adw::ActionRow::new();
@@ -276,7 +340,11 @@ impl SetupWizard {
 
         imp.error_label.set_visible(false);
         imp.skip_button.set_visible(false);
-        imp.apply_button.set_label(&gettext("Create Vault"));
+        imp.apply_button.set_label(&if plan_downloads(&imp.run) {
+            gettext("Download Vault")
+        } else {
+            gettext("Create Vault")
+        });
         imp.apply_button.set_sensitive(true);
         imp.review_back_button.set_sensitive(true);
         self.set_locked(false);
@@ -339,7 +407,7 @@ impl SetupWizard {
         for (index, step) in steps.into_iter().enumerate().skip(start) {
             self.set_row_state(index, StepState::Running);
             let step_plan = plan.clone();
-            let result = gio::spawn_blocking(move || setup::run_step(&step_plan, step)).await;
+            let result = gio::spawn_blocking(move || run_step(&step_plan, step)).await;
             if let Err(message) = flatten(result) {
                 self.set_row_state(index, StepState::Failed);
                 self.show_failure(&message, Some(step));
@@ -355,6 +423,16 @@ impl SetupWizard {
         }
 
         imp.apply_button.set_label(&gettext("Open Vault"));
+        if plan.download {
+            let dir = plan.store_dir.clone();
+            let missing = gio::spawn_blocking(move || setup::missing_vault_keys(&dir))
+                .await
+                .unwrap_or_default();
+            if !missing.is_empty() {
+                self.ask_vault_key(missing);
+                return;
+            }
+        }
         self.emit_vault_created();
     }
 
@@ -409,7 +487,7 @@ impl SetupWizard {
         self.emit_by_name::<()>("locked-changed", &[&locked]);
     }
 
-    fn emit_vault_created(&self) {
+    pub(super) fn emit_vault_created(&self) {
         let store_dir = self
             .imp()
             .run
@@ -420,6 +498,25 @@ impl SetupWizard {
             self.emit_by_name::<()>("vault-created", &[&store_dir]);
         }
     }
+}
+
+fn plan_downloads(run: &std::cell::RefCell<Option<SetupRun>>) -> bool {
+    run.borrow().as_ref().is_some_and(|run| run.plan.download)
+}
+
+/// Runs one step; the ones that reach Google Drive go through its HTTP
+/// client (signed in on the Drive page).
+fn run_step(plan: &SetupPlan, step: SetupStep) -> Result<(), AppError> {
+    if vault_drive::is_drive_step(plan, step) {
+        let api = google::connect()?;
+        return Ok(vault_drive::run_setup_step(
+            plan,
+            step,
+            &api,
+            &std::env::temp_dir(),
+        )?);
+    }
+    setup::run_step(plan, step)
 }
 
 /// Folds a worker panic into the same user-facing error path.
@@ -434,8 +531,27 @@ fn flatten(
 }
 
 /// Review-page wording for a step. Avoids git vocabulary on purpose.
-fn step_text(step: SetupStep, plan: &SetupPlan, key_label: Option<&str>) -> (String, String) {
-    let to_folder = matches!(plan.sync, Some(SyncTarget::Folder(_)));
+fn step_text(
+    step: SetupStep,
+    plan: &SetupPlan,
+    key_label: Option<&str>,
+    drive_name: Option<&str>,
+) -> (String, String) {
+    let to_folder = matches!(
+        plan.sync,
+        Some(SyncTarget::Folder(_) | SyncTarget::Bundle(_))
+    );
+    let to_drive = matches!(plan.sync, Some(SyncTarget::Drive(_)));
+    let source = match &plan.sync {
+        Some(SyncTarget::Remote(url)) => url.trim().to_string(),
+        Some(SyncTarget::Folder(path) | SyncTarget::Bundle(path)) => {
+            path.to_string_lossy().into_owned()
+        }
+        Some(SyncTarget::Drive(_)) => drive_name
+            .map(|name| format!("Google Drive · {name}"))
+            .unwrap_or_else(|| gettext("Google Drive")),
+        None => String::new(),
+    };
     let (title, subtitle) = match step {
         SetupStep::CreateFolder => (
             gettext("Create the vault folder"),
@@ -452,6 +568,18 @@ fn step_text(step: SetupStep, plan: &SetupPlan, key_label: Option<&str>) -> (Str
         SetupStep::CreateCopy => (
             gettext("Create the copy"),
             plan.remote_url().unwrap_or_default().to_string(),
+        ),
+        SetupStep::Download => (
+            gettext("Download the vault"),
+            format!("{source} → {}", plan.store_dir.to_string_lossy()),
+        ),
+        SetupStep::ConnectRemote if to_drive => (
+            gettext("Keep the vault on Google Drive"),
+            gettext("Changes will be synced there"),
+        ),
+        SetupStep::Upload if to_drive => (
+            gettext("Upload to Google Drive"),
+            gettext("Send the first version"),
         ),
         SetupStep::ConnectRemote if to_folder => (
             gettext("Link the vault to its copy"),
