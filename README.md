@@ -7,6 +7,8 @@
 A password manager for **Linux**, **Windows** and **Android**, built on
 the [pass](https://www.passwordstore.org/) standard. Written in Rust ❤️
 
+Website: <https://pierrotws.github.io/passel/>
+
 Your passwords stay in plain `pass` vaults: one OpenPGP-encrypted file
 per entry, in a git repository you own. No account, no cloud service,
 no lock-in: Passel, the `pass` CLI and every other `pass` client read
