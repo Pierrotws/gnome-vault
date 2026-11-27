@@ -1,0 +1,13 @@
+# Passel's website, published on GitHub Pages by
+# .github/workflows/pages.yml (which also adds privacy.md, made from
+# PRIVACY.md, the logo and the Android screenshots).
+title: Passel
+description: >-
+  A password manager for Linux, Windows and Android, built on the pass
+  standard: OpenPGP-encrypted vaults you own, synced with git.
+url: https://pierrotws.github.io
+baseurl: /passel
+repository: Pierrotws/passel
+markdown: kramdown
+exclude:
+  - README.md

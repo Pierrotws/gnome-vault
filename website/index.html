@@ -1,0 +1,269 @@
+---
+layout: default
+---
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div class="hero-text">
+      <img class="hero-logo" src="{{ '/assets/logo.svg' | relative_url }}" alt="Passel logo" width="96" height="96">
+      <h1>Your passwords,<br>in a vault <em>you</em> own.</h1>
+      <p class="lead">
+        Passel is a password manager for <strong>Linux</strong>, <strong>Windows</strong>
+        and <strong>Android</strong>, built on the
+        <a href="https://www.passwordstore.org/">pass</a> standard. Every entry is
+        encrypted with your own OpenPGP key and synced through a git repository you choose.
+        No account, no Passel server, no lock-in.
+      </p>
+      <div class="cta">
+        <a class="button primary" href="#download">Download Passel</a>
+        <a class="button" href="https://github.com/{{ site.repository }}">View the source</a>
+      </div>
+      <p class="hero-note">Free and open source · GPL v3 · Written in Rust</p>
+    </div>
+    <div class="hero-shots" aria-hidden="true">
+      <img class="shot-desktop" src="{{ '/assets/screenshots/desktop-entry.png' | relative_url }}" alt="" width="1280" height="800">
+      <img class="shot-phone" src="{{ '/assets/screenshots/android/2-entry.png' | relative_url }}" alt="" width="1080" height="1920">
+    </div>
+  </div>
+</section>
+
+<section class="pillars">
+  <div class="wrap pillars-inner">
+    <div class="pillar">
+      <span class="pillar-value">0</span>
+      <span class="pillar-label">accounts to create</span>
+    </div>
+    <div class="pillar">
+      <span class="pillar-value">1</span>
+      <span class="pillar-label">OpenPGP key, yours</span>
+    </div>
+    <div class="pillar">
+      <span class="pillar-value">3</span>
+      <span class="pillar-label">platforms, one vault</span>
+    </div>
+    <div class="pillar">
+      <span class="pillar-value">5</span>
+      <span class="pillar-label">languages</span>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="section">
+  <div class="wrap">
+    <p class="eyebrow">Features</p>
+    <h2>Everything a password manager needs. Nothing you have to trust us with.</h2>
+
+    <div class="grid features">
+      <article class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3m-4 4 3 3m-5-1 2 2"/></svg>
+        <h3>Encrypted with your own key</h3>
+        <p>Each entry is encrypted with your OpenPGP key before it is stored or synced.
+          Create a key in the setup wizard, or bring the one you already use.</p>
+      </article>
+      <article class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10m12-7c0 4-6 3-11.2 7.6"/></svg>
+        <h3>Synced with git</h3>
+        <p>Use any private repository: GitHub, GitLab, Gitea or your own server.
+          Edits from your phone and your computer merge, and nothing is lost when the
+          same entry changed on both.</p>
+      </article>
+      <article class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4z"/><path d="M8 13h8m-8 3h5"/></svg>
+        <h3>Plain <code>pass</code> vaults</h3>
+        <p>One encrypted file per entry, in folders. Passel, the <code>pass</code>
+          command line and every other <code>pass</code> app read and write the same vault.</p>
+      </article>
+      <article class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></svg>
+        <h3>Several vaults</h3>
+        <p>Personal, work, shared with your family or a team: each vault has its own
+          remote. Switch between them from the title bar.</p>
+      </article>
+      <article class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>
+        <h3>Entries with fields</h3>
+        <p>Username, URL, notes, recovery codes or fields of your own next to the password,
+          one-time (TOTP) codes with a countdown, and a password generator.</p>
+      </article>
+      <article class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <h3>History</h3>
+        <p>See what changed and when. Revert one entry, or roll the whole vault back to
+          an earlier state.</p>
+      </article>
+      <article class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
+        <h3>Careful with secrets</h3>
+        <p>Copied passwords are cleared from the clipboard and hidden from the keyboard.
+          On Android: fingerprint or face unlock, auto-lock after two minutes, no screenshots.</p>
+      </article>
+      <article class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5"/><path d="M4 17v3h16v-3"/></svg>
+        <h3>Import your passwords</h3>
+        <p>Coming from KeePass, KeePassXC or Buttercup? The desktop app imports your
+          database into a new vault.</p>
+      </article>
+      <article class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3"/></svg>
+        <h3>In your language</h3>
+        <p>English, French, German, Spanish and Brazilian Portuguese, on every platform.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="wrap split">
+    <div>
+      <p class="eyebrow">No lock-in</p>
+      <h2>It's just files. Encrypted ones.</h2>
+      <p>A Passel vault is a standard <code>pass</code> password store: a folder with one
+        OpenPGP-encrypted file per entry, kept in git. Nothing is hidden in a proprietary
+        database, and you can stop using Passel any day without exporting anything.</p>
+      <ul class="checks">
+        <li>The git host only ever sees encrypted entries. Like <code>pass</code>, entry
+          and folder names are plain file names: see the
+          <a href="{{ '/privacy/' | relative_url }}">privacy policy</a>.</li>
+        <li>Works offline: changes wait until the next sync.</li>
+        <li>The desktop app uses GnuPG; Android uses
+          <a href="https://github.com/rpgp/rpgp">rPGP</a>. Both open the same vault with the same key.</li>
+      </ul>
+    </div>
+    <pre class="terminal" aria-label="A Passel vault on disk, opened with pass"><code><span class="prompt">$</span> tree ~/.password-store
+<span class="dim">~/.password-store</span>
+├── dev
+│   ├── github.gpg
+│   └── gitlab.gpg
+├── email
+│   └── proton.gpg
+└── home
+    └── wifi.gpg
+
+<span class="prompt">$</span> pass show dev/github
+<span class="dim">correct-horse-battery-staple</span>
+username: jdoe
+url: https://github.com</code></pre>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <p class="eyebrow">How it works</p>
+    <h2>Up and running in three steps</h2>
+    <ol class="steps">
+      <li>
+        <h3>Get a key</h3>
+        <p>The setup wizard creates an OpenPGP key for you, or imports the key you already
+          use with <code>pass</code>.</p>
+      </li>
+      <li>
+        <h3>Open a vault</h3>
+        <p>Start a new vault, or download an existing one from its git remote.</p>
+      </li>
+      <li>
+        <h3>Sync everywhere</h3>
+        <p>Install Passel on your other devices, open the same vault with the same key,
+          and your passwords follow you.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="screenshots" class="section alt">
+  <div class="wrap">
+    <p class="eyebrow">Screenshots</p>
+    <h2>At home on your desktop and on your phone</h2>
+    <p class="section-lead">A native GTK&nbsp;4 / Adwaita app on Linux and Windows, a
+      Jetpack Compose app on Android, sharing one Rust core.</p>
+
+    <div class="desktop-shots">
+      <figure>
+        <img src="{{ '/assets/screenshots/desktop-entry.png' | relative_url }}" alt="Passel on the desktop: an entry with its password, username, URL, one-time code and recovery codes" width="1280" height="800" loading="lazy">
+        <figcaption>An entry, with its fields and its one-time code</figcaption>
+      </figure>
+      <figure>
+        <img src="{{ '/assets/screenshots/desktop-history.png' | relative_url }}" alt="Passel on the desktop: the list of changes made to the vault" width="1280" height="800" loading="lazy">
+        <figcaption>Every change, from every device</figcaption>
+      </figure>
+    </div>
+
+    <div class="phone-shots" tabindex="0" aria-label="Android screenshots">
+      <figure>
+        <img src="{{ '/assets/screenshots/android/1-entries.png' | relative_url }}" alt="Android: the entries of a vault, grouped by folder" width="1080" height="1920" loading="lazy">
+        <figcaption>Entries by folder</figcaption>
+      </figure>
+      <figure>
+        <img src="{{ '/assets/screenshots/android/2-entry.png' | relative_url }}" alt="Android: an entry with its password, fields and one-time code" width="1080" height="1920" loading="lazy">
+        <figcaption>An entry</figcaption>
+      </figure>
+      <figure>
+        <img src="{{ '/assets/screenshots/android/3-vaults.png' | relative_url }}" alt="Android: switching between several vaults" width="1080" height="1920" loading="lazy">
+        <figcaption>Several vaults</figcaption>
+      </figure>
+      <figure>
+        <img src="{{ '/assets/screenshots/android/4-new-entry.png' | relative_url }}" alt="Android: a new entry with a generated password and a custom field" width="1080" height="1920" loading="lazy">
+        <figcaption>Generated passwords</figcaption>
+      </figure>
+      <figure>
+        <img src="{{ '/assets/screenshots/android/5-setup.png' | relative_url }}" alt="Android: the setup wizard choosing the encryption key" width="1080" height="1920" loading="lazy">
+        <figcaption>Guided setup</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="download" class="section">
+  <div class="wrap">
+    <p class="eyebrow">Download</p>
+    <h2>Get Passel</h2>
+
+    <div class="grid downloads">
+      <article class="card download">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        <h3>Linux</h3>
+        <ul>
+          <li>Arch Linux: <code>passel-bin</code> or <code>passel</code> on the
+            <a href="https://aur.archlinux.org/packages/passel-bin">AUR</a></li>
+          <li>Debian and Ubuntu: the <code>.deb</code> from the
+            <a href="https://github.com/{{ site.repository }}/releases/latest">latest release</a></li>
+          <li>Or <a href="https://github.com/{{ site.repository }}#install">build it from source</a></li>
+        </ul>
+        <a class="button primary" href="https://github.com/{{ site.repository }}/releases/latest">Latest release</a>
+      </article>
+      <article class="card download">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.5 10 4.5v7H3zM11.5 4.3 21 3v8.5h-9.5zM3 12.5h7v7l-7-1zM11.5 12.5H21V21l-9.5-1.3z"/></svg>
+        <h3>Windows</h3>
+        <ul>
+          <li>The installer, <code>passel-&lt;version&gt;-x86_64-setup.exe</code>, from the
+            <a href="https://github.com/{{ site.repository }}/releases/latest">latest release</a></li>
+          <li>Needs <a href="https://gpg4win.org">Gpg4win</a> for encryption</li>
+        </ul>
+        <a class="button primary" href="https://github.com/{{ site.repository }}/releases/latest">Latest release</a>
+      </article>
+      <article class="card download">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>
+        <h3>Android</h3>
+        <ul>
+          <li>On Google Play: in testing now, public release coming soon</li>
+          <li>Android 8.0 or newer</li>
+          <li>Google Drive sync is on its way</li>
+        </ul>
+        <span class="button disabled" aria-disabled="true">Coming soon to Google Play</span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="wrap opensource">
+    <div>
+      <p class="eyebrow">Open source</p>
+      <h2>Built in the open</h2>
+      <p>Passel is free software under the GNU GPL v3. Read the code, report a bug,
+        translate it into your language or send a pull request: everything happens on GitHub.</p>
+    </div>
+    <div class="cta">
+      <a class="button primary" href="https://github.com/{{ site.repository }}">Passel on GitHub</a>
+      <a class="button" href="https://github.com/{{ site.repository }}/issues">Report a problem</a>
+    </div>
+  </div>
+</section>

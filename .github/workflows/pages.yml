@@ -1,16 +1,29 @@
-name: Privacy policy page
+name: Website
 
-# Publishes PRIVACY.md as a web page on GitHub Pages
-# (https://pierrotws.github.io/passel/privacy/): Google Play needs a
-# privacy policy on a standard web page, and its checker gets "page not
-# found" on the github.com/…/blob/ URL. One-time setup: Settings → Pages →
-# Source: GitHub Actions.
+# Publishes Passel's website (https://pierrotws.github.io/passel/) on
+# GitHub Pages: website/, plus pages and images whose source lives
+# elsewhere in the repository, so they are never copied by hand:
+# - privacy/: PRIVACY.md. Google Play links to it (it needs a privacy
+#   policy on a standard web page), so its address must not change.
+# - the logo, the Play feature graphic and the Android screenshots.
+# One-time setup: Settings → Pages → Source: GitHub Actions.
 
 on:
   push:
     branches: [main]
     paths:
+      - website/**
       - PRIVACY.md
+      - assets/logo.svg
+      - assets/android/store/**
+      - .github/workflows/pages.yml
+  # Pull requests only build the site, to catch errors before main.
+  pull_request:
+    paths:
+      - website/**
+      - PRIVACY.md
+      - assets/logo.svg
+      - assets/android/store/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -18,12 +31,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Build the page
+    name: Build the website
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -32,15 +45,17 @@ jobs:
       - name: Pages configuration
         uses: actions/configure-pages@v6
 
-      # PRIVACY.md stays the only source: the page is that file with a
-      # Jekyll header in front.
-      - name: Page source
+      - name: Site source
         run: |
-          mkdir site
+          cp -r website site
           {
-            printf -- '---\ntitle: Passel privacy policy\npermalink: /privacy/\n---\n\n'
+            printf -- '---\nlayout: page\ntitle: Privacy policy\npermalink: /privacy/\n---\n\n'
             cat PRIVACY.md
           } > site/privacy.md
+          cp assets/logo.svg site/assets/
+          cp assets/android/store/feature-graphic.png site/assets/
+          mkdir -p site/assets/screenshots/android
+          cp assets/android/store/phone/*.png site/assets/screenshots/android/
 
       - name: Render
         uses: actions/jekyll-build-pages@v1
@@ -53,6 +68,7 @@ jobs:
 
   deploy:
     name: Publish on GitHub Pages
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -60,7 +76,7 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}privacy/
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy
         id: deployment
