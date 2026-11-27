@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-27 15:17+0100\n"
+"POT-Creation-Date: 2026-11-27 15:51+0100\n"
 "PO-Revision-Date: 2026-11-26 00:00+0100\n"
 "Last-Translator: Passel contributors\n"
 "Language-Team: Spanish\n"
@@ -386,19 +386,6 @@ msgstr "Siguiente"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "No Passel vault on this Google Drive"
 msgstr "No hay ninguna bóveda de Passel en este Google Drive"
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "No backup: losing this phone loses this vault."
-msgstr "Sin copia de seguridad: si pierdes este teléfono, pierdes esta bóveda."
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "No copy"
-msgstr "Sin copia"
-
-#. Translators: tag of the choice that keeps a vault without any backup.
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Not recommended"
-msgstr "No recomendado"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Nothing chosen yet"

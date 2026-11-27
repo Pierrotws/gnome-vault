@@ -64,8 +64,13 @@ private enum class Kind { DOWNLOAD, CREATE }
 /** Where the vault is kept, in the order offered. */
 private enum class Place { DRIVE, GIT, PHONE }
 
-/** For [Place.PHONE]: the copy kept in a place the user picks, if any. */
-private enum class Local { FOLDER, FILE, NONE }
+/**
+ * For [Place.PHONE]: the copy kept in a place the user picks. There is
+ * always one: the app's own storage goes when its data is cleared or it
+ * is uninstalled, the copy stays, and the vault can be downloaded again
+ * from it.
+ */
+private enum class Local { FOLDER, FILE }
 
 /**
  * Sets up a vault, step by step: on first run (from a welcome page) and
@@ -130,8 +135,6 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
     fun switchKind(to: Kind) {
         if (to != kind) localUri = null
         kind = to
-        // Nothing to download from a vault kept nowhere else.
-        if (to == Kind.DOWNLOAD && local == Local.NONE) local = Local.FOLDER
     }
     val index = order.indexOf(step)
     val idle = state.busy == null
@@ -228,7 +231,7 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                     ) { Text(tr("Next")) }
                     Step.LOCAL -> Button(
                         onClick = { step = Step.IDENTITY },
-                        enabled = idle && (local == Local.NONE || localUri != null),
+                        enabled = idle && localUri != null,
                     ) { Text(tr("Next")) }
                     Step.IDENTITY -> Button(
                         onClick = {
@@ -237,14 +240,11 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                                 Kind.CREATE to Place.GIT -> model.createVault(
                                     vaultName, fingerprint!!, url, username, token, author, email,
                                 )
-                                Kind.CREATE to Place.PHONE -> {
-                                    val picked = localUri?.let(Uri::parse)
-                                    when {
-                                        local == Local.FOLDER && picked != null ->
-                                            model.createFolderVault(picked, vaultName, fingerprint!!, author, email)
-                                        local == Local.FILE && picked != null ->
-                                            model.createFileVault(picked, vaultName, fingerprint!!, author, email)
-                                        else -> model.createVault(vaultName, fingerprint!!, null, username, token, author, email)
+                                Kind.CREATE to Place.PHONE -> localUri?.let(Uri::parse)?.let { picked ->
+                                    if (local == Local.FILE) {
+                                        model.createFileVault(picked, vaultName, fingerprint!!, author, email)
+                                    } else {
+                                        model.createFolderVault(picked, vaultName, fingerprint!!, author, email)
                                     }
                                 }
                                 Kind.DOWNLOAD to Place.PHONE -> localUri?.let(Uri::parse)?.let { picked ->
@@ -429,7 +429,7 @@ private fun PlacePage(
     }
 }
 
-/** For a vault on this phone: its copy in a folder or a file the user picks (or none). */
+/** For a vault on this phone: its copy in a folder or a file the user picks. */
 @Composable
 private fun LocalPage(
     kind: Kind,
@@ -482,17 +482,6 @@ private fun LocalPage(
     }
     if (local == Local.FILE) {
         Picker { if (kind == Kind.CREATE) newFile.launch(LocalCopy.FILE_NAME) else openFile.launch(arrayOf("*/*")) }
-    }
-    if (kind == Kind.CREATE) {
-        Choice(selected = local == Local.NONE, onClick = { onLocal(Local.NONE) }) {
-            ChoiceText(
-                tr("No copy"),
-                tr("No backup: losing this phone loses this vault."),
-                // Translators: tag of the choice that keeps a vault without any backup.
-                tag = tr("Not recommended"),
-                warning = true,
-            )
-        }
     }
 }
 
@@ -635,7 +624,7 @@ private fun Choice(selected: Boolean, onClick: () -> Unit, content: @Composable 
 /** A choice's title (with an optional [tag] beside it) and explanation. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChoiceText(title: String, detail: String, tag: String? = null, warning: Boolean = false) {
+private fun ChoiceText(title: String, detail: String, tag: String? = null) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
@@ -644,8 +633,8 @@ private fun ChoiceText(title: String, detail: String, tag: String? = null, warni
         if (tag != null) {
             Surface(
                 shape = MaterialTheme.shapes.small,
-                color = if (warning) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = if (warning) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ) {
                 Text(tag, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
             }

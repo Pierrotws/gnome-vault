@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-27 15:17+0100\n"
+"POT-Creation-Date: 2026-11-27 15:51+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -445,19 +445,6 @@ msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "A “.bundle” file made by Passel or git."
-msgstr ""
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "No copy"
-msgstr ""
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "No backup: losing this phone loses this vault."
-msgstr ""
-
-#. Translators: tag of the choice that keeps a vault without any backup.
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Not recommended"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
