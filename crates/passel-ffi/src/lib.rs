@@ -749,6 +749,19 @@ impl Passel {
         })
     }
 
+    /// The open vault's recipients (its `.gpg-id`) when none of their
+    /// secret keys is on this device: its entries cannot be opened until
+    /// one is imported ([`Passel::import_key`]). Empty when one is.
+    pub fn missing_vault_keys(&self) -> Vec<String> {
+        let Ok(dir) = self.vault_dir() else {
+            return Vec::new();
+        };
+        store::missing_vault_keys(&dir).unwrap_or_else(|err| {
+            log::warn!("could not check the vault's key: {err}");
+            Vec::new()
+        })
+    }
+
     /// Local changes not sent to the remote (or Google Drive) yet.
     pub fn unsynced_count(&self) -> u32 {
         self.vault_dir()

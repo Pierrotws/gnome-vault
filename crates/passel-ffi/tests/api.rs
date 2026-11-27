@@ -437,6 +437,14 @@ fn a_phone_and_a_desktop_share_a_vault() {
         (0, 0)
     );
 
+    // A vault for a key this phone does not hold: it names it.
+    assert!(passel.missing_vault_keys().is_empty());
+    let gpg_id = data_dir.join("vaults/local/.gpg-id");
+    let own = fs::read_to_string(&gpg_id).unwrap();
+    fs::write(&gpg_id, "# someone else\nDEADBEEFDEADBEEF\n").unwrap();
+    assert_eq!(passel.missing_vault_keys(), vec!["DEADBEEFDEADBEEF"]);
+    fs::write(&gpg_id, own).unwrap();
+
     google_drive(&passel, &dirs.root, &fingerprint);
     folder_copy(&passel, &dirs.root, &fingerprint);
 }
@@ -482,6 +490,8 @@ fn google_drive(passel: &Passel, root: &Path, fingerprint: &str) {
         )
         .unwrap();
     assert_eq!(tablet.storage, Storage::GoogleDrive);
+    // Its key is on this device already: nothing to import.
+    assert!(passel.missing_vault_keys().is_empty());
     passel.drive_uploaded("file-1".into(), "1".into()).unwrap();
     assert_eq!(passel.unsynced_count(), 0);
     let bank = Entry {

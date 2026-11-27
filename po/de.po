@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-27 16:11+0100\n"
+"POT-Creation-Date: 2026-11-27 16:57+0100\n"
 "PO-Revision-Date: 2026-11-26 00:00+0100\n"
 "Last-Translator: Passel contributors\n"
 "Language-Team: German\n"
@@ -20,7 +20,7 @@ msgstr "Feld hinzufügen"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
 msgid "Back"
 msgstr "Zurück"
 
@@ -133,6 +133,8 @@ msgstr ""
 
 #. Translators: button that skips saving the key backup for now.
 #: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/key.rs
 msgid "Later"
 msgstr "Später"
 
@@ -233,15 +235,9 @@ msgstr "Tresor hinzufügen"
 msgid "Address (https://…)"
 msgstr "Adresse (https://…)"
 
-#. Translators: tag of a choice that needs some technical knowledge.
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: src/ui/setup_wizard/mod.rs
-msgid "Advanced"
-msgstr "Fortgeschritten"
-
 #. Translators: tag of the git choice: it needs some technical knowledge, but is the most capable.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
+#: assets/ui/setup_wizard.ui
 msgid "Advanced · recommended"
 msgstr "Fortgeschritten · empfohlen"
 
@@ -366,6 +362,7 @@ msgid "I already have a vault"
 msgstr "Ich habe bereits einen Tresor"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Import a key"
 msgstr "Schlüssel importieren"
 
@@ -474,10 +471,9 @@ msgid "Set up Passel"
 msgstr "Passel einrichten"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Setting it up takes a few steps: your key, then your vault."
+msgid "Setting it up takes a few steps: your vault, then your key."
 msgstr ""
-"Die Einrichtung dauert nur wenige Schritte: zuerst Ihr Schlüssel, dann Ihr "
-"Tresor."
+"Die Einrichtung dauert nur ein paar Schritte: Ihr Tresor, dann Ihr Schlüssel."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Share public key"
@@ -599,6 +595,15 @@ msgstr "Ihr Name"
 msgid "Your vault"
 msgstr "Ihr Tresor"
 
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"{name} is downloaded. Its entries are encrypted for this key, which is not "
+"on this phone yet: import its backup to open them."
+msgstr ""
+"{name} ist heruntergeladen. Seine Einträge sind für diesen Schlüssel "
+"verschlüsselt, der noch nicht auf diesem Telefon ist: Importieren Sie seine "
+"Sicherung, um sie zu öffnen."
+
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Current vault"
 msgstr "Aktueller Tresor"
@@ -673,6 +678,13 @@ msgid "This vault is only on this phone: its entries will be lost for good."
 msgstr ""
 "Dieser Tresor existiert nur auf diesem Telefon: Seine Einträge gehen "
 "endgültig verloren."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid ""
+"This vault’s key is not on this phone: import its backup to open the entries."
+msgstr ""
+"Der Schlüssel dieses Tresors ist nicht auf diesem Telefon: Importieren Sie "
+"seine Sicherung, um die Einträge zu öffnen."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Turn off biometric unlock"
@@ -837,6 +849,10 @@ msgid "This folder already holds a vault: download it instead"
 msgstr ""
 "Dieser Ordner enthält bereits einen Tresor: Laden Sie ihn stattdessen "
 "herunter"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "This key does not open {name}"
+msgstr "Dieser Schlüssel öffnet {name} nicht"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Up to date"
@@ -1250,7 +1266,7 @@ msgstr ""
 "Passel legt in dem von Ihnen gewählten Ordner eine verschlüsselte Kopie an "
 "und hält sie bei jeder gespeicherten Änderung aktuell."
 
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
 msgid ""
 "Passel encrypts every entry with a GPG key. Only this key, unlocked with its "
 "passphrase, can open them."
@@ -2067,6 +2083,10 @@ msgid "Key files"
 msgstr "Schlüsseldateien"
 
 #: src/ui/setup_wizard/key.rs
+msgid "Key imported, but it does not open this vault."
+msgstr "Schlüssel importiert, aber er öffnet diesen Tresor nicht."
+
+#: src/ui/setup_wizard/key.rs
 msgid "Key imported."
 msgstr "Schlüssel importiert."
 
@@ -2082,6 +2102,16 @@ msgstr ""
 #: src/ui/setup_wizard/key.rs
 msgid "The key task stopped unexpectedly"
 msgstr "Der Schlüsselvorgang wurde unerwartet beendet"
+
+#: src/ui/setup_wizard/key.rs
+#, rust-format
+msgid ""
+"The vault is downloaded. Its entries are encrypted for {keys}, whose secret "
+"key is not on this computer yet: import its backup to open them."
+msgstr ""
+"Der Tresor ist heruntergeladen. Seine Einträge sind für {keys} "
+"verschlüsselt, dessen geheimer Schlüssel noch nicht auf diesem Computer ist: "
+"Importieren Sie seine Sicherung, um sie zu öffnen."
 
 #: src/ui/setup_wizard/mod.rs
 msgid "Changes will be copied there"

@@ -132,7 +132,7 @@ template $SetupWizard : Adw.Bin {
                                 css-classes: ["title-1"];
                             }
 
-                            Label {
+                            Label key_description {
                                 label: _("Passel encrypts every entry with a GPG key. Only this key, unlocked with its passphrase, can open them.");
                                 wrap: true;
                                 xalign: 0;
@@ -297,6 +297,18 @@ template $SetupWizard : Adw.Bin {
                             }
 
                             Adw.PreferencesGroup {
+                                Adw.ActionRow drive_row {
+                                    title: _("Google Drive");
+                                    subtitle: _("One file on your Google account, synced with your other computers and phones: just sign in. Passel only sees the files it makes there.");
+                                    activatable-widget: drive_check;
+
+                                    [prefix]
+                                    CheckButton drive_check {
+                                        valign: center;
+                                        group: online_check;
+                                    }
+                                }
+
                                 Adw.ActionRow online_row {
                                     title: _("Git repository");
                                     subtitle: _("A private repository on a service like GitHub, with the vault’s whole history. pass and Passel open it on your other computers and phone.");
@@ -313,18 +325,6 @@ template $SetupWizard : Adw.Bin {
                                         label: _("Advanced · recommended");
                                         valign: center;
                                         css-classes: ["caption", "dim-label"];
-                                    }
-                                }
-
-                                Adw.ActionRow drive_row {
-                                    title: _("Google Drive");
-                                    subtitle: _("One file on your Google account, synced with your other computers and phones: just sign in. Passel only sees the files it makes there.");
-                                    activatable-widget: drive_check;
-
-                                    [prefix]
-                                    CheckButton drive_check {
-                                        valign: center;
-                                        group: online_check;
                                     }
                                 }
 

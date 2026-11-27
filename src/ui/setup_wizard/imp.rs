@@ -27,6 +27,9 @@ pub struct SetupWizard {
     pub create_key_row: TemplateChild<adw::ActionRow>,
 
     #[template_child]
+    pub key_description: TemplateChild<gtk::Label>,
+
+    #[template_child]
     pub sync_title: TemplateChild<gtk::Label>,
 
     #[template_child]
@@ -264,6 +267,9 @@ pub struct SetupWizard {
     pub drive_rows: RefCell<Vec<gtk::Widget>>,
     /// Connecting to Google Drive (or waiting for the browser).
     pub drive_busy: Cell<bool>,
+    /// A downloaded vault's recipients, none of whose keys is on this
+    /// computer: the key page asks for one.
+    pub vault_key_needed: RefCell<Option<Vec<String>>>,
     /// Why the last Drive connection failed.
     pub drive_error: RefCell<Option<String>>,
     /// Stops a sign-in waiting for the browser.

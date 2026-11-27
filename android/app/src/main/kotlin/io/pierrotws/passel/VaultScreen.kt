@@ -1,5 +1,7 @@
 package io.pierrotws.passel
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,6 +47,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.pierrotws.passel.core.Storage
+
+/** The open vault's key is not on this phone: its entries cannot be opened until it is imported. */
+@Composable
+private fun MissingKeyCard(state: VaultState, model: VaultViewModel) {
+    val pickKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(model::importKey)
+    }
+    OutlinedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                tr("This vault’s key is not on this phone: import its backup to open the entries."),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            state.keyMissing.forEach { Text(keyLabel(it), style = MaterialTheme.typography.bodySmall) }
+            TextButton(onClick = { pickKey.launch(arrayOf("*/*")) }, enabled = state.busy == null) {
+                Text(tr("Import a key"))
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,6 +167,7 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             if (state.busy != null) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (state.keyMissing.isNotEmpty()) MissingKeyCard(state, model)
             OutlinedTextField(
                 value = state.query,
                 onValueChange = model::setQuery,

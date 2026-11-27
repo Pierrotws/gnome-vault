@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-27 16:11+0100\n"
+"POT-Creation-Date: 2026-11-27 16:57+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -20,7 +20,7 @@ msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
 msgid "Back"
 msgstr ""
 
@@ -150,6 +150,8 @@ msgstr ""
 
 #. Translators: button that skips saving the key backup for now.
 #: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/key.rs
 msgid "Later"
 msgstr ""
 
@@ -248,7 +250,7 @@ msgid ""
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Setting it up takes a few steps: your key, then your vault."
+msgid "Setting it up takes a few steps: your vault, then your key."
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
@@ -275,6 +277,7 @@ msgid "Or add another key:"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Import a key"
 msgstr ""
 
@@ -357,10 +360,10 @@ msgid ""
 "write)."
 msgstr ""
 
-#. Translators: tag of a choice that needs some technical knowledge.
+#. Translators: tag of the git choice: it needs some technical knowledge, but is the most capable.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: src/ui/setup_wizard/mod.rs
-msgid "Advanced"
+#: assets/ui/setup_wizard.ui
+msgid "Advanced · recommended"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
@@ -388,12 +391,6 @@ msgid ""
 "An empty private repository you created for it (GitHub, GitLab…). Your vault "
 "is backed up with its whole history, and opens with pass and Passel on your "
 "computers too."
-msgstr ""
-
-#. Translators: tag of the git choice: it needs some technical knowledge, but is the most capable.
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
-msgid "Advanced · recommended"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
@@ -546,6 +543,12 @@ msgstr ""
 msgid "Your email"
 msgstr ""
 
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"{name} is downloaded. Its entries are encrypted for this key, which is not "
+"on this phone yet: import its backup to open them."
+msgstr ""
+
 #. Translators: shown for a key without a name.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 #: assets/ui/setup_wizard.ui
@@ -562,6 +565,11 @@ msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Save a backup"
+msgstr ""
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid ""
+"This vault’s key is not on this phone: import its backup to open the entries."
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
@@ -647,6 +655,10 @@ msgid "Key imported"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "This key does not open {name}"
+msgstr ""
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Creating the key"
 msgstr ""
 
@@ -681,12 +693,6 @@ msgstr ""
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Downloading the vault"
 msgstr ""
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
-msgid "{name} is ready: {n} entry"
-msgid_plural "{name} is ready: {n} entries"
-msgstr[0] ""
-msgstr[1] ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Creating the vault"
@@ -736,6 +742,12 @@ msgstr ""
 #: crates/passel-core/src/helpers/git.rs
 msgid "This file is not a Passel vault"
 msgstr ""
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "{name} is ready: {n} entry"
+msgid_plural "{name} is ready: {n} entries"
+msgstr[0] ""
+msgstr[1] ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Could not reach the vault’s copy"
@@ -1159,7 +1171,7 @@ msgid ""
 "to date as you save changes."
 msgstr ""
 
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
 msgid ""
 "Passel encrypts every entry with a GPG key. Only this key, unlocked with its "
 "passphrase, can open them."
@@ -1928,6 +1940,10 @@ msgid "Key files"
 msgstr ""
 
 #: src/ui/setup_wizard/key.rs
+msgid "Key imported, but it does not open this vault."
+msgstr ""
+
+#: src/ui/setup_wizard/key.rs
 msgid "Key imported."
 msgstr ""
 
@@ -1941,6 +1957,13 @@ msgstr ""
 
 #: src/ui/setup_wizard/key.rs
 msgid "The key task stopped unexpectedly"
+msgstr ""
+
+#: src/ui/setup_wizard/key.rs
+#, rust-format
+msgid ""
+"The vault is downloaded. Its entries are encrypted for {keys}, whose secret "
+"key is not on this computer yet: import its backup to open them."
 msgstr ""
 
 #: src/ui/setup_wizard/mod.rs

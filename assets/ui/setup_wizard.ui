@@ -161,7 +161,7 @@ pill</property>
                               </object>
                             </child>
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="key_description">
                                 <property name="label" translatable="yes">Passel encrypts every entry with a GPG key. Only this key, unlocked with its passphrase, can open them.</property>
                                 <property name="wrap">true</property>
                                 <property name="xalign">0</property>
@@ -360,6 +360,19 @@ pill</property>
                             <child>
                               <object class="AdwPreferencesGroup">
                                 <child>
+                                  <object class="AdwActionRow" id="drive_row">
+                                    <property name="title" translatable="yes">Google Drive</property>
+                                    <property name="subtitle" translatable="yes">One file on your Google account, synced with your other computers and phones: just sign in. Passel only sees the files it makes there.</property>
+                                    <property name="activatable-widget">drive_check</property>
+                                    <child type="prefix">
+                                      <object class="GtkCheckButton" id="drive_check">
+                                        <property name="valign">3</property>
+                                        <property name="group">online_check</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
                                   <object class="AdwActionRow" id="online_row">
                                     <property name="title" translatable="yes">Git repository</property>
                                     <property name="subtitle" translatable="yes">A private repository on a service like GitHub, with the vault’s whole history. pass and Passel open it on your other computers and phone.</property>
@@ -376,19 +389,6 @@ pill</property>
                                         <property name="valign">3</property>
                                         <property name="css-classes">caption
 dim-label</property>
-                                      </object>
-                                    </child>
-                                  </object>
-                                </child>
-                                <child>
-                                  <object class="AdwActionRow" id="drive_row">
-                                    <property name="title" translatable="yes">Google Drive</property>
-                                    <property name="subtitle" translatable="yes">One file on your Google account, synced with your other computers and phones: just sign in. Passel only sees the files it makes there.</property>
-                                    <property name="activatable-widget">drive_check</property>
-                                    <child type="prefix">
-                                      <object class="GtkCheckButton" id="drive_check">
-                                        <property name="valign">3</property>
-                                        <property name="group">online_check</property>
                                       </object>
                                     </child>
                                   </object>

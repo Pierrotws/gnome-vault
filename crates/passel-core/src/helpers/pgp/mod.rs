@@ -355,6 +355,48 @@ pub fn recipient_ids(store_dir: &Path) -> Result<Vec<String>, PgpError> {
     read_gpg_id_file(&store_dir.join(".gpg-id"))
 }
 
+/// The recipients of the vault at `store_dir` (its root `.gpg-id`) when
+/// none of them has a secret key here: its entries cannot be opened until
+/// one is imported. Empty when one has, or when the vault names none.
+pub fn missing_vault_keys(store_dir: &Path) -> Result<Vec<String>, PgpError> {
+    let recipients = match recipient_ids(store_dir) {
+        Ok(recipients) => recipients,
+        Err(PgpError::NoRecipients(_)) => return Ok(Vec::new()),
+        Err(err) => return Err(err),
+    };
+    let keys = backend()?.secret_keys()?;
+    let usable = recipients
+        .iter()
+        .any(|recipient| keys.iter().any(|key| key_matches(key, recipient)));
+    Ok(if usable { Vec::new() } else { recipients })
+}
+
+/// Whether `key` is the one a `.gpg-id` line names, the way gpg finds
+/// it: a fingerprint or key id (its end), an email (`<email>` in the user
+/// id), or else part of the user id.
+fn key_matches(key: &SecretKeyInfo, recipient: &str) -> bool {
+    let recipient = recipient.trim();
+    let hex = recipient
+        .strip_prefix("0x")
+        .or_else(|| recipient.strip_prefix("0X"))
+        .unwrap_or(recipient);
+    if hex.len() >= 8 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return key
+            .fingerprint
+            .to_ascii_uppercase()
+            .ends_with(&hex.to_ascii_uppercase());
+    }
+    let Some(user_id) = key.user_id.as_deref() else {
+        return false;
+    };
+    let user_id = user_id.to_lowercase();
+    let recipient = recipient.to_lowercase();
+    match recipient.trim_start_matches('<').trim_end_matches('>') {
+        email if email.contains('@') => user_id == email || user_id.contains(&format!("<{email}>")),
+        _ => !recipient.is_empty() && user_id.contains(&recipient),
+    }
+}
+
 /// Reads recipient key IDs by walking from `entry_parent` upward, taking the
 /// first `.gpg-id` found and stopping at (and including) `store_root`.
 ///
@@ -476,6 +518,34 @@ pub(crate) mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
+
+    #[test]
+    fn gpg_id_lines_find_their_key_like_gpg_does() {
+        let key = SecretKeyInfo {
+            fingerprint: "0123456789ABCDEF0123456789ABCDEF01234567".to_string(),
+            user_id: Some("Ada Lovelace <ada@example.invalid>".to_string()),
+        };
+        for line in [
+            "0123456789ABCDEF0123456789ABCDEF01234567",
+            "0123456789abcdef0123456789abcdef01234567",
+            "89ABCDEF01234567",
+            "0x01234567",
+            "ada@example.invalid",
+            "<ADA@example.invalid>",
+            "Ada Lovelace",
+        ] {
+            assert!(key_matches(&key, line), "{line}");
+        }
+        for line in [
+            "FEDCBA9876543210",
+            "bob@example.invalid",
+            "a@example.invalid",
+            "Grace",
+            "",
+        ] {
+            assert!(!key_matches(&key, line), "{line}");
+        }
+    }
 
     pub(crate) fn temp_dir(name: &str) -> PathBuf {
         let unique = SystemTime::now()

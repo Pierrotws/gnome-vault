@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-27 16:11+0100\n"
+"POT-Creation-Date: 2026-11-27 16:57+0100\n"
 "PO-Revision-Date: 2026-11-26 00:00+0100\n"
 "Last-Translator: Passel contributors\n"
 "Language-Team: Brazilian Portuguese\n"
@@ -20,7 +20,7 @@ msgstr "Adicionar um campo"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
 msgid "Back"
 msgstr "Voltar"
 
@@ -131,6 +131,8 @@ msgstr "Ela protege a chave de {user} neste telefone e nos backups dele."
 
 #. Translators: button that skips saving the key backup for now.
 #: android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/key.rs
 msgid "Later"
 msgstr "Mais tarde"
 
@@ -231,15 +233,9 @@ msgstr "Adicionar um cofre"
 msgid "Address (https://…)"
 msgstr "Endereço (https://…)"
 
-#. Translators: tag of a choice that needs some technical knowledge.
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: src/ui/setup_wizard/mod.rs
-msgid "Advanced"
-msgstr "Avançado"
-
 #. Translators: tag of the git choice: it needs some technical knowledge, but is the most capable.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
+#: assets/ui/setup_wizard.ui
 msgid "Advanced · recommended"
 msgstr "Avançado · recomendado"
 
@@ -363,6 +359,7 @@ msgid "I already have a vault"
 msgstr "Já tenho um cofre"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Import a key"
 msgstr "Importar uma chave"
 
@@ -469,8 +466,8 @@ msgid "Set up Passel"
 msgstr "Configurar o Passel"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Setting it up takes a few steps: your key, then your vault."
-msgstr "A configuração leva poucas etapas: sua chave e, depois, seu cofre."
+msgid "Setting it up takes a few steps: your vault, then your key."
+msgstr "A configuração leva alguns passos: seu cofre e depois sua chave."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Share public key"
@@ -592,6 +589,14 @@ msgstr "Seu nome"
 msgid "Your vault"
 msgstr "Seu cofre"
 
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"{name} is downloaded. Its entries are encrypted for this key, which is not "
+"on this phone yet: import its backup to open them."
+msgstr ""
+"{name} foi baixado. As entradas dele estão criptografadas para esta chave, "
+"que ainda não está neste telefone: importe o backup dela para abri-las."
+
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Current vault"
 msgstr "Cofre atual"
@@ -665,6 +670,13 @@ msgid "This vault is only on this phone: its entries will be lost for good."
 msgstr ""
 "Este cofre está só neste telefone: as entradas dele serão perdidas para "
 "sempre."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid ""
+"This vault’s key is not on this phone: import its backup to open the entries."
+msgstr ""
+"A chave deste cofre não está neste telefone: importe o backup dela para "
+"abrir as entradas."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Turn off biometric unlock"
@@ -820,6 +832,10 @@ msgstr "Este arquivo não é um cofre do Passel"
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "This folder already holds a vault: download it instead"
 msgstr "Esta pasta já tem um cofre: baixe-o em vez disso"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "This key does not open {name}"
+msgstr "Esta chave não abre {name}"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Up to date"
@@ -1226,7 +1242,7 @@ msgstr ""
 "O Passel cria uma cópia criptografada na pasta que você escolher e a mantém "
 "atualizada a cada alteração salva."
 
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
 msgid ""
 "Passel encrypts every entry with a GPG key. Only this key, unlocked with its "
 "passphrase, can open them."
@@ -2024,6 +2040,10 @@ msgid "Key files"
 msgstr "Arquivos de chave"
 
 #: src/ui/setup_wizard/key.rs
+msgid "Key imported, but it does not open this vault."
+msgstr "Chave importada, mas ela não abre este cofre."
+
+#: src/ui/setup_wizard/key.rs
 msgid "Key imported."
 msgstr "Chave importada."
 
@@ -2038,6 +2058,16 @@ msgstr "Salvando o backup… O GPG pedirá a frase secreta da chave."
 #: src/ui/setup_wizard/key.rs
 msgid "The key task stopped unexpectedly"
 msgstr "A tarefa da chave parou inesperadamente"
+
+#: src/ui/setup_wizard/key.rs
+#, rust-format
+msgid ""
+"The vault is downloaded. Its entries are encrypted for {keys}, whose secret "
+"key is not on this computer yet: import its backup to open them."
+msgstr ""
+"O cofre foi baixado. As entradas dele estão criptografadas para {keys}, cuja "
+"chave secreta ainda não está neste computador: importe o backup dela para "
+"abri-las."
 
 #: src/ui/setup_wizard/mod.rs
 msgid "Changes will be copied there"

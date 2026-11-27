@@ -57,7 +57,7 @@ import io.pierrotws.passel.core.KeyInfo
 import io.pierrotws.passel.core.RemoteState
 import kotlinx.coroutines.launch
 
-private enum class Step { WELCOME, KEY, KIND, PLACE, LOCAL, IDENTITY }
+private enum class Step { WELCOME, KIND, KEY, PLACE, LOCAL, IDENTITY }
 
 private enum class Kind { DOWNLOAD, CREATE }
 
@@ -74,15 +74,20 @@ private enum class Local { FOLDER, FILE }
 
 /**
  * Sets up a vault, step by step: on first run (from a welcome page) and
- * from "Add a vault". Like the desktop wizard: the key, then an existing
- * vault to download or a new one to create, where it lives, and who signs
- * this device's changes.
+ * from "Add a vault". Like the desktop wizard: a new vault or an existing
+ * one, then for a new one its key, where it lives, and who signs this
+ * device's changes. An existing vault's key is asked for after it is
+ * downloaded, and only when this phone does not hold it ([VaultKeyPage]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupWizard(state: VaultState, model: VaultViewModel) {
+    state.vaultKeyNeeded?.let {
+        VaultKeyPage(it, state, model)
+        return
+    }
     val firstRun = state.vaults.isEmpty()
-    var step by rememberSaveable { mutableStateOf(if (firstRun) Step.WELCOME else Step.KEY) }
+    var step by rememberSaveable { mutableStateOf(if (firstRun) Step.WELCOME else Step.KIND) }
     var kind by rememberSaveable { mutableStateOf<Kind?>(null) }
     var fingerprint by rememberSaveable { mutableStateOf<String?>(null) }
     var place by rememberSaveable { mutableStateOf(Place.DRIVE) }
@@ -108,7 +113,7 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
     // Fill the last page from what is known by then.
     LaunchedEffect(step) {
         if (step != Step.IDENTITY) return@LaunchedEffect
-        val key = state.keys.firstOrNull { it.fingerprint == fingerprint }
+        val key = state.keys.firstOrNull { it.fingerprint == fingerprint } ?: state.keys.firstOrNull()
         val (keyName, keyEmail) = splitUserId(key?.userId)
         if (author.isBlank()) author = keyName
         if (email.isBlank()) email = keyEmail
@@ -125,8 +130,9 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
 
     val order = listOfNotNull(
         Step.WELCOME.takeIf { firstRun },
-        Step.KEY,
         Step.KIND,
+        // An existing vault comes with its key: asked for after, if needed.
+        Step.KEY.takeIf { kind != Kind.DOWNLOAD },
         Step.PLACE,
         Step.LOCAL.takeIf { place == Place.PHONE },
         Step.IDENTITY,
@@ -175,12 +181,12 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
             )
             Text(tr("Step {step} of {total}", "step" to index + 1, "total" to order.size), style = MaterialTheme.typography.labelMedium)
             when (step) {
-                Step.WELCOME -> WelcomePage(onStart = { step = Step.KEY })
-                Step.KEY -> KeyPage(state, fingerprint, onSelect = { fingerprint = it }, model)
+                Step.WELCOME -> WelcomePage(onStart = { step = Step.KIND })
                 Step.KIND -> KindPage(kind) {
                     switchKind(it)
-                    step = Step.PLACE
+                    step = if (it == Kind.CREATE) Step.KEY else Step.PLACE
                 }
+                Step.KEY -> KeyPage(state, fingerprint, onSelect = { fingerprint = it }, model)
                 Step.PLACE -> PlacePage(
                     kind = kind ?: Kind.DOWNLOAD,
                     place = place,
@@ -195,7 +201,11 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                     onToken = { token = it },
                     state = state,
                     model = model,
-                    onSwitchKind = ::switchKind,
+                    onSwitchKind = {
+                        switchKind(it)
+                        // A new vault needs its key first.
+                        if (it == Kind.CREATE) step = Step.KEY
+                    },
                 )
                 Step.LOCAL -> LocalPage(
                     kind = kind ?: Kind.DOWNLOAD,
@@ -220,7 +230,7 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.End) {
                 when (step) {
                     Step.WELCOME, Step.KIND -> {}
-                    Step.KEY -> Button(onClick = { step = Step.KIND }, enabled = idle && fingerprint != null) { Text(tr("Next")) }
+                    Step.KEY -> Button(onClick = { step = Step.PLACE }, enabled = idle && fingerprint != null) { Text(tr("Next")) }
                     Step.PLACE -> Button(
                         onClick = { step = order[index + 1] },
                         enabled = idle && when (place) {
@@ -258,7 +268,8 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                                 else -> model.cloneVault(vaultName, url, username, token, author, email)
                             }
                         },
-                        enabled = idle && vaultName.isNotBlank() && author.isNotBlank() && email.isNotBlank(),
+                        enabled = idle && vaultName.isNotBlank() && author.isNotBlank() && email.isNotBlank() &&
+                            (kind == Kind.DOWNLOAD || fingerprint != null),
                     ) { Text(if (kind == Kind.CREATE) tr("Create the vault") else tr("Download the vault")) }
                 }
             }
@@ -275,7 +286,7 @@ private fun WelcomePage(onStart: () -> Unit) {
             "Passel keeps your passwords in a pass vault: one encrypted file per entry, with its whole history. Keep it on your Google Drive, in a git repository, or in a folder or file of your own.",
         ),
     )
-    Text(tr("Setting it up takes a few steps: your key, then your vault."))
+    Text(tr("Setting it up takes a few steps: your vault, then your key."))
     Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) { Text(tr("Get started")) }
 }
 
@@ -389,8 +400,7 @@ private fun PlacePage(
                 tr(
                     "The HTTPS address of its repository, and a personal access token allowed to read and write it (GitHub: a fine-grained token with Contents read and write).",
                 ),
-                // Translators: tag of a choice that needs some technical knowledge.
-                tag = tr("Advanced"),
+                tag = tr("Advanced · recommended"),
             )
         }
         if (place == Place.GIT) remoteFields()
@@ -620,6 +630,66 @@ private fun Choice(selected: Boolean, onClick: () -> Unit, content: @Composable 
         }
     }
 }
+
+/**
+ * After downloading a vault whose key is not on this phone: import the
+ * backup of that key, or do it later (the vault screen offers it again).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VaultKeyPage(need: VaultKeyNeed, state: VaultState, model: VaultViewModel) {
+    val pickKey = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(model::importKey)
+    }
+    val idle = state.busy == null
+    BackHandler { model.finishVaultKey() }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(tr("Add a vault")) },
+                navigationIcon = {
+                    IconButton(onClick = model::finishVaultKey, enabled = idle) {
+                        Icon(Icons.Default.Close, contentDescription = tr("Later"))
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            PageTitle(tr("Your encryption key"))
+            Text(
+                tr(
+                    "{name} is downloaded. Its entries are encrypted for this key, which is not on this phone yet: import its backup to open them.",
+                    "name" to need.vaultName,
+                ),
+            )
+            need.recipients.forEach { Text(keyLabel(it), style = MaterialTheme.typography.bodyMedium) }
+            state.busy?.let {
+                Text(it)
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                TextButton(onClick = model::finishVaultKey, enabled = idle) { Text(tr("Later")) }
+                Button(onClick = { pickKey.launch(arrayOf("*/*")) }, enabled = idle) { Text(tr("Import a key")) }
+            }
+        }
+    }
+}
+
+/** A `.gpg-id` line as shown: a fingerprint in groups of four. */
+fun keyLabel(recipient: String): String =
+    if (recipient.length >= 16 && recipient.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+        recipient.uppercase().chunked(4).joinToString(" ")
+    } else {
+        recipient
+    }
 
 /** A choice's title (with an optional [tag] beside it) and explanation. */
 @OptIn(ExperimentalLayoutApi::class)

@@ -19,7 +19,8 @@ use crate::{
 
 pub use crate::helpers::git::{CopyMerge, RemoteCheck, SyncReport};
 pub use crate::helpers::pgp::{
-    create_key, export_secret_key, import_secret_keys, key_user_id, GpgRecipient, PgpError,
+    create_key, export_secret_key, import_secret_keys, key_user_id, missing_vault_keys,
+    GpgRecipient, PgpError,
 };
 pub use import::{import_entries, ImportSummary};
 pub use store_error::StoreError;

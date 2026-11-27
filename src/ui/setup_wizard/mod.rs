@@ -103,17 +103,11 @@ impl SetupWizard {
     fn set_mode(&self, download: bool) {
         let imp = self.imp();
         imp.download.set(download);
-        // A key is made for a new vault; one being downloaded needs its own.
-        imp.create_key_row.set_visible(!download);
-        if download && imp.create_key_check.is_active() {
-            imp.use_key_check.set_active(true);
-        }
         if download {
             imp.sync_title.set_label(&gettext("Where Is Your Vault?"));
             imp.sync_description.set_label(&gettext(
                 "Passel downloads it, with its whole history, and keeps it in sync there.",
             ));
-            imp.online_tag.set_label(&gettext("Advanced"));
             imp.online_description.set_label(&gettext(
                 "The address of the vault’s repository, which this computer’s SSH key can read and write.",
             ));
@@ -126,7 +120,6 @@ impl SetupWizard {
             imp.sync_description.set_label(&gettext(
                 "Passel keeps an encrypted copy of your vault somewhere else: it is backed up, and you can use it from another computer or your phone.",
             ));
-            imp.online_tag.set_label(&gettext("Advanced · recommended"));
             imp.online_description.set_label(&gettext(
                 "Any of these services offers free private repositories. If you have no account yet, pick one and create it on the service’s website.",
             ));
@@ -203,7 +196,6 @@ impl SetupWizard {
         self.setup_drive();
         for back in [
             &*imp.vault_back_button,
-            &*imp.key_back_button,
             &*imp.sync_back_button,
             &*imp.online_back_button,
             &*imp.folder_back_button,
@@ -223,10 +215,16 @@ impl SetupWizard {
             self,
             move |_| wizard.update_vault_next()
         ));
+        // A new vault's key comes next; a downloaded one brings its own,
+        // asked for after the download only if this computer lacks it.
         imp.vault_next_button.connect_clicked(glib::clone!(
             #[weak(rename_to = wizard)]
             self,
-            move |_| wizard.imp().navigation.push_by_tag("key")
+            move |_| {
+                let imp = wizard.imp();
+                imp.navigation
+                    .push_by_tag(if imp.download.get() { "sync" } else { "key" });
+            }
         ));
 
         imp.apply_button.connect_clicked(glib::clone!(
@@ -425,6 +423,16 @@ impl SetupWizard {
         }
 
         imp.apply_button.set_label(&gettext("Open Vault"));
+        if plan.download {
+            let dir = plan.store_dir.clone();
+            let missing = gio::spawn_blocking(move || setup::missing_vault_keys(&dir))
+                .await
+                .unwrap_or_default();
+            if !missing.is_empty() {
+                self.ask_vault_key(missing);
+                return;
+            }
+        }
         self.emit_vault_created();
     }
 
@@ -479,7 +487,7 @@ impl SetupWizard {
         self.emit_by_name::<()>("locked-changed", &[&locked]);
     }
 
-    fn emit_vault_created(&self) {
+    pub(super) fn emit_vault_created(&self) {
         let store_dir = self
             .imp()
             .run

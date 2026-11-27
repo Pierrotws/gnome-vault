@@ -63,6 +63,10 @@ data class VaultState(
     val driveVaults: List<DriveFile>? = null,
     /** Google needs the user to sign in (no access given yet): show the button. */
     val driveSignIn: Boolean = false,
+    /** A vault was just downloaded and its key is not on this phone. */
+    val vaultKeyNeeded: VaultKeyNeed? = null,
+    /** The open vault's key is not on this phone: its recipients. */
+    val keyMissing: List<String> = emptyList(),
 ) {
     val activeVault: VaultInfo? get() = vaults.firstOrNull { it.active }
     val hasVault: Boolean get() = activeVault != null
@@ -70,6 +74,9 @@ data class VaultState(
     val filtered: List<EntryRef>
         get() = if (query.isBlank()) entries else entries.filter { it.path.contains(query.trim(), ignoreCase = true) }
 }
+
+/** The key a downloaded vault [vaultName] needs: one of [recipients]. */
+data class VaultKeyNeed(val vaultName: String, val recipients: List<String>)
 
 /**
  * The app's state and actions. Every Passel call blocks (and may wait for
@@ -116,8 +123,20 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             bytes.fill(0)
         }
         reload()
-        say(tr("Key imported"))
+        val need = state.value.vaultKeyNeeded
+        when {
+            need == null -> say(tr("Key imported"))
+            passel.missingVaultKeys().isEmpty() -> {
+                finishVaultKey()
+                vaultReady(need.vaultName)
+            }
+            else -> say(tr("This key does not open {name}", "name" to need.vaultName))
+        }
     }
+
+    /** Leaves the wizard after a download, with or without the vault's key. */
+    fun finishVaultKey() =
+        mutableState.update { it.copy(addingVault = false, vaultKeyNeeded = null, driveVaults = null) }
 
     fun createKey(name: String, email: String) = run(tr("Creating the key")) {
         val fingerprint = passel.createKey(name, email)
@@ -182,8 +201,9 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     fun startAddingVault() =
         mutableState.update { it.copy(addingVault = true, remoteCheck = null, driveVaults = null, driveSignIn = false, open = null) }
 
-    fun stopAddingVault() =
-        mutableState.update { it.copy(addingVault = false, remoteCheck = null, driveVaults = null, driveSignIn = false) }
+    fun stopAddingVault() = mutableState.update {
+        it.copy(addingVault = false, remoteCheck = null, driveVaults = null, driveSignIn = false, vaultKeyNeeded = null)
+    }
 
     /** Checks what is at [url] (with this login), for the wizard. */
     fun checkRemote(url: String, username: String, token: String) {
@@ -205,10 +225,8 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             val login = useLogin(url.trim(), username, token)
             val vault = passel.cloneVault(name.trim(), url.trim(), author.trim(), email.trim())
             login?.let(app.remoteSecrets::save)
-            mutableState.update { it.copy(addingVault = false, remoteCheck = null) }
-            reload()
-            val count = state.value.entries.size
-            say(trn("{name} is ready: {n} entry", "{name} is ready: {n} entries", count, "name" to vault.name, "n" to count))
+            mutableState.update { it.copy(remoteCheck = null) }
+            vaultDownloaded(vault)
         }
 
     /** [url] is null to keep the vault on this phone only. */
@@ -410,11 +428,24 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
             vaultDownloaded(vault)
         }
 
+    /**
+     * A vault was downloaded: done, unless this phone lacks its key, which
+     * the wizard then asks for.
+     */
     private fun vaultDownloaded(vault: VaultInfo) {
-        mutableState.update { it.copy(addingVault = false, driveVaults = null) }
         reload()
+        val missing = passel.missingVaultKeys()
+        if (missing.isNotEmpty()) {
+            mutableState.update { it.copy(vaultKeyNeeded = VaultKeyNeed(vault.name, missing), driveVaults = null) }
+            return
+        }
+        mutableState.update { it.copy(addingVault = false, driveVaults = null) }
+        vaultReady(vault.name)
+    }
+
+    private fun vaultReady(name: String) {
         val count = state.value.entries.size
-        say(trn("{name} is ready: {n} entry", "{name} is ready: {n} entries", count, "name" to vault.name, "n" to count))
+        say(trn("{name} is ready: {n} entry", "{name} is ready: {n} entries", count, "name" to name, "n" to count))
     }
 
     /** A vault was made here: writes its copy right away ([write]). */
@@ -677,9 +708,17 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
         val hasVault = vaults.any { it.active }
         val entries = if (hasVault) passel.entries() else emptyList()
         val unsynced = if (hasVault) passel.unsyncedCount().toInt() else 0
+        val keyMissing = if (hasVault) passel.missingVaultKeys() else emptyList()
         val biometricUnlock = app.biometrics.anyEnrolled()
         mutableState.update {
-            it.copy(keys = keys, vaults = vaults, entries = entries, unsynced = unsynced, biometricUnlock = biometricUnlock)
+            it.copy(
+                keys = keys,
+                vaults = vaults,
+                entries = entries,
+                unsynced = unsynced,
+                keyMissing = keyMissing,
+                biometricUnlock = biometricUnlock,
+            )
         }
     }
 
