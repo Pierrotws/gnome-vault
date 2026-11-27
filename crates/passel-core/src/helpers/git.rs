@@ -1281,10 +1281,15 @@ fn upstream_oid_for_branch(repo: &Repository, branch: &str) -> Result<Oid, GitEr
         .ok_or(GitError::NoHeadTarget)
 }
 
+/// The branch's remote: its configured one, else the vault's copy kept
+/// as a file or folder (`passel.storage`: its tracking refs are
+/// `refs/remotes/<storage>/…`, see [`merge_from_bundle`]), else
+/// "origin".
 fn remote_name_for_branch(repo: &Repository, branch: &str) -> Result<String, GitError> {
     let config = repo.config()?;
     Ok(config
         .get_string(&format!("branch.{branch}.remote"))
+        .or_else(|_| config.get_string("passel.storage"))
         .unwrap_or_else(|_| "origin".to_string()))
 }
 

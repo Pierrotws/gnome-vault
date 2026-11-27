@@ -10,6 +10,7 @@ pub mod app_error;
 pub mod cache_warmup;
 pub mod changes;
 pub mod controller;
+pub mod drive;
 pub mod group_preview;
 pub mod import;
 pub mod setup;

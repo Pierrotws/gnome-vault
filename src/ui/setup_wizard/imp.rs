@@ -21,6 +21,72 @@ pub struct SetupWizard {
     pub create_button: TemplateChild<gtk::Button>,
 
     #[template_child]
+    pub download_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub create_key_row: TemplateChild<adw::ActionRow>,
+
+    #[template_child]
+    pub sync_title: TemplateChild<gtk::Label>,
+
+    #[template_child]
+    pub sync_description: TemplateChild<gtk::Label>,
+
+    #[template_child]
+    pub online_tag: TemplateChild<gtk::Label>,
+
+    #[template_child]
+    pub drive_row: TemplateChild<adw::ActionRow>,
+
+    #[template_child]
+    pub drive_check: TemplateChild<gtk::CheckButton>,
+
+    #[template_child]
+    pub online_description: TemplateChild<gtk::Label>,
+
+    #[template_child]
+    pub host_group: TemplateChild<adw::PreferencesGroup>,
+
+    #[template_child]
+    pub folder_description: TemplateChild<gtk::Label>,
+
+    #[template_child]
+    pub git_folder_row: TemplateChild<adw::ActionRow>,
+
+    #[template_child]
+    pub bundle_file_row: TemplateChild<adw::ActionRow>,
+
+    #[template_child]
+    pub drive_spinner: TemplateChild<gtk::Spinner>,
+
+    #[template_child]
+    pub drive_icon: TemplateChild<gtk::Image>,
+
+    #[template_child]
+    pub drive_status_label: TemplateChild<gtk::Label>,
+
+    #[template_child]
+    pub drive_sign_in_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub drive_vaults_group: TemplateChild<adw::PreferencesGroup>,
+
+    #[template_child]
+    pub drive_hint_box: TemplateChild<gtk::Box>,
+
+    #[template_child]
+    pub drive_hint_label: TemplateChild<gtk::Label>,
+
+    #[template_child]
+    pub drive_switch_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub drive_back_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub drive_next_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
     pub vault_group: TemplateChild<adw::PreferencesGroup>,
 
     #[template_child]
@@ -91,9 +157,6 @@ pub struct SetupWizard {
 
     #[template_child]
     pub key_next_button: TemplateChild<gtk::Button>,
-
-    #[template_child]
-    pub local_check: TemplateChild<gtk::CheckButton>,
 
     #[template_child]
     pub online_check: TemplateChild<gtk::CheckButton>,
@@ -189,6 +252,22 @@ pub struct SetupWizard {
     /// Folder chosen for a folder/drive copy (the copy goes inside it).
     pub copy_parent: RefCell<Option<PathBuf>>,
     pub autopush: Cell<bool>,
+    /// Downloading an existing vault instead of creating one.
+    pub download: Cell<bool>,
+    /// Downloading: the folder copy or bundle file chosen.
+    pub copy_source: RefCell<Option<PathBuf>>,
+    /// The vaults on the connected Google Drive (`None`: not connected).
+    pub drive_vaults: RefCell<Option<Vec<crate::app::drive::DriveFile>>>,
+    /// Downloading: the Drive file chosen.
+    pub drive_file: RefCell<Option<String>>,
+    /// Rows of `drive_vaults_group`.
+    pub drive_rows: RefCell<Vec<gtk::Widget>>,
+    /// Connecting to Google Drive (or waiting for the browser).
+    pub drive_busy: Cell<bool>,
+    /// Why the last Drive connection failed.
+    pub drive_error: RefCell<Option<String>>,
+    /// Stops a sign-in waiting for the browser.
+    pub drive_cancel: RefCell<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
     /// The plan shown on the review page and how far it got. Kept across
     /// retries so steps that already succeeded are not run again.
     pub run: RefCell<Option<SetupRun>>,

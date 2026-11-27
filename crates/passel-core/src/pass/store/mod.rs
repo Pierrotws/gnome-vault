@@ -30,9 +30,13 @@ pub struct SetupPlan {
     pub store_dir: PathBuf,
     pub recipient: String,
     /// Where the vault is copied to, or `None` to keep it on this
-    /// computer only.
+    /// computer only. With [`SetupPlan::download`]: where it comes from.
     pub sync: Option<SyncTarget>,
     pub autopush: bool,
+    /// Download an existing vault from `sync` into `store_dir` (one
+    /// [`SetupStep::Download`]) instead of creating a new one: its key
+    /// comes with it, so `recipient` is not used.
+    pub download: bool,
 }
 
 /// Where a new vault keeps its copy.
@@ -46,6 +50,11 @@ pub enum SyncTarget {
     /// A bundle file Passel writes at this path ([`set_bundle_copy`]):
     /// one file, which a synced folder cannot deliver half-written.
     Bundle(PathBuf),
+    /// Google Drive, as a bundle file: the Drive file to download, or
+    /// `None` for a new vault. The front end runs the steps that reach
+    /// Drive ([`SetupStep::Upload`], [`SetupStep::Download`]): see
+    /// [`crate::app::drive`].
+    Drive(Option<String>),
 }
 
 /// One unit of work in a [`SetupPlan`], run in order by [`run_setup_step`].
@@ -62,6 +71,8 @@ pub enum SetupStep {
     CreateCopy,
     ConnectRemote,
     Upload,
+    /// Download the vault of a [`SetupPlan::download`] plan.
+    Download,
 }
 
 impl SetupStep {
@@ -78,13 +89,19 @@ impl SetupStep {
 impl SetupPlan {
     /// The steps that carry out this plan, in order.
     pub fn steps(&self) -> Vec<SetupStep> {
+        if self.download {
+            return vec![SetupStep::Download];
+        }
         let mut steps = vec![
             SetupStep::CreateFolder,
             SetupStep::StartHistory,
             SetupStep::SaveRecipient,
         ];
-        let to_bundle = matches!(self.sync, Some(SyncTarget::Bundle(_)));
-        if to_bundle || self.remote_url().is_some() {
+        let to_file = matches!(
+            self.sync,
+            Some(SyncTarget::Bundle(_) | SyncTarget::Drive(_))
+        );
+        if to_file || self.remote_url().is_some() {
             if matches!(self.sync, Some(SyncTarget::Folder(_))) {
                 steps.push(SetupStep::CreateCopy);
             }
@@ -104,7 +121,7 @@ impl SetupPlan {
         match self.sync.as_ref()? {
             SyncTarget::Remote(url) => Some(url.trim()).filter(|url| !url.is_empty()),
             SyncTarget::Folder(path) => path.to_str(),
-            SyncTarget::Bundle(_) => None,
+            SyncTarget::Bundle(_) | SyncTarget::Drive(_) => None,
         }
     }
 }
@@ -183,6 +200,13 @@ pub fn load_password_store(store_dir: &Path) -> io::Result<Vec<PassNode>> {
 /// Checks a plan before any step runs, so a bad recipient or an existing
 /// vault is reported before the folder is created.
 pub fn check_setup_plan(plan: &SetupPlan) -> Result<(), StoreError> {
+    if plan.download {
+        // Into a new or empty folder only: a clone needs it.
+        return match check_store(&plan.store_dir) {
+            StoreStatus::Missing | StoreStatus::Empty => Ok(()),
+            _ => Err(StoreError::DestinationExists(plan.store_dir.clone())),
+        };
+    }
     let recipient = plan.recipient.trim();
     if recipient.is_empty() {
         return Err(StoreError::InvalidRecipient);
@@ -273,6 +297,7 @@ pub fn run_setup_step(plan: &SetupPlan, step: SetupStep) -> Result<(), StoreErro
         }
         SetupStep::ConnectRemote => match &plan.sync {
             Some(SyncTarget::Bundle(path)) => set_bundle_copy(store_dir, path)?,
+            Some(SyncTarget::Drive(_)) => set_storage(store_dir, DRIVE_STORAGE)?,
             _ => {
                 if let Some(remote_url) = plan.remote_url() {
                     git::set_origin(store_dir, remote_url)?;
@@ -283,8 +308,66 @@ pub fn run_setup_step(plan: &SetupPlan, step: SetupStep) -> Result<(), StoreErro
             Some(SyncTarget::Bundle(path)) => {
                 sync_bundle_file(store_dir, path)?;
             }
+            Some(SyncTarget::Drive(_)) => return Err(front_end_step()),
             _ => git::push(store_dir, None)?,
         },
+        SetupStep::Download => download_vault(plan)?,
+    }
+    Ok(())
+}
+
+/// Google Drive steps need the front end's HTTP client.
+fn front_end_step() -> StoreError {
+    StoreError::Io(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "a Google Drive step runs in the front end",
+    ))
+}
+
+/// Downloads the vault of a [`SetupPlan::download`] plan: a clone of a
+/// remote or folder copy (which stays its remote), or a bundle file
+/// (which stays its copy). Something that is not a pass vault (no
+/// `.gpg-id`) is refused, and the folder removed again.
+fn download_vault(plan: &SetupPlan) -> Result<(), StoreError> {
+    let dir = plan.store_dir.as_path();
+    let downloaded = match &plan.sync {
+        Some(SyncTarget::Remote(url)) => git::clone(url.trim(), dir).map_err(StoreError::from),
+        Some(SyncTarget::Folder(path)) => match path.to_str() {
+            Some(url) => git::clone(url, dir).map_err(StoreError::from),
+            None => Err(StoreError::InvalidFolderPath(path.clone())),
+        },
+        Some(SyncTarget::Bundle(path)) => git::clone_bundle(path, dir)
+            .map_err(StoreError::from)
+            .and_then(|()| set_bundle_copy(dir, path))
+            .and_then(|()| copy_written(dir, BUNDLE_STORAGE)),
+        Some(SyncTarget::Drive(_)) => return Err(front_end_step()),
+        None => Err(StoreError::InvalidFolderPath(dir.to_path_buf())),
+    }
+    .and_then(|()| {
+        if dir.join(".gpg-id").is_file() {
+            Ok(())
+        } else {
+            Err(StoreError::Git(git::GitError::NotAVault))
+        }
+    });
+    if downloaded.is_err() && check_store(dir) != StoreStatus::Missing {
+        // Leave the folder as it was before the step: missing or empty.
+        if let Err(err) = remove_contents(dir) {
+            log::warn!("could not clean a failed download: {}", err.kind());
+        }
+    }
+    downloaded
+}
+
+/// Empties `dir`, keeping the folder itself.
+pub(crate) fn remove_contents(dir: &Path) -> io::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            fs::remove_dir_all(path)?;
+        } else {
+            fs::remove_file(path)?;
+        }
     }
     Ok(())
 }
@@ -457,6 +540,9 @@ pub fn current_branch_name(store_dir: &Path) -> Option<String> {
 pub fn unpushed_count(store_dir: &Path, branch: Option<&str>) -> Result<usize, StoreError> {
     if bundle_path(store_dir).is_some() {
         return Ok(git::ahead_of_copy(store_dir, BUNDLE_STORAGE)?);
+    }
+    if storage(store_dir).as_deref() == Some(DRIVE_STORAGE) {
+        return Ok(git::ahead_of_copy(store_dir, DRIVE_STORAGE)?);
     }
     Ok(git::unpushed_count(store_dir, branch)?)
 }
@@ -670,6 +756,10 @@ pub const BUNDLE_STORAGE: &str = "bundle";
 /// access (a computer's folder copy is a plain git remote instead).
 pub const FOLDER_STORAGE: &str = "folder";
 const BUNDLE_PATH_KEY: &str = "passel.bundlePath";
+/// The Drive file of a [`DRIVE_STORAGE`] vault, and its version this
+/// vault last merged or uploaded.
+pub const DRIVE_FILE_KEY: &str = "passel.driveFileId";
+pub const DRIVE_VERSION_KEY: &str = "passel.driveVersion";
 
 /// The vault's [`STORAGE_KEY`], if set.
 pub fn storage(store_dir: &Path) -> Option<String> {
@@ -1454,6 +1544,7 @@ mod tests {
             recipient: "ABCDEF0123456789".to_string(),
             sync: remote_url.map(|url| SyncTarget::Remote(url.to_string())),
             autopush,
+            download: false,
         }
     }
 
@@ -1590,6 +1681,63 @@ mod tests {
         assert!(back.report.received >= 1);
         assert!(other.join("mine.gpg").is_file());
         assert!(!root.join("sync/.passwords.bundle.tmp").exists());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Downloading a vault: from a git remote or folder copy (kept as its
+    /// remote), from a bundle file (kept as its copy); something else is
+    /// refused and leaves the folder as it was.
+    #[test]
+    fn download_plans_clone_every_kind_of_copy() {
+        let root = temp_dir("setup-download");
+        let source = root.join("source");
+        let plan_for = |dir: &Path, sync: SyncTarget| SetupPlan {
+            store_dir: dir.to_path_buf(),
+            recipient: String::new(),
+            sync: Some(sync),
+            autopush: true,
+            download: true,
+        };
+        // A vault with a folder copy and a bundle copy.
+        let copy = root.join("passwords.git");
+        let made = SetupPlan {
+            sync: Some(SyncTarget::Folder(copy.clone())),
+            ..plan(&source, None, true)
+        };
+        for step in made.steps() {
+            run_setup_step(&made, step).unwrap();
+            if step == SetupStep::StartHistory {
+                set_local_identity(&source, "Passel Tests").unwrap();
+            }
+        }
+        let file = root.join("passwords.bundle");
+        write_vault_bundle(&source, &file).unwrap();
+
+        let from_folder = root.join("from-folder");
+        let plan = plan_for(&from_folder, SyncTarget::Folder(copy.clone()));
+        assert_eq!(plan.steps(), vec![SetupStep::Download]);
+        check_setup_plan(&plan).unwrap();
+        run_setup_step(&plan, SetupStep::Download).unwrap();
+        assert_eq!(remote_url(&from_folder).as_deref(), copy.to_str());
+        assert!(from_folder.join(".gpg-id").is_file());
+
+        let from_file = root.join("from-file");
+        let plan = plan_for(&from_file, SyncTarget::Bundle(file.clone()));
+        run_setup_step(&plan, SetupStep::Download).unwrap();
+        assert_eq!(bundle_path(&from_file), Some(file.clone()));
+        assert_eq!(unpushed_count(&from_file, None).unwrap(), 0);
+
+        // Not empty: refused before anything runs.
+        assert!(check_setup_plan(&plan).is_err());
+        // Not a vault: refused, and the folder emptied again.
+        let junk = root.join("junk.bundle");
+        fs::write(&junk, "nope").unwrap();
+        let into = root.join("into");
+        fs::create_dir_all(&into).unwrap();
+        let plan = plan_for(&into, SyncTarget::Bundle(junk));
+        assert!(run_setup_step(&plan, SetupStep::Download).is_err());
+        assert_eq!(fs::read_dir(&into).unwrap().count(), 0);
 
         fs::remove_dir_all(root).unwrap();
     }

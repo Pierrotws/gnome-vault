@@ -25,6 +25,14 @@ pub enum AppError {
     InvalidEntry,
     /// No vault is open.
     NoVault,
+    /// Google Drive (a vault kept there).
+    Drive(crate::app::drive::DriveError),
+}
+
+impl From<crate::app::drive::DriveError> for AppError {
+    fn from(err: crate::app::drive::DriveError) -> Self {
+        AppError::Drive(err)
+    }
 }
 
 impl From<std::io::Error> for AppError {
@@ -62,6 +70,7 @@ impl std::fmt::Display for AppError {
             AppError::NoEntrySelected => gettext("No entry selected"),
             AppError::InvalidEntry => gettext("Entry is not valid"),
             AppError::NoVault => gettext("No vault is open"),
+            AppError::Drive(err) => err.to_string(),
         };
         f.write_str(&message)
     }

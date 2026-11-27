@@ -29,6 +29,7 @@ crates/passel-core/src/app/app_error.rs
 crates/passel-core/src/app/cache_warmup.rs
 crates/passel-core/src/app/changes.rs
 crates/passel-core/src/app/controller.rs
+crates/passel-core/src/app/drive.rs
 crates/passel-core/src/app/group_preview.rs
 crates/passel-core/src/app/import.rs
 crates/passel-core/src/app/mod.rs
@@ -67,6 +68,7 @@ crates/passel-ffi/src/bin/uniffi-bindgen.rs
 crates/passel-ffi/src/lib.rs
 crates/passel-ffi/src/vaults.rs
 src/helpers/clipboard.rs
+src/helpers/google.rs
 src/helpers/mod.rs
 src/localization.rs
 src/main.rs
@@ -92,6 +94,7 @@ src/ui/group_view/group_row.rs
 src/ui/group_view/imp.rs
 src/ui/group_view/mod.rs
 src/ui/mod.rs
+src/ui/setup_wizard/drive.rs
 src/ui/setup_wizard/hosts.rs
 src/ui/setup_wizard/imp.rs
 src/ui/setup_wizard/key.rs

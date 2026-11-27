@@ -19,10 +19,20 @@ template $SetupWizard : Adw.Bin {
                     title: _("Welcome to Passel");
                     description: _("Passel keeps your passwords in an encrypted folder that works with pass. Let’s set one up.");
 
-                    child: Button create_button {
-                        label: _("Create a New Vault");
+                    child: Box {
+                        orientation: vertical;
                         halign: center;
-                        css-classes: ["suggested-action", "pill"];
+                        spacing: 12;
+
+                        Button create_button {
+                            label: _("Create a New Vault");
+                            css-classes: ["suggested-action", "pill"];
+                        }
+
+                        Button download_button {
+                            label: _("I Already Have a Vault");
+                            css-classes: ["pill"];
+                        }
                     };
                 };
             };
@@ -141,7 +151,7 @@ template $SetupWizard : Adw.Bin {
                                     }
                                 }
 
-                                Adw.ActionRow {
+                                Adw.ActionRow create_key_row {
                                     title: _("Create a new key");
                                     subtitle: _("The usual choice if you have never used GPG.");
                                     activatable-widget: create_key_check;
@@ -250,7 +260,7 @@ template $SetupWizard : Adw.Bin {
 
         Adw.NavigationPage {
             tag: "sync";
-            title: _("Sync");
+            title: _("Storage");
 
             child: Adw.ToolbarView {
                 [top]
@@ -273,14 +283,14 @@ template $SetupWizard : Adw.Bin {
                             orientation: vertical;
                             spacing: 18;
 
-                            Label {
-                                label: _("Use It on Other Devices?");
+                            Label sync_title {
+                                label: _("Where to Keep Your Vault?");
                                 wrap: true;
                                 css-classes: ["title-1"];
                             }
 
-                            Label {
-                                label: _("Passel can keep an encrypted copy of your vault somewhere else, so you can use it from another computer or your phone.");
+                            Label sync_description {
+                                label: _("Passel keeps an encrypted copy of your vault somewhere else: it is backed up, and you can use it from another computer or your phone.");
                                 wrap: true;
                                 xalign: 0;
                                 css-classes: ["dim-label"];
@@ -288,8 +298,8 @@ template $SetupWizard : Adw.Bin {
 
                             Adw.PreferencesGroup {
                                 Adw.ActionRow online_row {
-                                    title: _("Keep an online copy");
-                                    subtitle: _("In a private repository on a free service like GitHub. Works from anywhere.");
+                                    title: _("Git repository");
+                                    subtitle: _("A private repository on a service like GitHub, with the vault’s whole history. pass and Passel open it on your other computers and phone.");
                                     activatable-widget: online_check;
 
                                     [prefix]
@@ -297,27 +307,34 @@ template $SetupWizard : Adw.Bin {
                                         valign: center;
                                         active: true;
                                     }
+
+                                    [suffix]
+                                    Label online_tag {
+                                        label: _("Advanced · recommended");
+                                        valign: center;
+                                        css-classes: ["caption", "dim-label"];
+                                    }
                                 }
 
-                                Adw.ActionRow folder_row {
-                                    title: _("Copy to a folder or drive");
-                                    subtitle: _("A USB drive, or a folder synced by Nextcloud or Syncthing. No account needed.");
-                                    activatable-widget: folder_check;
+                                Adw.ActionRow drive_row {
+                                    title: _("Google Drive");
+                                    subtitle: _("One file on your Google account, synced with your other computers and phones: just sign in. Passel only sees the files it makes there.");
+                                    activatable-widget: drive_check;
 
                                     [prefix]
-                                    CheckButton folder_check {
+                                    CheckButton drive_check {
                                         valign: center;
                                         group: online_check;
                                     }
                                 }
 
-                                Adw.ActionRow local_row {
-                                    title: _("Only on this computer");
-                                    subtitle: _("Entries never leave this computer.");
-                                    activatable-widget: local_check;
+                                Adw.ActionRow folder_row {
+                                    title: _("On this computer");
+                                    subtitle: _("In a folder or a file you choose: a USB drive, or a folder synced by Nextcloud or Syncthing. No account needed.");
+                                    activatable-widget: folder_check;
 
                                     [prefix]
-                                    CheckButton local_check {
+                                    CheckButton folder_check {
                                         valign: center;
                                         group: online_check;
                                     }
@@ -345,7 +362,7 @@ template $SetupWizard : Adw.Bin {
 
         Adw.NavigationPage {
             tag: "online";
-            title: _("Online Copy");
+            title: _("Git Repository");
 
             child: Adw.ToolbarView {
                 [top]
@@ -369,12 +386,12 @@ template $SetupWizard : Adw.Bin {
                             spacing: 18;
 
                             Label {
-                                label: _("Online Copy");
+                                label: _("Git Repository");
                                 wrap: true;
                                 css-classes: ["title-1"];
                             }
 
-                            Label {
+                            Label online_description {
                                 label: _("Any of these services offers free private repositories. If you have no account yet, pick one and create it on the service’s website.");
                                 wrap: true;
                                 xalign: 0;
@@ -403,7 +420,7 @@ template $SetupWizard : Adw.Bin {
                                 }
                             }
 
-                            Adw.PreferencesGroup {
+                            Adw.PreferencesGroup host_group {
                                 Adw.ComboRow host_row {
                                     title: _("Service");
                                 }
@@ -467,7 +484,7 @@ template $SetupWizard : Adw.Bin {
 
         Adw.NavigationPage {
             tag: "folder";
-            title: _("Folder Copy");
+            title: _("On This Computer");
 
             child: Adw.ToolbarView {
                 [top]
@@ -491,12 +508,12 @@ template $SetupWizard : Adw.Bin {
                             spacing: 18;
 
                             Label {
-                                label: _("Copy to a Folder or Drive");
+                                label: _("On This Computer");
                                 wrap: true;
                                 css-classes: ["title-1"];
                             }
 
-                            Label {
+                            Label folder_description {
                                 label: _("Passel creates an encrypted copy in the folder you choose, and keeps it up to date as you save changes.");
                                 wrap: true;
                                 xalign: 0;
@@ -504,7 +521,7 @@ template $SetupWizard : Adw.Bin {
                             }
 
                             Adw.PreferencesGroup {
-                                Adw.ActionRow {
+                                Adw.ActionRow git_folder_row {
                                     title: _("A git folder");
                                     subtitle: _("“passwords.git”: git, pass and Passel on another computer use it as it is.");
                                     activatable-widget: git_folder_check;
@@ -516,7 +533,7 @@ template $SetupWizard : Adw.Bin {
                                     }
                                 }
 
-                                Adw.ActionRow {
+                                Adw.ActionRow bundle_file_row {
                                     title: _("One file");
                                     subtitle: _("“passwords.bundle”: a single file, which a folder synced by Nextcloud or Syncthing never delivers half-written. git clone opens it.");
                                     activatable-widget: bundle_file_check;
@@ -552,6 +569,110 @@ template $SetupWizard : Adw.Bin {
 
                                 Button folder_next_button {
                                     label: _("Next");
+                                    css-classes: ["suggested-action"];
+                                }
+                            }
+                        };
+                    };
+                };
+            };
+        }
+
+        Adw.NavigationPage {
+            tag: "drive";
+            title: _("Google Drive");
+
+            child: Adw.ToolbarView {
+                [top]
+                Adw.HeaderBar {
+                    show-back-button: false;
+                }
+
+                content: ScrolledWindow {
+                    hscrollbar-policy: never;
+
+                    child: Adw.Clamp {
+                        maximum-size: 560;
+                        valign: center;
+                        margin-top: 24;
+                        margin-bottom: 24;
+                        margin-start: 24;
+                        margin-end: 24;
+
+                        child: Box {
+                            orientation: vertical;
+                            spacing: 18;
+
+                            Label {
+                                label: _("Google Drive");
+                                wrap: true;
+                                css-classes: ["title-1"];
+                            }
+
+                            Label {
+                                label: _("Passel keeps the vault as one file in a “Passel” folder of your Google Drive. It only sees the files it makes there.");
+                                wrap: true;
+                                xalign: 0;
+                                css-classes: ["dim-label"];
+                            }
+
+                            Box drive_status_box {
+                                spacing: 8;
+
+                                Spinner drive_spinner {
+                                    valign: center;
+                                }
+
+                                Image drive_icon {
+                                    valign: center;
+                                    visible: false;
+                                }
+
+                                Label drive_status_label {
+                                    wrap: true;
+                                    xalign: 0;
+                                    hexpand: true;
+                                }
+                            }
+
+                            Button drive_sign_in_button {
+                                label: _("Sign In with Google");
+                                halign: center;
+                                visible: false;
+                                css-classes: ["pill", "suggested-action"];
+                            }
+
+                            Adw.PreferencesGroup drive_vaults_group {
+                                title: _("Vaults on This Google Drive");
+                                visible: false;
+                            }
+
+                            Box drive_hint_box {
+                                spacing: 12;
+                                visible: false;
+
+                                Label drive_hint_label {
+                                    wrap: true;
+                                    xalign: 0;
+                                    hexpand: true;
+                                }
+
+                                Button drive_switch_button {
+                                    valign: center;
+                                }
+                            }
+
+                            Box {
+                                halign: end;
+                                spacing: 12;
+
+                                Button drive_back_button {
+                                    label: _("Back");
+                                }
+
+                                Button drive_next_button {
+                                    label: _("Next");
+                                    sensitive: false;
                                     css-classes: ["suggested-action"];
                                 }
                             }

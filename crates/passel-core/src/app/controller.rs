@@ -25,6 +25,8 @@ pub struct VaultInfo {
     pub remote_url: Option<String>,
     /// The bundle file the vault is copied to, instead of a remote.
     pub bundle_path: Option<PathBuf>,
+    /// Kept on Google Drive, instead of a remote.
+    pub on_drive: bool,
 }
 
 pub struct AppController {
@@ -185,6 +187,8 @@ impl AppController {
             has_history: pass::store::has_history(store_dir),
             remote_url: pass::store::remote_url(store_dir),
             bundle_path: pass::store::bundle_path(store_dir),
+            on_drive: pass::store::storage(store_dir).as_deref()
+                == Some(pass::store::DRIVE_STORAGE),
         }
     }
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-27 15:51+0100\n"
+"POT-Creation-Date: 2026-11-27 16:11+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -198,6 +198,7 @@ msgstr ""
 #. Translators: default names of a new vault.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 #: crates/passel-core/src/app/vaults.rs crates/passel-ffi/src/vaults.rs
+#: src/ui/window/mod.rs
 msgid "Passwords"
 msgstr ""
 
@@ -230,6 +231,7 @@ msgid "Create the vault"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/mod.rs
 msgid "Download the vault"
 msgstr ""
 
@@ -339,10 +341,12 @@ msgid "A vault that Passel saved to your Google Drive."
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
 msgid "Google Drive"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui
 msgid "Git repository"
 msgstr ""
 
@@ -355,6 +359,7 @@ msgstr ""
 
 #. Translators: tag of a choice that needs some technical knowledge.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/mod.rs
 msgid "Advanced"
 msgstr ""
 
@@ -387,6 +392,7 @@ msgstr ""
 
 #. Translators: tag of the git choice: it needs some technical knowledge, but is the most capable.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
 msgid "Advanced · recommended"
 msgstr ""
 
@@ -457,10 +463,13 @@ msgid "Connecting to Google Drive"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/drive.rs
 msgid "Connected to Google Drive"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/drive.rs
+#, rust-format
 msgid "This Google Drive already holds {n} vault."
 msgid_plural "This Google Drive already holds {n} vaults."
 msgstr[0] ""
@@ -471,6 +480,7 @@ msgid "Download it instead"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/drive.rs
 msgid "No Passel vault on this Google Drive"
 msgstr ""
 
@@ -479,6 +489,8 @@ msgid "Create a new vault there"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: src/ui/setup_wizard/drive.rs
+#, rust-format
 msgid "Changed on {date}"
 msgstr ""
 
@@ -561,7 +573,7 @@ msgid "Current vault"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
-#: assets/ui/setup_wizard.ui src/ui/window/vaults.rs
+#: src/ui/window/vaults.rs
 msgid "Sync"
 msgstr ""
 
@@ -738,6 +750,7 @@ msgid "This folder already holds a vault: download it instead"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/app/drive.rs
 msgid "Google Drive changed during the sync: sync again"
 msgstr ""
 
@@ -750,14 +763,17 @@ msgid "Tap Sync to sign in to Google Drive again"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/app/drive.rs
 msgid "Google Drive refused access"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/app/drive.rs
 msgid "Your Google Drive is full"
 msgstr ""
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/app/drive.rs
 msgid "Could not reach Google Drive"
 msgstr ""
 
@@ -1022,19 +1038,20 @@ msgid "Visual density of vault tree rows"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
-msgid ""
-"A USB drive, or a folder synced by Nextcloud or Syncthing. No account needed."
+msgid "A git folder"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
-msgid "A git folder"
+msgid ""
+"A private repository on a service like GitHub, with the vault’s whole "
+"history. pass and Passel open it on your other computers and phone."
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
 msgid "A secret key saved from another computer, e.g. a .asc file."
 msgstr ""
 
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
 msgid ""
 "Any of these services offers free private repositories. If you have no "
 "account yet, pick one and create it on the service’s website."
@@ -1046,14 +1063,6 @@ msgstr ""
 
 #: assets/ui/setup_wizard.ui
 msgid "Choose the folder that will hold your encrypted entries."
-msgstr ""
-
-#: assets/ui/setup_wizard.ui
-msgid "Copy to a Folder or Drive"
-msgstr ""
-
-#: assets/ui/setup_wizard.ui
-msgid "Copy to a folder or drive"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
@@ -1082,22 +1091,23 @@ msgid ""
 "keep the repository private."
 msgstr ""
 
-#: assets/ui/setup_wizard.ui
-msgid "Entries never leave this computer."
-msgstr ""
-
-#: assets/ui/setup_wizard.ui src/ui/window/vaults.rs
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/sync.rs
+#: src/ui/window/vaults.rs
 msgid "Folder"
-msgstr ""
-
-#: assets/ui/setup_wizard.ui
-msgid "Folder Copy"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
 msgid ""
 "GPG will then ask you to choose a passphrase. Pick one you will remember: "
 "without it, nobody can open your entries, not even you."
+msgstr ""
+
+#: assets/ui/setup_wizard.ui
+msgid "Git Repository"
+msgstr ""
+
+#: assets/ui/setup_wizard.ui
+msgid "I Already Have a Vault"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
@@ -1112,15 +1122,12 @@ msgstr ""
 
 #: assets/ui/setup_wizard.ui
 msgid ""
-"In a private repository on a free service like GitHub. Works from anywhere."
-msgstr ""
-
-#: assets/ui/setup_wizard.ui
-msgid "Keep an online copy"
+"In a folder or a file you choose: a USB drive, or a folder synced by "
+"Nextcloud or Syncthing. No account needed."
 msgstr ""
 
 #: assets/ui/setup_wizard.ui src/ui/setup_wizard/key.rs
-#: src/ui/window/import_dialog.rs
+#: src/ui/setup_wizard/sync.rs src/ui/window/import_dialog.rs
 msgid "No file chosen"
 msgstr ""
 
@@ -1129,24 +1136,24 @@ msgid "No folder chosen"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
+msgid "On This Computer"
+msgstr ""
+
+#: assets/ui/setup_wizard.ui
+msgid "On this computer"
+msgstr ""
+
+#: assets/ui/setup_wizard.ui
 msgid "One file"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
-msgid "Online Copy"
-msgstr ""
-
-#: assets/ui/setup_wizard.ui
-msgid "Only on this computer"
-msgstr ""
-
-#: assets/ui/setup_wizard.ui
 msgid ""
-"Passel can keep an encrypted copy of your vault somewhere else, so you can "
-"use it from another computer or your phone."
+"One file on your Google account, synced with your other computers and "
+"phones: just sign in. Passel only sees the files it makes there."
 msgstr ""
 
-#: assets/ui/setup_wizard.ui
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
 msgid ""
 "Passel creates an encrypted copy in the folder you choose, and keeps it up "
 "to date as you save changes."
@@ -1156,6 +1163,18 @@ msgstr ""
 msgid ""
 "Passel encrypts every entry with a GPG key. Only this key, unlocked with its "
 "passphrase, can open them."
+msgstr ""
+
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
+msgid ""
+"Passel keeps an encrypted copy of your vault somewhere else: it is backed "
+"up, and you can use it from another computer or your phone."
+msgstr ""
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"Passel keeps the vault as one file in a “Passel” folder of your Google "
+"Drive. It only sees the files it makes there."
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
@@ -1193,7 +1212,15 @@ msgid "Service"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
+msgid "Sign In with Google"
+msgstr ""
+
+#: assets/ui/setup_wizard.ui
 msgid "Skip Sync"
+msgstr ""
+
+#: assets/ui/setup_wizard.ui
+msgid "Storage"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
@@ -1201,15 +1228,19 @@ msgid "The usual choice if you have never used GPG."
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
-msgid "Use It on Other Devices?"
-msgstr ""
-
-#: assets/ui/setup_wizard.ui
 msgid "Use a key from this computer"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
+msgid "Vaults on This Google Drive"
+msgstr ""
+
+#: assets/ui/setup_wizard.ui
 msgid "Welcome"
+msgstr ""
+
+#: assets/ui/setup_wizard.ui src/ui/setup_wizard/mod.rs
+msgid "Where to Keep Your Vault?"
 msgstr ""
 
 #: assets/ui/setup_wizard.ui
@@ -1314,6 +1345,14 @@ msgstr ""
 #: crates/passel-core/src/app/app_error.rs
 #: crates/passel-core/src/pass/store/store_error.rs
 msgid "Saved locally but failed to push to remote"
+msgstr ""
+
+#: crates/passel-core/src/app/drive.rs src/ui/setup_wizard/drive.rs
+msgid "Google Drive is not available in this build"
+msgstr ""
+
+#: crates/passel-core/src/app/drive.rs
+msgid "Sign in to Google Drive again"
 msgstr ""
 
 #: crates/passel-core/src/helpers/git.rs
@@ -1607,6 +1646,14 @@ msgid_plural "{entries} changed both here and on the remote"
 msgstr[0] ""
 msgstr[1] ""
 
+#: src/helpers/google.rs
+msgid "Passel is connected to Google Drive. You can close this tab."
+msgstr ""
+
+#: src/helpers/google.rs
+msgid "Passel was not given access to Google Drive. You can close this tab."
+msgstr ""
+
 #: src/ui/changes_view/mod.rs src/ui/window/mod.rs
 msgid "Discard later changes"
 msgstr ""
@@ -1754,6 +1801,26 @@ msgid_plural "{n} entries"
 msgstr[0] ""
 msgstr[1] ""
 
+#: src/ui/setup_wizard/drive.rs
+msgid "Connecting to Google Drive…"
+msgstr ""
+
+#: src/ui/setup_wizard/drive.rs
+msgid "Continue in your browser, then come back here."
+msgstr ""
+
+#: src/ui/setup_wizard/drive.rs
+msgid "Create a New Vault There"
+msgstr ""
+
+#: src/ui/setup_wizard/drive.rs
+msgid "Download One Instead"
+msgstr ""
+
+#: src/ui/setup_wizard/drive.rs
+msgid "Sign in to use your Google Drive."
+msgstr ""
+
 #: src/ui/setup_wizard/hosts.rs
 msgid "Choose Private"
 msgstr ""
@@ -1881,6 +1948,10 @@ msgid "Changes will be copied there"
 msgstr ""
 
 #: src/ui/setup_wizard/mod.rs
+msgid "Changes will be synced there"
+msgstr ""
+
+#: src/ui/setup_wizard/mod.rs
 msgid "Connect to the online copy"
 msgstr ""
 
@@ -1893,6 +1964,10 @@ msgid "Create the vault folder"
 msgstr ""
 
 #: src/ui/setup_wizard/mod.rs
+msgid "Download Vault"
+msgstr ""
+
+#: src/ui/setup_wizard/mod.rs
 msgid "Encrypt entries with your key"
 msgstr ""
 
@@ -1901,11 +1976,20 @@ msgid "Fill the copy"
 msgstr ""
 
 #: src/ui/setup_wizard/mod.rs
+msgid "Keep the vault on Google Drive"
+msgstr ""
+
+#: src/ui/setup_wizard/mod.rs
 msgid "Link the vault to its copy"
 msgstr ""
 
 #: src/ui/setup_wizard/mod.rs
 msgid "Open Vault"
+msgstr ""
+
+#: src/ui/setup_wizard/mod.rs
+msgid ""
+"Passel downloads it, with its whole history, and keeps it in sync there."
 msgstr ""
 
 #: src/ui/setup_wizard/mod.rs
@@ -1925,6 +2009,18 @@ msgid "Setup task panicked unexpectedly"
 msgstr ""
 
 #: src/ui/setup_wizard/mod.rs
+msgid ""
+"The address of the vault’s repository, which this computer’s SSH key can "
+"read and write."
+msgstr ""
+
+#: src/ui/setup_wizard/mod.rs
+msgid ""
+"The “passwords.git” folder made by Passel or git (or the folder holding it), "
+"or a “.bundle” file."
+msgstr ""
+
+#: src/ui/setup_wizard/mod.rs
 msgid "This folder already holds a password store. Choose an empty folder."
 msgstr ""
 
@@ -1938,6 +2034,14 @@ msgstr ""
 
 #: src/ui/setup_wizard/mod.rs
 msgid "Upload the vault"
+msgstr ""
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Upload to Google Drive"
+msgstr ""
+
+#: src/ui/setup_wizard/mod.rs
+msgid "Where Is Your Vault?"
 msgstr ""
 
 #: src/ui/setup_wizard/sync.rs
@@ -1971,11 +2075,27 @@ msgid "Choose a Folder for the Copy"
 msgstr ""
 
 #: src/ui/setup_wizard/sync.rs
+msgid "Choose the Vault’s File"
+msgstr ""
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Choose the Vault’s Folder"
+msgstr ""
+
+#: src/ui/setup_wizard/sync.rs
 msgid "Continue Anyway"
 msgstr ""
 
 #: src/ui/setup_wizard/sync.rs
 msgid "Copy Key"
+msgstr ""
+
+#: src/ui/setup_wizard/sync.rs src/ui/window/import_dialog.rs
+msgid "File"
+msgstr ""
+
+#: src/ui/setup_wizard/sync.rs
+msgid "Found a vault."
 msgstr ""
 
 #: src/ui/setup_wizard/sync.rs
@@ -1990,6 +2110,12 @@ msgstr ""
 msgid ""
 "No repository found at this address. Check the address and your internet "
 "connection."
+msgstr ""
+
+#: src/ui/setup_wizard/sync.rs
+msgid ""
+"No vault in this folder: choose the “passwords.git” folder, or the folder "
+"holding it."
 msgstr ""
 
 #: src/ui/setup_wizard/sync.rs
@@ -2048,6 +2174,10 @@ msgid ""
 msgstr ""
 
 #: src/ui/setup_wizard/sync.rs
+msgid "This repository is empty: there is no vault to download."
+msgstr ""
+
+#: src/ui/setup_wizard/sync.rs
 msgid ""
 "This server isn’t in your known SSH hosts yet. Connect to it once with ssh "
 "in a terminal, then check again."
@@ -2092,10 +2222,6 @@ msgstr ""
 
 #: src/ui/window/import_dialog.rs
 msgid "Encrypting and saving the entries…"
-msgstr ""
-
-#: src/ui/window/import_dialog.rs
-msgid "File"
 msgstr ""
 
 #: src/ui/window/import_dialog.rs
@@ -2204,6 +2330,17 @@ msgstr[1] ""
 #, rust-format
 msgid ""
 "A backup was saved to the remote as “{branch}” in case you need to recover."
+msgstr ""
+
+#: src/ui/window/mod.rs
+#, rust-format
+msgid ""
+"Changed both here and on Google Drive: this computer’s version is kept as "
+"{entries}. Check it, then delete the one you do not need."
+msgstr ""
+
+#: src/ui/window/mod.rs
+msgid "Changed in Two Places"
 msgstr ""
 
 #: src/ui/window/mod.rs
@@ -2319,6 +2456,10 @@ msgstr ""
 
 #: src/ui/window/vaults.rs
 msgid "History"
+msgstr ""
+
+#: src/ui/window/vaults.rs
+msgid "Kept on Google Drive"
 msgstr ""
 
 #: src/ui/window/vaults.rs

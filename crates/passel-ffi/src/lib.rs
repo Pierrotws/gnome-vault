@@ -530,6 +530,7 @@ impl Passel {
             recipient,
             sync: remote_url.map(SyncTarget::Remote),
             autopush: true,
+            download: false,
         };
         store::check_setup_plan(&plan).map_err(|err| match err {
             StoreError::InvalidRecipient => {

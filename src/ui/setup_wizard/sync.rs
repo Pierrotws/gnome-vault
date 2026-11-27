@@ -86,6 +86,7 @@ impl SetupWizard {
         imp.address_row.set_text("");
         imp.remote_check.replace(None);
         imp.copy_parent.replace(None);
+        imp.copy_source.replace(None);
         self.update_host_steps();
         self.update_check_status();
         self.update_copy_row();
@@ -98,6 +99,12 @@ impl SetupWizard {
             Some(SyncTarget::Remote(
                 imp.address_row.text().trim().to_string(),
             ))
+        } else if imp.drive_check.is_active() {
+            Some(SyncTarget::Drive(if imp.download.get() {
+                imp.drive_file.borrow().clone()
+            } else {
+                None
+            }))
         } else if imp.folder_check.is_active() {
             let copy = self.copy_dir()?;
             Some(if imp.bundle_file_check.is_active() {
@@ -114,6 +121,8 @@ impl SetupWizard {
         let imp = self.imp();
         if imp.online_check.is_active() {
             imp.navigation.push_by_tag("online");
+        } else if imp.drive_check.is_active() {
+            self.enter_drive_page();
         } else if imp.folder_check.is_active() {
             // The vault folder may have changed since the copy was chosen.
             self.update_copy_row();
@@ -132,7 +141,7 @@ impl SetupWizard {
     }
 
     /// Rebuilds the "create a repository" checklist for the chosen service.
-    fn update_host_steps(&self) {
+    pub(super) fn update_host_steps(&self) {
         let imp = self.imp();
         for row in imp.host_step_rows.take() {
             imp.host_steps_group.remove(&row);
@@ -145,7 +154,8 @@ impl SetupWizard {
             Some(host) => host.address_example.to_string(),
             None => gettext("SSH address, like git@server:you/passwords.git"),
         });
-        imp.host_steps_group.set_visible(host.is_some());
+        imp.host_steps_group
+            .set_visible(host.is_some() && !imp.download.get());
         let Some(host) = host else {
             return;
         };
@@ -266,7 +276,7 @@ impl SetupWizard {
         row
     }
 
-    fn open_link(&self, url: &str) {
+    pub(super) fn open_link(&self, url: &str) {
         let window = self.root().and_downcast::<gtk::Window>();
         gtk::UriLauncher::new(url).launch(window.as_ref(), gio::Cancellable::NONE, |result| {
             if let Err(err) = result {
@@ -290,7 +300,7 @@ impl SetupWizard {
             .map(|(_, result)| *result)
     }
 
-    fn update_check_status(&self) {
+    pub(super) fn update_check_status(&self) {
         let imp = self.imp();
         let address = self.current_address();
         let checking = imp.checking_remote.get();
@@ -306,7 +316,7 @@ impl SetupWizard {
         if checking {
             imp.check_label.set_label(&gettext("Checking the address…"));
         } else if let Some(result) = result {
-            let (ok, message) = check_message(result, &address);
+            let (ok, message) = check_message(result, &address, imp.download.get());
             let (icon, class) = if ok {
                 ("object-select-symbolic", "success")
             } else {
@@ -317,11 +327,24 @@ impl SetupWizard {
             imp.check_label.set_label(&message);
         }
 
-        let failed = result.is_some_and(|result| result != RemoteCheck::Empty);
+        let download = imp.download.get();
+        let wanted = if download {
+            RemoteCheck::NotEmpty
+        } else {
+            RemoteCheck::Empty
+        };
+        // Downloading, only a vault found is good enough to go on.
+        let failed = !download && result.is_some_and(|result| result != wanted);
         imp.check_button
             .set_sensitive(!address.is_empty() && !checking);
         imp.online_next_button.set_sensitive(
-            !address.is_empty() && !checking && result != Some(RemoteCheck::NotEmpty),
+            !address.is_empty()
+                && !checking
+                && match result {
+                    Some(result) if download => result == wanted,
+                    Some(result) => result != RemoteCheck::NotEmpty,
+                    None => true,
+                },
         );
         imp.online_next_button.set_label(&if failed {
             gettext("Continue Anyway")
@@ -333,9 +356,13 @@ impl SetupWizard {
     /// Next checks the address first. A failed check can be overridden
     /// (e.g. offline right now), except a repository that already holds
     /// something: uploading there would fail.
+    /// Downloading, only a repository found holding a vault goes on.
     fn online_next(&self) {
+        let download = self.imp().download.get();
         match self.current_check() {
             None => self.check_address(true),
+            Some(RemoteCheck::NotEmpty) if download => self.go_to_review(),
+            Some(_) if download => {}
             Some(RemoteCheck::NotEmpty) => {}
             Some(_) => self.go_to_review(),
         }
@@ -366,8 +393,13 @@ impl SetupWizard {
                 .visible_page()
                 .and_then(|page| page.tag())
                 .is_some_and(|tag| tag == "online");
+            let wanted = if imp.download.get() {
+                RemoteCheck::NotEmpty
+            } else {
+                RemoteCheck::Empty
+            };
             if then_continue
-                && result == RemoteCheck::Empty
+                && result == wanted
                 && still_here
                 && wizard.current_address() == address
             {
@@ -376,9 +408,25 @@ impl SetupWizard {
         });
     }
 
-    /// The copy's path: a git folder or a bundle file in the chosen folder.
+    /// The copy's path: a git folder or a bundle file in the chosen folder
+    /// (downloading: the one chosen).
     fn copy_dir(&self) -> Option<PathBuf> {
         let imp = self.imp();
+        if imp.download.get() {
+            let source = imp.copy_source.borrow().clone()?;
+            // The folder holding a “passwords.git”, rather than the copy itself.
+            let inner = source.join(COPY_NAME);
+            return Some(
+                if !imp.bundle_file_check.is_active()
+                    && !is_repository(&source)
+                    && is_repository(&inner)
+                {
+                    inner
+                } else {
+                    source
+                },
+            );
+        }
         let name = if imp.bundle_file_check.is_active() {
             BUNDLE_NAME
         } else {
@@ -391,6 +439,10 @@ impl SetupWizard {
     }
 
     fn choose_copy_folder(&self) {
+        if self.imp().download.get() {
+            self.choose_copy_source();
+            return;
+        }
         let dialog = gtk::FileDialog::builder()
             .title(gettext("Choose a Folder for the Copy"))
             .modal(true)
@@ -416,8 +468,83 @@ impl SetupWizard {
         );
     }
 
-    fn update_copy_row(&self) {
+    /// Downloading: the folder copy or bundle file to download.
+    fn choose_copy_source(&self) {
         let imp = self.imp();
+        let bundle = imp.bundle_file_check.is_active();
+        let dialog = gtk::FileDialog::builder()
+            .title(if bundle {
+                gettext("Choose the Vault’s File")
+            } else {
+                gettext("Choose the Vault’s Folder")
+            })
+            .modal(true)
+            .build();
+        let window = self.root().and_downcast::<gtk::Window>();
+        let chosen = glib::clone!(
+            #[weak(rename_to = wizard)]
+            self,
+            move |result: Result<gio::File, glib::Error>| {
+                if let Some(path) = result.ok().and_then(|file| file.path()) {
+                    wizard.imp().copy_source.replace(Some(path));
+                    wizard.update_copy_row();
+                }
+            }
+        );
+        if bundle {
+            dialog.open(window.as_ref(), gio::Cancellable::NONE, chosen);
+        } else {
+            dialog.select_folder(window.as_ref(), gio::Cancellable::NONE, chosen);
+        }
+    }
+
+    pub(super) fn update_copy_row(&self) {
+        let imp = self.imp();
+        let bundle = imp.bundle_file_check.is_active();
+        imp.copy_row.set_title(&if bundle && imp.download.get() {
+            gettext("File")
+        } else {
+            gettext("Folder")
+        });
+        if imp.download.get() {
+            let problem = match self.copy_dir() {
+                None => {
+                    imp.copy_row.set_subtitle(&if bundle {
+                        gettext("No file chosen")
+                    } else {
+                        gettext("No folder chosen")
+                    });
+                    imp.copy_group.set_description(None);
+                    imp.copy_row.remove_css_class("error");
+                    imp.folder_next_button.set_sensitive(false);
+                    return;
+                }
+                Some(source) => {
+                    imp.copy_row.set_subtitle(&source.to_string_lossy());
+                    if source.to_str().is_none() {
+                        Some(gettext(
+                            "This folder’s name has unsupported characters. Choose another folder.",
+                        ))
+                    } else if bundle && !source.is_file() {
+                        Some(gettext("No file chosen"))
+                    } else if !bundle && !is_repository(&source) {
+                        Some(gettext(
+                            "No vault in this folder: choose the “passwords.git” folder, or the folder holding it.",
+                        ))
+                    } else {
+                        None
+                    }
+                }
+            };
+            imp.copy_group.set_description(problem.as_deref());
+            if problem.is_some() {
+                imp.copy_row.add_css_class("error");
+            } else {
+                imp.copy_row.remove_css_class("error");
+            }
+            imp.folder_next_button.set_sensitive(problem.is_none());
+            return;
+        }
         let problem = match self.copy_dir() {
             None => {
                 imp.copy_row.set_subtitle(&gettext("No folder chosen"));
@@ -459,9 +586,20 @@ impl SetupWizard {
     }
 }
 
-/// Whether a check result allows uploading, and how to say it.
-fn check_message(result: RemoteCheck, address: &str) -> (bool, String) {
+/// A git repository (bare or not) with at least one commit.
+fn is_repository(path: &std::path::Path) -> bool {
+    crate::helpers::git::is_repository(path)
+        && (path.join("HEAD").is_file() || path.join(".git").exists())
+}
+
+/// Whether a check result allows uploading (or, `download`ing, a
+/// download), and how to say it.
+fn check_message(result: RemoteCheck, address: &str, download: bool) -> (bool, String) {
     let message = match result {
+        RemoteCheck::NotEmpty if download => return (true, gettext("Found a vault.")),
+        RemoteCheck::Empty if download => {
+            gettext("This repository is empty: there is no vault to download.")
+        }
         RemoteCheck::Empty => {
             return (
                 true,
@@ -499,18 +637,20 @@ mod tests {
     #[test]
     fn explains_check_results() {
         let ssh = "git@github.com:you/passwords.git";
-        assert!(check_message(RemoteCheck::Empty, ssh).0);
-        assert!(!check_message(RemoteCheck::NotEmpty, ssh).0);
-        assert!(check_message(RemoteCheck::AccessDenied, ssh)
+        assert!(check_message(RemoteCheck::Empty, ssh, false).0);
+        assert!(!check_message(RemoteCheck::NotEmpty, ssh, false).0);
+        assert!(check_message(RemoteCheck::AccessDenied, ssh, false)
             .1
             .contains("SSH key to GitHub"));
+        assert!(check_message(
+            RemoteCheck::AccessDenied,
+            "https://github.com/you/p.git",
+            false
+        )
+        .1
+        .contains("use the SSH address"));
         assert!(
-            check_message(RemoteCheck::AccessDenied, "https://github.com/you/p.git")
-                .1
-                .contains("use the SSH address")
-        );
-        assert!(
-            check_message(RemoteCheck::AccessDenied, "git@example.org:p.git")
+            check_message(RemoteCheck::AccessDenied, "git@example.org:p.git", false)
                 .1
                 .contains("the service")
         );
