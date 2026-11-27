@@ -596,10 +596,40 @@ pill</property>
                             </child>
                             <child>
                               <object class="GtkLabel">
-                                <property name="label" translatable="yes">Passel creates an encrypted copy named “passwords.git” in the folder you choose, and keeps it up to date as you save changes.</property>
+                                <property name="label" translatable="yes">Passel creates an encrypted copy in the folder you choose, and keeps it up to date as you save changes.</property>
                                 <property name="wrap">true</property>
                                 <property name="xalign">0</property>
                                 <property name="css-classes">dim-label</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwPreferencesGroup">
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">A git folder</property>
+                                    <property name="subtitle" translatable="yes">“passwords.git”: git, pass and Passel on another computer use it as it is.</property>
+                                    <property name="activatable-widget">git_folder_check</property>
+                                    <child type="prefix">
+                                      <object class="GtkCheckButton" id="git_folder_check">
+                                        <property name="valign">3</property>
+                                        <property name="active">true</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">One file</property>
+                                    <property name="subtitle" translatable="yes">“passwords.bundle”: a single file, which a folder synced by Nextcloud or Syncthing never delivers half-written. git clone opens it.</property>
+                                    <property name="activatable-widget">bundle_file_check</property>
+                                    <child type="prefix">
+                                      <object class="GtkCheckButton" id="bundle_file_check">
+                                        <property name="valign">3</property>
+                                        <property name="group">git_folder_check</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
                               </object>
                             </child>
                             <child>

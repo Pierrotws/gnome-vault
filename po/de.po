@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-27 14:40+0100\n"
+"POT-Creation-Date: 2026-11-27 15:17+0100\n"
 "PO-Revision-Date: 2026-11-26 00:00+0100\n"
 "Last-Translator: Passel contributors\n"
 "Language-Team: German\n"
@@ -197,8 +197,28 @@ msgid "Wrong passphrase, try again"
 msgstr "Falsche Passphrase, bitte erneut versuchen"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "A file"
+msgstr "Eine Datei"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "A folder"
+msgstr "Ein Ordner"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"A folder or a file holding the vault: on this phone, an SD card, a USB "
+"drive, or in a storage app."
+msgstr ""
+"Ein Ordner oder eine Datei mit dem Tresor: auf diesem Telefon, einer SD-"
+"Karte, einem USB-Stick oder in einer Speicher-App."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "A vault that Passel saved to your Google Drive."
 msgstr "Ein Tresor, den Passel in Ihrem Google Drive gespeichert hat."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "A “.bundle” file made by Passel or git."
+msgstr "Eine „.bundle“-Datei, erstellt von Passel oder git."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Access token"
@@ -248,6 +268,11 @@ msgid "Checking…"
 msgstr "Wird geprüft…"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: assets/ui/setup_wizard.ui src/ui/window/import_dialog.rs
+msgid "Choose…"
+msgstr "Auswählen…"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Connected to Google Drive"
 msgstr "Mit Google Drive verbunden"
 
@@ -271,13 +296,6 @@ msgstr "Dort einen neuen Tresor erstellen"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Create the vault"
 msgstr "Tresor erstellen"
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid ""
-"Download it from its repository: made with Passel, or with pass and git."
-msgstr ""
-"Aus seinem Repository herunterladen: erstellt mit Passel oder mit pass und "
-"Git."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Download it instead"
@@ -314,6 +332,14 @@ msgstr "Tresor gefunden"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Get a key:"
 msgstr "Schlüssel besorgen:"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Get it from Google Drive, a git repository, or a folder or file: made with "
+"Passel, or with pass and git."
+msgstr ""
+"Holen Sie ihn aus Google Drive, einem Git-Repository oder einem Ordner oder "
+"einer Datei: erstellt mit Passel oder mit pass und git."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Get started"
@@ -369,18 +395,26 @@ msgstr ""
 "Keine Sicherung: Geht dieses Telefon verloren, ist auch dieser Tresor "
 "verloren."
 
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "No copy"
+msgstr "Keine Kopie"
+
 #. Translators: tag of the choice that keeps a vault without any backup.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Not recommended"
 msgstr "Nicht empfohlen"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Nothing chosen yet"
+msgstr "Noch nichts ausgewählt"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Nothing found at this address"
 msgstr "Unter dieser Adresse wurde nichts gefunden"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Only on this phone"
-msgstr "Nur auf diesem Telefon"
+msgid "On this phone"
+msgstr "Auf diesem Telefon"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Or add another key:"
@@ -388,14 +422,31 @@ msgstr "Oder einen weiteren Schlüssel hinzufügen:"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid ""
+"Passel keeps a copy in one “.bundle” file, easy to move or send. On a "
+"computer, git clone opens it."
+msgstr ""
+"Passel bewahrt eine Kopie in einer einzigen „.bundle“-Datei auf, leicht zu "
+"verschieben oder zu versenden. Auf einem Computer öffnet git clone sie."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Passel keeps a copy named “passwords.git” in the folder you choose: a git "
+"repository, which pass and Passel on a computer open too."
+msgstr ""
+"Passel bewahrt eine Kopie namens „passwords.git“ in dem von Ihnen gewählten "
+"Ordner auf: ein Git-Repository, das pass und Passel auch auf einem Computer "
+"öffnen."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
 "Passel keeps your passwords in a pass vault: one encrypted file per entry, "
-"with its whole history. Keep it on your Google Drive, or in a git repository "
-"to open it with pass on your computers too."
+"with its whole history. Keep it on your Google Drive, in a git repository, "
+"or in a folder or file of your own."
 msgstr ""
 "Passel bewahrt Ihre Passwörter in einem pass-Tresor auf: eine verschlüsselte "
 "Datei pro Eintrag, mit ihrem ganzen Verlauf. Legen Sie ihn in Ihrem Google "
-"Drive ab, oder in einem Git-Repository, um ihn auch auf Ihren Computern mit "
-"pass zu öffnen."
+"Drive, in einem Git-Repository oder in einem eigenen Ordner oder einer "
+"eigenen Datei ab."
 
 #. Translators: the name given to pass's default vault folder
 #. (~/.password-store); the user can rename it.
@@ -404,6 +455,11 @@ msgstr ""
 #: crates/passel-core/src/app/vaults.rs crates/passel-ffi/src/vaults.rs
 msgid "Passwords"
 msgstr "Passwörter"
+
+#. Translators: tag of the recommended choice.
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Recommended"
+msgstr "Empfohlen"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Save a backup"
@@ -467,6 +523,13 @@ msgid "The server refused this username or token"
 msgstr "Der Server hat diesen Benutzernamen oder dieses Token abgelehnt"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"The “passwords.git” folder made by Passel or git, or the folder holding it."
+msgstr ""
+"Der von Passel oder git erstellte Ordner „passwords.git“ oder der Ordner, "
+"der ihn enthält."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "This Google Drive already holds {n} vault."
 msgid_plural "This Google Drive already holds {n} vaults."
 msgstr[0] "Dieses Google Drive enthält bereits {n} Tresor."
@@ -499,12 +562,28 @@ msgid "Welcome to Passel"
 msgstr "Willkommen bei Passel"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Where is the vault on this phone?"
+msgstr "Wo liegt der Tresor auf diesem Telefon?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Where is your vault?"
 msgstr "Wo ist Ihr Tresor?"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Where on this phone?"
+msgstr "Wo auf diesem Telefon?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Where to keep your vault?"
 msgstr "Wo soll Ihr Tresor liegen?"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"With a copy in a folder or a file you choose: an SD card, a USB drive, or a "
+"folder synced by Syncthing or Nextcloud."
+msgstr ""
+"Mit einer Kopie in einem Ordner oder einer Datei Ihrer Wahl: eine SD-Karte, "
+"ein USB-Stick oder ein von Syncthing oder Nextcloud synchronisierter Ordner."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Your email"
@@ -624,6 +703,15 @@ msgstr "Abgebrochen"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid ""
+"Changed both here and in the vault’s copy: this phone’s version is kept as "
+"{entries}. Check it, then delete the one you do not need."
+msgstr ""
+"Hier und in der Kopie des Tresors geändert: Die Version dieses Telefons "
+"wurde als {entries} behalten. Prüfen Sie sie und löschen Sie dann die nicht "
+"benötigte."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid ""
 "Changed both here and on Google Drive: this phone's version is kept as "
 "{entries}. Check it, then delete the one you do not need."
 msgstr ""
@@ -637,6 +725,10 @@ msgstr "Verbindung mit Google Drive fehlgeschlagen"
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Could not reach Google Drive"
 msgstr "Google Drive ist nicht erreichbar"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Could not reach the vault’s copy"
+msgstr "Die Kopie des Tresors ist nicht erreichbar"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Could not read this file"
@@ -693,6 +785,10 @@ msgid "Locked: the passphrase will be asked again"
 msgstr "Gesperrt: Die Passphrase wird erneut abgefragt"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "No Passel vault in this folder"
+msgstr "Kein Passel-Tresor in diesem Ordner"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Removing the vault"
 msgstr "Tresor wird entfernt"
 
@@ -724,6 +820,23 @@ msgstr ""
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "The remote refused your username or token"
 msgstr "Das Remote-Repository hat Ihren Benutzernamen oder Ihr Token abgelehnt"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "The vault’s copy changed during the sync: sync again"
+msgstr ""
+"Die Kopie des Tresors hat sich während der Synchronisierung geändert: erneut "
+"synchronisieren"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+#: crates/passel-core/src/helpers/git.rs
+msgid "This file is not a Passel vault"
+msgstr "Diese Datei ist kein Passel-Tresor"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "This folder already holds a vault: download it instead"
+msgstr ""
+"Dieser Ordner enthält bereits einen Tresor: Laden Sie ihn stattdessen "
+"herunter"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Up to date"
@@ -998,6 +1111,10 @@ msgstr ""
 "Kein Konto nötig."
 
 #: assets/ui/setup_wizard.ui
+msgid "A git folder"
+msgstr "Ein Git-Ordner"
+
+#: assets/ui/setup_wizard.ui
 msgid "A secret key saved from another computer, e.g. a .asc file."
 msgstr ""
 "Ein geheimer Schlüssel, der auf einem anderen Computer gesichert wurde, z. "
@@ -1020,10 +1137,6 @@ msgstr "Sicherungsdatei"
 msgid "Choose the folder that will hold your encrypted entries."
 msgstr ""
 "Wählen Sie den Ordner, der Ihre verschlüsselten Einträge enthalten soll."
-
-#: assets/ui/setup_wizard.ui src/ui/window/import_dialog.rs
-msgid "Choose…"
-msgstr "Auswählen…"
 
 #: assets/ui/setup_wizard.ui
 msgid "Copy to a Folder or Drive"
@@ -1116,6 +1229,10 @@ msgid "No folder chosen"
 msgstr "Kein Ordner ausgewählt"
 
 #: assets/ui/setup_wizard.ui
+msgid "One file"
+msgstr "Eine einzige Datei"
+
+#: assets/ui/setup_wizard.ui
 msgid "Online Copy"
 msgstr "Online-Kopie"
 
@@ -1134,11 +1251,11 @@ msgstr ""
 
 #: assets/ui/setup_wizard.ui
 msgid ""
-"Passel creates an encrypted copy named “passwords.git” in the folder you "
-"choose, and keeps it up to date as you save changes."
+"Passel creates an encrypted copy in the folder you choose, and keeps it up "
+"to date as you save changes."
 msgstr ""
-"Passel erstellt im gewählten Ordner eine verschlüsselte Kopie namens "
-"„passwords.git“ und hält sie bei jedem Speichern aktuell."
+"Passel legt in dem von Ihnen gewählten Ordner eine verschlüsselte Kopie an "
+"und hält sie bei jeder gespeicherten Änderung aktuell."
 
 #: assets/ui/setup_wizard.ui
 msgid ""
@@ -1211,6 +1328,22 @@ msgstr "Ihr Verschlüsselungsschlüssel"
 #: assets/ui/setup_wizard.ui
 msgid "Your Vault"
 msgstr "Ihr Tresor"
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"“passwords.bundle”: a single file, which a folder synced by Nextcloud or "
+"Syncthing never delivers half-written. git clone opens it."
+msgstr ""
+"„passwords.bundle“: eine einzige Datei, die ein von Nextcloud oder Syncthing "
+"synchronisierter Ordner nie halb geschrieben ausliefert. git clone öffnet "
+"sie."
+
+#: assets/ui/setup_wizard.ui
+msgid ""
+"“passwords.git”: git, pass and Passel on another computer use it as it is."
+msgstr ""
+"„passwords.git“: git, pass und Passel auf einem anderen Computer nutzen ihn "
+"so, wie er ist."
 
 #: assets/ui/vault_view.ui
 msgid "Search entries and groups"
@@ -1319,6 +1452,10 @@ msgstr[0] ""
 msgstr[1] ""
 "{n} Einträge wurden hier und im Remote-Repository geändert; hier wurde "
 "nichts verändert"
+
+#: crates/passel-core/src/helpers/git.rs
+msgid "Could not read or write the vault’s copy"
+msgstr "Die Kopie des Tresors konnte nicht gelesen oder geschrieben werden"
 
 #: crates/passel-core/src/helpers/git.rs
 msgid "Current git HEAD has no branch name"
@@ -1580,10 +1717,6 @@ msgid "The remote's certificate is not trusted"
 msgstr "Dem Zertifikat des Remote-Repositorys wird nicht vertraut"
 
 #: crates/passel-ffi/src/lib.rs
-msgid "This file is not a Passel vault"
-msgstr "Diese Datei ist kein Passel-Tresor"
-
-#: crates/passel-ffi/src/lib.rs
 msgid "This key is not on this device"
 msgstr "Dieser Schlüssel ist nicht auf diesem Gerät"
 
@@ -1598,8 +1731,12 @@ msgstr ""
 "herunter"
 
 #: crates/passel-ffi/src/lib.rs
-msgid "This vault is kept on Google Drive: the app syncs it"
-msgstr "Dieser Tresor liegt in Google Drive: Die App synchronisiert ihn"
+msgid "This vault is kept in a copy the app syncs"
+msgstr "Dieser Tresor liegt in einer Kopie, die die App synchronisiert"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "This vault is not kept in a copy the app syncs"
+msgstr "Dieser Tresor liegt nicht in einer Kopie, die die App synchronisiert"
 
 #: crates/passel-ffi/src/lib.rs
 #, rust-format
@@ -2044,6 +2181,12 @@ msgstr ""
 "Sie ihn dann Ihrem Konto hinzu."
 
 #: src/ui/setup_wizard/sync.rs
+msgid "This folder already has a “passwords.bundle”. Choose another folder."
+msgstr ""
+"Dieser Ordner enthält bereits eine „passwords.bundle“. Wählen Sie einen "
+"anderen Ordner."
+
+#: src/ui/setup_wizard/sync.rs
 msgid "This folder already has a “passwords.git”. Choose another folder."
 msgstr ""
 "Dieser Ordner enthält bereits „passwords.git“. Wählen Sie einen anderen "
@@ -2366,6 +2509,10 @@ msgstr ""
 #: src/ui/window/vaults.rs
 msgid "Branch (empty: current branch)"
 msgstr "Branch (leer: aktueller Branch)"
+
+#: src/ui/window/vaults.rs
+msgid "Copied to a file"
+msgstr "In eine Datei kopiert"
 
 #: src/ui/window/vaults.rs
 #, rust-format

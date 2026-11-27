@@ -2,6 +2,7 @@ android/app/src/main/kotlin/io/pierrotws/passel/BiometricUnlock.kt
 android/app/src/main/kotlin/io/pierrotws/passel/EntryScreen.kt
 android/app/src/main/kotlin/io/pierrotws/passel/GoogleDrive.kt
 android/app/src/main/kotlin/io/pierrotws/passel/I18n.kt
+android/app/src/main/kotlin/io/pierrotws/passel/LocalCopy.kt
 android/app/src/main/kotlin/io/pierrotws/passel/MainActivity.kt
 android/app/src/main/kotlin/io/pierrotws/passel/PasselApp.kt
 android/app/src/main/kotlin/io/pierrotws/passel/PromptBroker.kt
@@ -37,7 +38,7 @@ crates/passel-core/src/app/state/entry_session.rs
 crates/passel-core/src/app/state/entry_view_data.rs
 crates/passel-core/src/app/state/mod.rs
 crates/passel-core/src/app/vaults.rs
-crates/passel-core/src/helpers/archive.rs
+crates/passel-core/src/helpers/bundle.rs
 crates/passel-core/src/helpers/entry_preview.rs
 crates/passel-core/src/helpers/git.rs
 crates/passel-core/src/helpers/git_credentials.rs

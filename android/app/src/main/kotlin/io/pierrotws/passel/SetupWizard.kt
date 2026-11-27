@@ -1,6 +1,7 @@
 package io.pierrotws.passel
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -56,12 +57,15 @@ import io.pierrotws.passel.core.KeyInfo
 import io.pierrotws.passel.core.RemoteState
 import kotlinx.coroutines.launch
 
-private enum class Step { WELCOME, KEY, KIND, PLACE, IDENTITY }
+private enum class Step { WELCOME, KEY, KIND, PLACE, LOCAL, IDENTITY }
 
 private enum class Kind { DOWNLOAD, CREATE }
 
 /** Where the vault is kept, in the order offered. */
 private enum class Place { DRIVE, GIT, PHONE }
+
+/** For [Place.PHONE]: the copy kept in a place the user picks, if any. */
+private enum class Local { FOLDER, FILE, NONE }
 
 /**
  * Sets up a vault, step by step: on first run (from a welcome page) and
@@ -84,6 +88,10 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
     var username by rememberSaveable { mutableStateOf("") }
     // Not saved in the instance state: it is a secret.
     var token by remember { mutableStateOf("") }
+    var local by rememberSaveable { mutableStateOf(Local.FOLDER) }
+    // The folder or file picked for it, and its name.
+    var localUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var localName by rememberSaveable { mutableStateOf<String?>(null) }
     var vaultName by rememberSaveable { mutableStateOf("") }
     var author by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
@@ -103,14 +111,28 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
             vaultName = when (place) {
                 Place.DRIVE -> driveFile?.vaultName?.takeIf { kind == Kind.DOWNLOAD }
                 Place.GIT -> repositoryName(url)
-                Place.PHONE -> null
+                Place.PHONE -> localName?.removeSuffix(".bundle")?.takeIf { kind == Kind.DOWNLOAD && local == Local.FILE }
             }
                 // Translators: default names of a new vault.
                 ?: if (firstRun) tr("Passwords") else tr("Vault")
         }
     }
 
-    val order = listOfNotNull(Step.WELCOME.takeIf { firstRun }, Step.KEY, Step.KIND, Step.PLACE, Step.IDENTITY)
+    val order = listOfNotNull(
+        Step.WELCOME.takeIf { firstRun },
+        Step.KEY,
+        Step.KIND,
+        Step.PLACE,
+        Step.LOCAL.takeIf { place == Place.PHONE },
+        Step.IDENTITY,
+    )
+    // A new kind of vault, or of copy, needs a new pick.
+    fun switchKind(to: Kind) {
+        if (to != kind) localUri = null
+        kind = to
+        // Nothing to download from a vault kept nowhere else.
+        if (to == Kind.DOWNLOAD && local == Local.NONE) local = Local.FOLDER
+    }
     val index = order.indexOf(step)
     val idle = state.busy == null
     fun back() {
@@ -153,9 +175,7 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                 Step.WELCOME -> WelcomePage(onStart = { step = Step.KEY })
                 Step.KEY -> KeyPage(state, fingerprint, onSelect = { fingerprint = it }, model)
                 Step.KIND -> KindPage(kind) {
-                    kind = it
-                    // Nothing to download from this phone.
-                    if (it == Kind.DOWNLOAD && place == Place.PHONE) place = Place.DRIVE
+                    switchKind(it)
                     step = Step.PLACE
                 }
                 Step.PLACE -> PlacePage(
@@ -172,9 +192,19 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                     onToken = { token = it },
                     state = state,
                     model = model,
-                    onSwitchKind = {
-                        kind = it
-                        if (it == Kind.DOWNLOAD && place == Place.PHONE) place = Place.DRIVE
+                    onSwitchKind = ::switchKind,
+                )
+                Step.LOCAL -> LocalPage(
+                    kind = kind ?: Kind.DOWNLOAD,
+                    local = local,
+                    onLocal = {
+                        if (it != local) localUri = null
+                        local = it
+                    },
+                    pickedName = localName.takeIf { localUri != null },
+                    onPicked = { uri, name ->
+                        localUri = uri
+                        localName = name
                     },
                 )
                 Step.IDENTITY -> IdentityPage(vaultName, { vaultName = it }, author, { author = it }, email, { email = it })
@@ -189,12 +219,16 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                     Step.WELCOME, Step.KIND -> {}
                     Step.KEY -> Button(onClick = { step = Step.KIND }, enabled = idle && fingerprint != null) { Text(tr("Next")) }
                     Step.PLACE -> Button(
-                        onClick = { step = Step.IDENTITY },
+                        onClick = { step = order[index + 1] },
                         enabled = idle && when (place) {
                             Place.DRIVE -> if (kind == Kind.CREATE) state.driveVaults != null else driveFile != null
                             Place.GIT -> url.isNotBlank()
-                            Place.PHONE -> kind == Kind.CREATE
+                            Place.PHONE -> true
                         },
+                    ) { Text(tr("Next")) }
+                    Step.LOCAL -> Button(
+                        onClick = { step = Step.IDENTITY },
+                        enabled = idle && (local == Local.NONE || localUri != null),
                     ) { Text(tr("Next")) }
                     Step.IDENTITY -> Button(
                         onClick = {
@@ -203,9 +237,23 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                                 Kind.CREATE to Place.GIT -> model.createVault(
                                     vaultName, fingerprint!!, url, username, token, author, email,
                                 )
-                                Kind.CREATE to Place.PHONE -> model.createVault(
-                                    vaultName, fingerprint!!, null, username, token, author, email,
-                                )
+                                Kind.CREATE to Place.PHONE -> {
+                                    val picked = localUri?.let(Uri::parse)
+                                    when {
+                                        local == Local.FOLDER && picked != null ->
+                                            model.createFolderVault(picked, vaultName, fingerprint!!, author, email)
+                                        local == Local.FILE && picked != null ->
+                                            model.createFileVault(picked, vaultName, fingerprint!!, author, email)
+                                        else -> model.createVault(vaultName, fingerprint!!, null, username, token, author, email)
+                                    }
+                                }
+                                Kind.DOWNLOAD to Place.PHONE -> localUri?.let(Uri::parse)?.let { picked ->
+                                    if (local == Local.FILE) {
+                                        model.downloadFileVault(picked, vaultName, author, email)
+                                    } else {
+                                        model.downloadFolderVault(picked, vaultName, author, email)
+                                    }
+                                }
                                 Kind.DOWNLOAD to Place.DRIVE -> driveFile?.let { model.downloadDriveVault(it, vaultName, author, email) }
                                 else -> model.cloneVault(vaultName, url, username, token, author, email)
                             }
@@ -224,7 +272,7 @@ private fun WelcomePage(onStart: () -> Unit) {
     Text(tr("Welcome to Passel"), style = MaterialTheme.typography.headlineMedium)
     Text(
         tr(
-            "Passel keeps your passwords in a pass vault: one encrypted file per entry, with its whole history. Keep it on your Google Drive, or in a git repository to open it with pass on your computers too.",
+            "Passel keeps your passwords in a pass vault: one encrypted file per entry, with its whole history. Keep it on your Google Drive, in a git repository, or in a folder or file of your own.",
         ),
     )
     Text(tr("Setting it up takes a few steps: your key, then your vault."))
@@ -282,7 +330,10 @@ private fun KeyPage(state: VaultState, selected: String?, onSelect: (String) -> 
 private fun KindPage(selected: Kind?, onSelect: (Kind) -> Unit) {
     PageTitle(tr("Your vault"))
     Choice(selected = selected == Kind.DOWNLOAD, onClick = { onSelect(Kind.DOWNLOAD) }) {
-        ChoiceText(tr("I already have a vault"), tr("Download it from its repository: made with Passel, or with pass and git."))
+        ChoiceText(
+            tr("I already have a vault"),
+            tr("Get it from Google Drive, a git repository, or a folder or file: made with Passel, or with pass and git."),
+        )
     }
     Choice(selected = selected == Kind.CREATE, onClick = { onSelect(Kind.CREATE) }) {
         ChoiceText(tr("Create a new vault"), tr("Start an empty vault, encrypted with your key."))
@@ -343,6 +394,12 @@ private fun PlacePage(
             )
         }
         if (place == Place.GIT) remoteFields()
+        Choice(selected = place == Place.PHONE, onClick = { onPlace(Place.PHONE) }) {
+            ChoiceText(
+                tr("On this phone"),
+                tr("A folder or a file holding the vault: on this phone, an SD card, a USB drive, or in a storage app."),
+            )
+        }
     } else {
         PageTitle(tr("Where to keep your vault?"))
         Choice(selected = place == Place.DRIVE, onClick = { onPlace(Place.DRIVE) }) {
@@ -365,7 +422,71 @@ private fun PlacePage(
         if (place == Place.GIT) remoteFields()
         Choice(selected = place == Place.PHONE, onClick = { onPlace(Place.PHONE) }) {
             ChoiceText(
-                tr("Only on this phone"),
+                tr("On this phone"),
+                tr("With a copy in a folder or a file you choose: an SD card, a USB drive, or a folder synced by Syncthing or Nextcloud."),
+            )
+        }
+    }
+}
+
+/** For a vault on this phone: its copy in a folder or a file the user picks (or none). */
+@Composable
+private fun LocalPage(
+    kind: Kind,
+    local: Local,
+    onLocal: (Local) -> Unit,
+    pickedName: String?,
+    onPicked: (String, String?) -> Unit,
+) {
+    val context = LocalContext.current
+    fun picked(uri: Uri?) {
+        if (uri == null) return
+        LocalCopy.keepAccess(context, uri)
+        onPicked(uri.toString(), LocalCopy.displayName(context, uri))
+    }
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree(), ::picked)
+    val newFile = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream"), ::picked)
+    val openFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), ::picked)
+
+    @Composable
+    fun Picker(onClick: () -> Unit) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onClick) { Text(tr("Choose…")) }
+            Text(pickedName ?: tr("Nothing chosen yet"), style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+
+    PageTitle(if (kind == Kind.CREATE) tr("Where on this phone?") else tr("Where is the vault on this phone?"))
+    Choice(selected = local == Local.FOLDER, onClick = { onLocal(Local.FOLDER) }) {
+        ChoiceText(
+            tr("A folder"),
+            if (kind == Kind.CREATE) {
+                tr("Passel keeps a copy named “passwords.git” in the folder you choose: a git repository, which pass and Passel on a computer open too.")
+            } else {
+                tr("The “passwords.git” folder made by Passel or git, or the folder holding it.")
+            },
+            // Translators: tag of the recommended choice.
+            tag = tr("Recommended"),
+        )
+    }
+    if (local == Local.FOLDER) Picker { pickFolder.launch(null) }
+    Choice(selected = local == Local.FILE, onClick = { onLocal(Local.FILE) }) {
+        ChoiceText(
+            tr("A file"),
+            if (kind == Kind.CREATE) {
+                tr("Passel keeps a copy in one “.bundle” file, easy to move or send. On a computer, git clone opens it.")
+            } else {
+                tr("A “.bundle” file made by Passel or git.")
+            },
+        )
+    }
+    if (local == Local.FILE) {
+        Picker { if (kind == Kind.CREATE) newFile.launch(LocalCopy.FILE_NAME) else openFile.launch(arrayOf("*/*")) }
+    }
+    if (kind == Kind.CREATE) {
+        Choice(selected = local == Local.NONE, onClick = { onLocal(Local.NONE) }) {
+            ChoiceText(
+                tr("No copy"),
                 tr("No backup: losing this phone loses this vault."),
                 // Translators: tag of the choice that keeps a vault without any backup.
                 tag = tr("Not recommended"),

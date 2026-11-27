@@ -138,6 +138,12 @@ pub struct SetupWizard {
     pub online_next_button: TemplateChild<gtk::Button>,
 
     #[template_child]
+    pub git_folder_check: TemplateChild<gtk::CheckButton>,
+
+    #[template_child]
+    pub bundle_file_check: TemplateChild<gtk::CheckButton>,
+
+    #[template_child]
     pub copy_group: TemplateChild<adw::PreferencesGroup>,
 
     #[template_child]

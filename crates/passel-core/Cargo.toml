@@ -24,11 +24,6 @@ cbc = { version = "0.2", features = ["alloc"] }
 aes-gcm = "0.11"
 sha2 = "0.11"
 flate2 = "1"
-# A vault as one .tar.xz file (Google Drive): see helpers::archive.
-tar = { version = "0.4.46", default-features = false }
-# Built from source on every target (`static`): no package has to depend
-# on the system's liblzma.
-liblzma = { version = "0.4.9", default-features = false, features = ["static"] }
 pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
 serde_json = "1"
 pgp = { version = "0.21.1", optional = true, default-features = false }

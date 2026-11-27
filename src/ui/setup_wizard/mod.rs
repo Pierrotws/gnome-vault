@@ -435,7 +435,10 @@ fn flatten(
 
 /// Review-page wording for a step. Avoids git vocabulary on purpose.
 fn step_text(step: SetupStep, plan: &SetupPlan, key_label: Option<&str>) -> (String, String) {
-    let to_folder = matches!(plan.sync, Some(SyncTarget::Folder(_)));
+    let to_folder = matches!(
+        plan.sync,
+        Some(SyncTarget::Folder(_) | SyncTarget::Bundle(_))
+    );
     let (title, subtitle) = match step {
         SetupStep::CreateFolder => (
             gettext("Create the vault folder"),

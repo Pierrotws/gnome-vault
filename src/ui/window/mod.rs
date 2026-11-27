@@ -1070,6 +1070,11 @@ impl MainWindow {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
                 return;
             }
+            // A vault copied to a bundle file may have taken changes from
+            // it (see store::sync_bundle_file).
+            if let Err(err) = window.reload_vault_tree() {
+                window.imp().entry_view.show_error_dialog(&err.to_string());
+            }
             if let Err(err) = window.reload_changes_view() {
                 window.imp().entry_view.show_error_dialog(&err.to_string());
             }

@@ -19,6 +19,7 @@ const HOST_OWN: u32 = 0;
 
 /// Name of the copy Passel creates inside the chosen folder.
 const COPY_NAME: &str = "passwords.git";
+const BUNDLE_NAME: &str = "passwords.bundle";
 
 impl SetupWizard {
     pub(super) fn setup_sync(&self) {
@@ -70,11 +71,17 @@ impl SetupWizard {
             self,
             move |_| wizard.go_to_review()
         ));
+        imp.bundle_file_check.connect_toggled(glib::clone!(
+            #[weak(rename_to = wizard)]
+            self,
+            move |_| wizard.update_copy_row()
+        ));
     }
 
     pub(super) fn reset_sync(&self) {
         let imp = self.imp();
         imp.online_check.set_active(true);
+        imp.git_folder_check.set_active(true);
         imp.host_row.set_selected(HOST_OWN);
         imp.address_row.set_text("");
         imp.remote_check.replace(None);
@@ -92,7 +99,12 @@ impl SetupWizard {
                 imp.address_row.text().trim().to_string(),
             ))
         } else if imp.folder_check.is_active() {
-            self.copy_dir().map(SyncTarget::Folder)
+            let copy = self.copy_dir()?;
+            Some(if imp.bundle_file_check.is_active() {
+                SyncTarget::Bundle(copy)
+            } else {
+                SyncTarget::Folder(copy)
+            })
         } else {
             None
         }
@@ -364,12 +376,18 @@ impl SetupWizard {
         });
     }
 
+    /// The copy's path: a git folder or a bundle file in the chosen folder.
     fn copy_dir(&self) -> Option<PathBuf> {
-        self.imp()
-            .copy_parent
+        let imp = self.imp();
+        let name = if imp.bundle_file_check.is_active() {
+            BUNDLE_NAME
+        } else {
+            COPY_NAME
+        };
+        imp.copy_parent
             .borrow()
             .as_ref()
-            .map(|parent| parent.join(COPY_NAME))
+            .map(|parent| parent.join(name))
     }
 
     fn choose_copy_folder(&self) {
@@ -420,6 +438,9 @@ impl SetupWizard {
                         CopyDirStatus::Usable => None,
                         CopyDirStatus::InsideVault => Some(gettext(
                             "This folder is inside the vault. Choose a folder outside it.",
+                        )),
+                        CopyDirStatus::Taken if imp.bundle_file_check.is_active() => Some(gettext(
+                            "This folder already has a “passwords.bundle”. Choose another folder.",
                         )),
                         CopyDirStatus::Taken => Some(gettext(
                             "This folder already has a “passwords.git”. Choose another folder.",

@@ -1,4 +1,4 @@
-pub mod archive;
+pub mod bundle;
 pub mod entry_preview;
 pub mod git;
 pub mod git_credentials;

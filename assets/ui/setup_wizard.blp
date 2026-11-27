@@ -497,10 +497,36 @@ template $SetupWizard : Adw.Bin {
                             }
 
                             Label {
-                                label: _("Passel creates an encrypted copy named “passwords.git” in the folder you choose, and keeps it up to date as you save changes.");
+                                label: _("Passel creates an encrypted copy in the folder you choose, and keeps it up to date as you save changes.");
                                 wrap: true;
                                 xalign: 0;
                                 css-classes: ["dim-label"];
+                            }
+
+                            Adw.PreferencesGroup {
+                                Adw.ActionRow {
+                                    title: _("A git folder");
+                                    subtitle: _("“passwords.git”: git, pass and Passel on another computer use it as it is.");
+                                    activatable-widget: git_folder_check;
+
+                                    [prefix]
+                                    CheckButton git_folder_check {
+                                        valign: center;
+                                        active: true;
+                                    }
+                                }
+
+                                Adw.ActionRow {
+                                    title: _("One file");
+                                    subtitle: _("“passwords.bundle”: a single file, which a folder synced by Nextcloud or Syncthing never delivers half-written. git clone opens it.");
+                                    activatable-widget: bundle_file_check;
+
+                                    [prefix]
+                                    CheckButton bundle_file_check {
+                                        valign: center;
+                                        group: git_folder_check;
+                                    }
+                                }
                             }
 
                             Adw.PreferencesGroup copy_group {

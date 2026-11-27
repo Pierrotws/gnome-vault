@@ -21,7 +21,7 @@ import org.json.JSONObject
 
 /** A vault file on Google Drive. */
 data class DriveFile(val id: String, val name: String, val version: String, val modifiedTime: String?) {
-    /** `Passwords.tar.xz` → `Passwords`. */
+    /** `Passwords.bundle` → `Passwords`. */
     val vaultName: String get() = name.removeSuffix(DriveClient.SUFFIX)
 }
 
@@ -79,7 +79,7 @@ private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { conti
 
 /**
  * The few calls of Drive's REST API (v3) that Passel needs: each vault is
- * one `.tar.xz` file, tagged with `appProperties` so it can be found
+ * one git bundle file (`.bundle`), tagged with `appProperties` so it can be found
  * again, in a "Passel" folder. Every call blocks.
  */
 class DriveClient(private val token: String) {
@@ -208,11 +208,11 @@ class DriveClient(private val token: String) {
     )
 
     companion object {
-        const val SUFFIX = ".tar.xz"
+        const val SUFFIX = ".bundle"
         private const val API = "https://www.googleapis.com/drive/v3"
         private const val UPLOAD = "https://www.googleapis.com/upload/drive/v3"
         private const val FIELDS = "id,name,version,modifiedTime"
-        private const val MIME_TYPE = "application/x-xz"
+        private const val MIME_TYPE = "application/octet-stream"
         private const val TAG_KEY = "passel"
         private const val TAG_VAULT = "vault"
         private const val TAG_FOLDER = "folder"

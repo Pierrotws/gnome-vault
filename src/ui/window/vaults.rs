@@ -351,7 +351,7 @@ impl MainWindow {
             } else if !info.has_history {
                 // Translators: a vault's state in the vault list.
                 gettext("no history")
-            } else if info.remote_url.is_some() {
+            } else if info.remote_url.is_some() || info.bundle_path.is_some() {
                 // Translators: a vault's state in the vault list.
                 gettext("history, synced")
             } else {
@@ -553,8 +553,35 @@ impl MainWindow {
         history_group.add(&history_row);
         page.add(&history_group);
 
-        // Sync (needs history)
-        if info.has_history {
+        // Sync (needs history): a bundle file copy is shown as it is.
+        if let Some(bundle) = info.bundle_path.as_ref().filter(|_| info.has_history) {
+            let sync_group = adw::PreferencesGroup::builder()
+                .title(gettext("Sync"))
+                .build();
+            let copy_row = adw::ActionRow::builder()
+                .title(gettext("Copied to a file"))
+                .subtitle(bundle.to_string_lossy().as_ref())
+                .subtitle_selectable(true)
+                .build();
+            sync_group.add(&copy_row);
+            let autopush_row = adw::SwitchRow::builder()
+                .title(gettext("Push changes automatically"))
+                .subtitle(gettext("Upload after every saved change"))
+                .active(vault.autopush)
+                .build();
+            autopush_row.connect_active_notify(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                #[strong]
+                path_buf,
+                move |row| {
+                    let autopush = row.is_active();
+                    window.update_vault_config(&path_buf, |vault| vault.autopush = autopush);
+                }
+            ));
+            sync_group.add(&autopush_row);
+            page.add(&sync_group);
+        } else if info.has_history {
             let sync_group = adw::PreferencesGroup::builder()
                 .title(gettext("Sync"))
                 .description(gettext(

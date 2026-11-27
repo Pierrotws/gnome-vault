@@ -23,6 +23,8 @@ pub struct VaultInfo {
     pub status: StoreStatus,
     pub has_history: bool,
     pub remote_url: Option<String>,
+    /// The bundle file the vault is copied to, instead of a remote.
+    pub bundle_path: Option<PathBuf>,
 }
 
 pub struct AppController {
@@ -182,6 +184,7 @@ impl AppController {
             status: pass::store::check_store(store_dir),
             has_history: pass::store::has_history(store_dir),
             remote_url: pass::store::remote_url(store_dir),
+            bundle_path: pass::store::bundle_path(store_dir),
         }
     }
 
