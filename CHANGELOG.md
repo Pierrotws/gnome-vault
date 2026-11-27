@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Pierrotws/passel/compare/v0.3.1...v0.4.0) (2026-11-27)
+
+
+### Features
+
+* **website:** a website presenting Passel ([#27](https://github.com/Pierrotws/passel/issues/27)) ([9bdca45](https://github.com/Pierrotws/passel/commit/9bdca45d7bf7f04f5fca262ea2eb9d14319a506b))
+
 ## [0.3.1](https://github.com/Pierrotws/passel/compare/v0.3.0...v0.3.1) (2026-11-26)
 
 
