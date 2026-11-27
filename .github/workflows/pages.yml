@@ -1,0 +1,67 @@
+name: Privacy policy page
+
+# Publishes PRIVACY.md as a web page on GitHub Pages
+# (https://pierrotws.github.io/passel/privacy/): Google Play needs a
+# privacy policy on a standard web page, and its checker gets "page not
+# found" on the github.com/…/blob/ URL. One-time setup: Settings → Pages →
+# Source: GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - PRIVACY.md
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the page
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Pages configuration
+        uses: actions/configure-pages@v6
+
+      # PRIVACY.md stays the only source: the page is that file with a
+      # Jekyll header in front.
+      - name: Page source
+        run: |
+          mkdir site
+          {
+            printf -- '---\ntitle: Passel privacy policy\npermalink: /privacy/\n---\n\n'
+            cat PRIVACY.md
+          } > site/privacy.md
+
+      - name: Render
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: site
+          destination: _site
+
+      - name: Keep the site
+        uses: actions/upload-pages-artifact@v5
+
+  deploy:
+    name: Publish on GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}privacy/
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5
