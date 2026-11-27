@@ -1,3 +1,4 @@
+pub mod archive;
 pub mod entry_preview;
 pub mod git;
 pub mod git_credentials;

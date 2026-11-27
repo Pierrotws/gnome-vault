@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.pierrotws.passel.core.Storage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,9 +88,12 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { model.sync() }, enabled = state.busy == null) {
-                        BadgedBox(badge = { if (state.unsynced > 0) Badge { Text("${state.unsynced}") } }) {
-                            Icon(Icons.Default.Refresh, contentDescription = tr("Sync"))
+                    // A vault only on this phone has nothing to sync with.
+                    if (active?.storage != Storage.DEVICE) {
+                        IconButton(onClick = { model.sync() }, enabled = state.busy == null) {
+                            BadgedBox(badge = { if (state.unsynced > 0) Badge { Text("${state.unsynced}") } }) {
+                                Icon(Icons.Default.Refresh, contentDescription = tr("Sync"))
+                            }
                         }
                     }
                     IconButton(onClick = model::lock) { Icon(Icons.Default.Lock, contentDescription = tr("Lock")) }
@@ -178,7 +182,9 @@ fun VaultScreen(state: VaultState, model: VaultViewModel) {
             title = { Text(tr("Remove {name} from this phone?", "name" to active.name)) },
             text = {
                 Text(
-                    if (state.unsynced > 0) {
+                    if (active.storage == Storage.DEVICE) {
+                        tr("This vault is only on this phone: its entries will be lost for good.")
+                    } else if (state.unsynced > 0) {
                         trn(
                             "The copy on your remote stays as it is; you can download it again. {n} change not synced yet will be lost.",
                             "The copy on your remote stays as it is; you can download it again. {n} changes not synced yet will be lost.",

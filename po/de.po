@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: passel\n"
 "Report-Msgid-Bugs-To: https://github.com/Pierrotws/passel/issues\n"
-"POT-Creation-Date: 2026-11-26 12:54+0100\n"
+"POT-Creation-Date: 2026-11-27 14:40+0100\n"
 "PO-Revision-Date: 2026-11-26 00:00+0100\n"
 "Last-Translator: Passel contributors\n"
 "Language-Team: German\n"
@@ -197,6 +197,10 @@ msgid "Wrong passphrase, try again"
 msgstr "Falsche Passphrase, bitte erneut versuchen"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "A vault that Passel saved to your Google Drive."
+msgstr "Ein Tresor, den Passel in Ihrem Google Drive gespeichert hat."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Access token"
 msgstr "Zugriffstoken"
 
@@ -209,6 +213,30 @@ msgstr "Tresor hinzufügen"
 msgid "Address (https://…)"
 msgstr "Adresse (https://…)"
 
+#. Translators: tag of a choice that needs some technical knowledge.
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Advanced"
+msgstr "Fortgeschritten"
+
+#. Translators: tag of the git choice: it needs some technical knowledge, but is the most capable.
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Advanced · recommended"
+msgstr "Fortgeschritten · empfohlen"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"An empty private repository you created for it (GitHub, GitLab…). Your vault "
+"is backed up with its whole history, and opens with pass and Passel on your "
+"computers too."
+msgstr ""
+"Ein leeres privates Repository, das Sie dafür angelegt haben (GitHub, "
+"GitLab…). Ihr Tresor wird mit seinem ganzen Verlauf gesichert und lässt sich "
+"auch auf Ihren Computern mit pass und Passel öffnen."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Changed on {date}"
+msgstr "Geändert am {date}"
+
 #. Translators: button that checks a repository address.
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 #: assets/ui/setup_wizard.ui
@@ -218,6 +246,15 @@ msgstr "Prüfen"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Checking…"
 msgstr "Wird geprüft…"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Connected to Google Drive"
+msgstr "Mit Google Drive verbunden"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Connecting to Google Drive"
+msgstr "Verbindung mit Google Drive"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Create a key"
@@ -283,6 +320,14 @@ msgid "Get started"
 msgstr "Loslegen"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Git repository"
+msgstr "Git-Repository"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Google Drive"
+msgstr "Google Drive"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "I already have a vault"
 msgstr "Ich habe bereits einen Tresor"
 
@@ -315,18 +360,23 @@ msgid "Next"
 msgstr "Weiter"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "No Passel vault on this Google Drive"
+msgstr "Kein Passel-Tresor in diesem Google Drive"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "No backup: losing this phone loses this vault."
 msgstr ""
 "Keine Sicherung: Geht dieses Telefon verloren, ist auch dieser Tresor "
 "verloren."
 
+#. Translators: tag of the choice that keeps a vault without any backup.
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Not recommended"
+msgstr "Nicht empfohlen"
+
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Nothing found at this address"
 msgstr "Unter dieser Adresse wurde nichts gefunden"
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Online, in an empty repository"
-msgstr "Online, in einem leeren Repository"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Only on this phone"
@@ -339,12 +389,13 @@ msgstr "Oder einen weiteren Schlüssel hinzufügen:"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid ""
 "Passel keeps your passwords in a pass vault: one encrypted file per entry, "
-"with its whole history, in a git repository you choose. The same vault opens "
-"on your computers and phones."
+"with its whole history. Keep it on your Google Drive, or in a git repository "
+"to open it with pass on your computers too."
 msgstr ""
-"Passel speichert Ihre Passwörter in einem pass-Tresor: eine verschlüsselte "
-"Datei pro Eintrag, mit ihrem gesamten Verlauf, in einem Git-Repository Ihrer "
-"Wahl. Derselbe Tresor lässt sich auf Ihren Computern und Telefonen öffnen."
+"Passel bewahrt Ihre Passwörter in einem pass-Tresor auf: eine verschlüsselte "
+"Datei pro Eintrag, mit ihrem ganzen Verlauf. Legen Sie ihn in Ihrem Google "
+"Drive ab, oder in einem Git-Repository, um ihn auch auf Ihren Computern mit "
+"pass zu öffnen."
 
 #. Translators: the name given to pass's default vault folder
 #. (~/.password-store); the user can rename it.
@@ -355,17 +406,17 @@ msgid "Passwords"
 msgstr "Passwörter"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid ""
-"Recommended: a private repository you created for it (GitHub, GitLab…). Your "
-"vault is backed up, and your other devices sync with it."
-msgstr ""
-"Empfohlen: ein privates Repository, das Sie dafür angelegt haben (GitHub, "
-"GitLab…). Ihr Tresor ist gesichert und Ihre anderen Geräte synchronisieren "
-"sich damit."
-
-#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Save a backup"
 msgstr "Sicherung speichern"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid ""
+"Saved on your Google account and synced with your other phones: just sign "
+"in. Passel only sees the files it makes there."
+msgstr ""
+"In Ihrem Google-Konto gespeichert und mit Ihren anderen Telefonen "
+"synchronisiert: einfach anmelden. Passel sieht dort nur die Dateien, die es "
+"selbst anlegt."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Set up Passel"
@@ -384,6 +435,10 @@ msgstr "Öffentlichen Schlüssel teilen"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Share the public key"
 msgstr "Öffentlichen Schlüssel teilen"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "Sign in with Google"
+msgstr "Mit Google anmelden"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Start an empty vault, encrypted with your key."
@@ -410,6 +465,12 @@ msgstr "Ihre Änderungen auf diesem Telefon werden signiert mit:"
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "The server refused this username or token"
 msgstr "Der Server hat diesen Benutzernamen oder dieses Token abgelehnt"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
+msgid "This Google Drive already holds {n} vault."
+msgid_plural "This Google Drive already holds {n} vaults."
+msgstr[0] "Dieses Google Drive enthält bereits {n} Tresor."
+msgstr[1] "Dieses Google Drive enthält bereits {n} Tresore."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "This repository is empty"
@@ -442,8 +503,8 @@ msgid "Where is your vault?"
 msgstr "Wo ist Ihr Tresor?"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
-msgid "Where to keep a copy?"
-msgstr "Wo soll eine Kopie liegen?"
+msgid "Where to keep your vault?"
+msgstr "Wo soll Ihr Tresor liegen?"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/SetupWizard.kt
 msgid "Your email"
@@ -532,6 +593,12 @@ msgstr[1] ""
 "verloren."
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
+msgid "This vault is only on this phone: its entries will be lost for good."
+msgstr ""
+"Dieser Tresor existiert nur auf diesem Telefon: Seine Einträge gehen "
+"endgültig verloren."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultScreen.kt
 msgid "Turn off biometric unlock"
 msgstr "Biometrisches Entsperren ausschalten"
 
@@ -554,6 +621,22 @@ msgstr "Biometrisches Entsperren ist eingeschaltet"
 #: crates/passel-core/src/helpers/pgp/mod.rs crates/passel-ffi/src/lib.rs
 msgid "Cancelled"
 msgstr "Abgebrochen"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid ""
+"Changed both here and on Google Drive: this phone's version is kept as "
+"{entries}. Check it, then delete the one you do not need."
+msgstr ""
+"Hier und in Google Drive geändert: Die Version dieses Telefons wurde als "
+"{entries} behalten. Prüfen Sie sie und löschen Sie dann die nicht benötigte."
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Could not connect to Google Drive"
+msgstr "Verbindung mit Google Drive fehlgeschlagen"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Could not reach Google Drive"
+msgstr "Google Drive ist nicht erreichbar"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Could not read this file"
@@ -582,6 +665,16 @@ msgstr "Wird gelöscht"
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Downloading the vault"
 msgstr "Tresor wird heruntergeladen"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Google Drive changed during the sync: sync again"
+msgstr ""
+"Google Drive hat sich während der Synchronisierung geändert: erneut "
+"synchronisieren"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Google Drive refused access"
+msgstr "Google Drive hat den Zugriff verweigert"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Importing the key"
@@ -624,12 +717,21 @@ msgid "Syncing"
 msgstr "Synchronisierung"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Tap Sync to sign in to Google Drive again"
+msgstr ""
+"Tippen Sie auf Synchronisieren, um sich erneut bei Google Drive anzumelden"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "The remote refused your username or token"
 msgstr "Das Remote-Repository hat Ihren Benutzernamen oder Ihr Token abgelehnt"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid "Up to date"
 msgstr "Auf dem neuesten Stand"
+
+#: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
+msgid "Your Google Drive is full"
+msgstr "Ihr Google Drive ist voll"
 
 #: android/app/src/main/kotlin/io/pierrotws/passel/VaultViewModel.kt
 msgid ""
@@ -1260,6 +1362,10 @@ msgid "Unknown author"
 msgstr "Unbekannter Autor"
 
 #: crates/passel-core/src/helpers/git.rs
+msgid "conflict"
+msgstr "Konflikt"
+
+#: crates/passel-core/src/helpers/git.rs
 msgid ""
 "git user.name and user.email are not set; configure them with `git config --"
 "global user.name '...'` and `git config --global user.email '...'`"
@@ -1474,6 +1580,10 @@ msgid "The remote's certificate is not trusted"
 msgstr "Dem Zertifikat des Remote-Repositorys wird nicht vertraut"
 
 #: crates/passel-ffi/src/lib.rs
+msgid "This file is not a Passel vault"
+msgstr "Diese Datei ist kein Passel-Tresor"
+
+#: crates/passel-ffi/src/lib.rs
 msgid "This key is not on this device"
 msgstr "Dieser Schlüssel ist nicht auf diesem Gerät"
 
@@ -1486,6 +1596,10 @@ msgid "This repository already holds a vault: download it instead"
 msgstr ""
 "Dieses Repository enthält bereits einen Tresor: Laden Sie ihn stattdessen "
 "herunter"
+
+#: crates/passel-ffi/src/lib.rs
+msgid "This vault is kept on Google Drive: the app syncs it"
+msgstr "Dieser Tresor liegt in Google Drive: Die App synchronisiert ihn"
 
 #: crates/passel-ffi/src/lib.rs
 #, rust-format

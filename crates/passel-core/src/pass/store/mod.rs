@@ -11,13 +11,14 @@ use std::{
 
 use crate::{
     helpers::{
+        archive,
         git::{self, GitChange},
         parser, pgp,
     },
     pass::model::{EntryData, PassNode, PassNodeKind},
 };
 
-pub use crate::helpers::git::{RemoteCheck, SyncReport};
+pub use crate::helpers::git::{CopyMerge, RemoteCheck, SyncReport};
 pub use crate::helpers::pgp::{
     create_key, export_secret_key, import_secret_keys, key_user_id, GpgRecipient, PgpError,
 };
@@ -632,6 +633,69 @@ pub fn clone_vault(
 /// [`git::sync`].
 pub fn sync_vault(store_dir: &Path, branch: Option<&str>) -> Result<SyncReport, StoreError> {
     Ok(git::sync(store_dir, branch)?)
+}
+
+/// The copy of a vault kept as one archive file (Google Drive): its
+/// remote-tracking refs (`refs/remotes/drive/…`) remember the commit the
+/// archive last held, so unsent changes can be counted.
+pub const ARCHIVE_COPY: &str = "drive";
+
+/// Writes the whole vault, history included, to `out` as a `.tar.xz`
+/// (see [`archive`](crate::helpers::archive)).
+pub fn pack_vault(store_dir: &Path, out: &Path) -> Result<(), StoreError> {
+    Ok(archive::pack(store_dir, out)?)
+}
+
+/// Takes the changes of the vault archived in `archive` (a copy of this
+/// vault, from [`pack_vault`] on another device), unpacking it into
+/// `scratch` (which must not exist; removed afterwards). When `sent` is
+/// not zero, the archive lacks this vault's changes: pack and upload it,
+/// then call [`archive_uploaded`].
+pub fn merge_vault_archive(
+    store_dir: &Path,
+    archive: &Path,
+    scratch: &Path,
+) -> Result<CopyMerge, StoreError> {
+    let result = archive::unpack(archive, scratch)
+        .map_err(StoreError::from)
+        .and_then(|()| Ok(git::merge_from_copy(store_dir, scratch, ARCHIVE_COPY)?));
+    if let Err(err) = fs::remove_dir_all(scratch) {
+        log::warn!("could not remove an unpacked archive: {}", err.kind());
+    }
+    result
+}
+
+/// Makes a vault on this device, at `dir` (which must not exist), from
+/// `archive` (made by [`pack_vault`]): its history comes with it. This
+/// device's commits are signed `author_name <author_email>`.
+pub fn unpack_vault(
+    archive: &Path,
+    dir: &Path,
+    author_name: &str,
+    author_email: &str,
+) -> Result<(), StoreError> {
+    archive::unpack(archive, dir)?;
+    if !has_history(dir) {
+        return Err(StoreError::Io(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "not a vault",
+        )));
+    }
+    // Another device's hooks have no business running here.
+    let _ = fs::remove_dir_all(dir.join(".git/hooks"));
+    git::set_identity(dir, author_name, author_email)?;
+    git::mark_copy_synced(dir, ARCHIVE_COPY)?;
+    Ok(())
+}
+
+/// Records that the archive now holds the vault as it is.
+pub fn archive_uploaded(store_dir: &Path) -> Result<(), StoreError> {
+    Ok(git::mark_copy_synced(store_dir, ARCHIVE_COPY)?)
+}
+
+/// Commits the archive does not hold yet.
+pub fn archive_unsent_count(store_dir: &Path) -> Result<usize, StoreError> {
+    Ok(git::ahead_of_copy(store_dir, ARCHIVE_COPY)?)
 }
 
 /// True when the vault records its changes (is a git repository).

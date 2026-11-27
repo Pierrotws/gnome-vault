@@ -35,6 +35,8 @@ class PasselApp : Application() {
 
     val remoteSecrets by lazy { RemoteSecrets(this) }
 
+    val driveAuth by lazy { DriveAuth(this) }
+
     val clipboard by lazy { SecretClipboard(this, scope) }
 
     private val lockEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)

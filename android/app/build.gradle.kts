@@ -94,6 +94,8 @@ dependencies {
     // Auto-lock: knows when the whole app goes to the background.
     implementation(libs.lifecycle.process)
     implementation(libs.biometric)
+    // Google Drive: Google sign-in and consent for the drive.file scope.
+    implementation(libs.play.services.auth)
     // UniFFI's Kotlin bindings call the Rust library through JNA.
     implementation(libs.jna) { artifact { type = "aar" } }
 }

@@ -23,7 +23,7 @@ use passel_core::{
 };
 use passel_ffi::{
     generate_password, otp_code, Entry, EntryRef, Field, FieldKind, KeyInfo, Passel, PasselError,
-    PassphrasePrompt, RemoteState, VaultInfo,
+    PassphrasePrompt, RemoteState, Storage, VaultInfo,
 };
 
 const PASSPHRASE: &str = "phone passphrase";
@@ -152,7 +152,10 @@ fn a_phone_and_a_desktop_share_a_vault() {
         VaultInfo {
             id: "vaults/shared".into(),
             name: "Shared".into(),
+            storage: Storage::Git,
             remote_url: Some(remote.clone()),
+            drive_file_id: None,
+            drive_version: None,
             active: true,
         }
     );
@@ -416,4 +419,121 @@ fn a_phone_and_a_desktop_share_a_vault() {
         .is_err());
     assert!(!data_dir.join("vaults/missing").exists());
     assert_eq!(passel.vaults().len(), 1);
+
+    // A vault on this phone only: syncing it exchanges nothing.
+    passel
+        .create_vault(
+            "Local".into(),
+            fingerprint.clone(),
+            None,
+            "Phone".into(),
+            "phone@example.invalid".into(),
+        )
+        .unwrap();
+    assert_eq!(passel.vaults()[1].storage, Storage::Device);
+    assert_eq!(
+        (passel.sync().unwrap().sent, passel.unsynced_count()),
+        (0, 0)
+    );
+
+    google_drive(&passel, &dirs.root, &fingerprint);
+}
+
+/// A vault kept on Google Drive: the app moves the archive, Passel packs
+/// and merges it. Here "Drive" is one file, and a second device is the
+/// same vault unpacked elsewhere.
+fn google_drive(passel: &Passel, root: &Path, fingerprint: &str) {
+    let drive_file = root.join("drive.tar.xz");
+    let drive_path = drive_file.to_string_lossy().into_owned();
+    let created = passel
+        .create_drive_vault(
+            "Cloud".into(),
+            fingerprint.into(),
+            "Phone".into(),
+            "phone@example.invalid".into(),
+        )
+        .unwrap();
+    assert_eq!(created.storage, Storage::GoogleDrive);
+    assert_eq!(created.drive_file_id, None);
+    // Not uploaded yet: its first commit waits, and git sync is refused.
+    assert_eq!(passel.unsynced_count(), 1);
+    assert!(passel.sync().is_err());
+    passel.pack_vault(drive_path.clone()).unwrap();
+    passel.drive_uploaded("file-1".into(), "1".into()).unwrap();
+    assert_eq!(passel.unsynced_count(), 0);
+    let cloud = passel.vaults().into_iter().find(|v| v.active).unwrap();
+    assert_eq!(cloud.drive_file_id.as_deref(), Some("file-1"));
+    assert_eq!(cloud.drive_version.as_deref(), Some("1"));
+
+    // Another device downloads it (as this test's second vault), edits
+    // an entry and uploads.
+    let tablet = passel
+        .download_drive_vault(
+            "Tablet".into(),
+            drive_path.clone(),
+            "file-1".into(),
+            "1".into(),
+            "Tablet".into(),
+            "tablet@example.invalid".into(),
+        )
+        .unwrap();
+    assert_eq!(tablet.storage, Storage::GoogleDrive);
+    assert_eq!(tablet.drive_file_id.as_deref(), Some("file-1"));
+    assert_eq!(passel.unsynced_count(), 0);
+    let bank = Entry {
+        password: "tablet".into(),
+        fields: vec![],
+    };
+    passel.create_entry("".into(), "bank".into(), bank).unwrap();
+    assert_eq!(passel.unsynced_count(), 1);
+    passel.pack_vault(drive_path.clone()).unwrap();
+    passel.drive_uploaded("file-1".into(), "2".into()).unwrap();
+
+    // Back on the first one, which changed the same entry meanwhile.
+    passel.switch_vault(cloud.id.clone()).unwrap();
+    let phone_bank = Entry {
+        password: "phone".into(),
+        fields: vec![],
+    };
+    passel
+        .create_entry("".into(), "bank".into(), phone_bank)
+        .unwrap();
+    let merged = passel
+        .merge_drive_archive(drive_path.clone(), "2".into())
+        .unwrap();
+    assert_eq!(merged.received, 1);
+    assert_eq!(merged.sent, 2);
+    assert_eq!(merged.kept_copies, vec!["bank (conflict)"]);
+    assert_eq!(
+        passel.open_entry("bank.gpg".into()).unwrap().password,
+        "tablet"
+    );
+    assert_eq!(
+        passel
+            .open_entry("bank (conflict).gpg".into())
+            .unwrap()
+            .password,
+        "phone"
+    );
+    assert_eq!(passel.unsynced_count(), 2);
+
+    // Something that is not a vault is refused, and changes nothing.
+    let junk = root.join("junk.tar.xz");
+    fs::write(&junk, b"not an archive").unwrap();
+    let junk = junk.to_string_lossy().into_owned();
+    assert!(passel
+        .merge_drive_archive(junk.clone(), "3".into())
+        .is_err());
+    assert!(passel
+        .download_drive_vault(
+            "Junk".into(),
+            junk,
+            "file-2".into(),
+            "1".into(),
+            "Phone".into(),
+            "phone@example.invalid".into(),
+        )
+        .is_err());
+    assert!(!passel.vaults().iter().any(|v| v.name == "Junk"));
+    assert_eq!(passel.unsynced_count(), 2);
 }

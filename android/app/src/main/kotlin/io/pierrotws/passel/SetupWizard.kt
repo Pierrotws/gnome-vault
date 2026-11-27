@@ -6,6 +6,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +33,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -57,6 +60,9 @@ private enum class Step { WELCOME, KEY, KIND, PLACE, IDENTITY }
 
 private enum class Kind { DOWNLOAD, CREATE }
 
+/** Where the vault is kept, in the order offered. */
+private enum class Place { DRIVE, GIT, PHONE }
+
 /**
  * Sets up a vault, step by step: on first run (from a welcome page) and
  * from "Add a vault". Like the desktop wizard: the key, then an existing
@@ -70,7 +76,10 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
     var step by rememberSaveable { mutableStateOf(if (firstRun) Step.WELCOME else Step.KEY) }
     var kind by rememberSaveable { mutableStateOf<Kind?>(null) }
     var fingerprint by rememberSaveable { mutableStateOf<String?>(null) }
-    var online by rememberSaveable { mutableStateOf(true) }
+    var place by rememberSaveable { mutableStateOf(Place.DRIVE) }
+    // The Drive file of the vault to download.
+    var driveFileId by rememberSaveable { mutableStateOf<String?>(null) }
+    val driveFile = state.driveVaults?.firstOrNull { it.id == driveFileId }
     var url by rememberSaveable { mutableStateOf("") }
     var username by rememberSaveable { mutableStateOf("") }
     // Not saved in the instance state: it is a secret.
@@ -91,7 +100,11 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
         if (author.isBlank()) author = keyName
         if (email.isBlank()) email = keyEmail
         if (vaultName.isBlank()) {
-            vaultName = repositoryName(url).takeIf { kind == Kind.DOWNLOAD || online }
+            vaultName = when (place) {
+                Place.DRIVE -> driveFile?.vaultName?.takeIf { kind == Kind.DOWNLOAD }
+                Place.GIT -> repositoryName(url)
+                Place.PHONE -> null
+            }
                 // Translators: default names of a new vault.
                 ?: if (firstRun) tr("Passwords") else tr("Vault")
         }
@@ -139,11 +152,18 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
             when (step) {
                 Step.WELCOME -> WelcomePage(onStart = { step = Step.KEY })
                 Step.KEY -> KeyPage(state, fingerprint, onSelect = { fingerprint = it }, model)
-                Step.KIND -> KindPage(kind) { kind = it; step = Step.PLACE }
+                Step.KIND -> KindPage(kind) {
+                    kind = it
+                    // Nothing to download from this phone.
+                    if (it == Kind.DOWNLOAD && place == Place.PHONE) place = Place.DRIVE
+                    step = Step.PLACE
+                }
                 Step.PLACE -> PlacePage(
                     kind = kind ?: Kind.DOWNLOAD,
-                    online = online,
-                    onOnline = { online = it },
+                    place = place,
+                    onPlace = { place = it },
+                    driveFileId = driveFileId,
+                    onDriveFile = { driveFileId = it },
                     url = url,
                     onUrl = { url = it },
                     username = username,
@@ -152,7 +172,10 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                     onToken = { token = it },
                     state = state,
                     model = model,
-                    onSwitchKind = { kind = it },
+                    onSwitchKind = {
+                        kind = it
+                        if (it == Kind.DOWNLOAD && place == Place.PHONE) place = Place.DRIVE
+                    },
                 )
                 Step.IDENTITY -> IdentityPage(vaultName, { vaultName = it }, author, { author = it }, email, { email = it })
             }
@@ -167,14 +190,23 @@ fun SetupWizard(state: VaultState, model: VaultViewModel) {
                     Step.KEY -> Button(onClick = { step = Step.KIND }, enabled = idle && fingerprint != null) { Text(tr("Next")) }
                     Step.PLACE -> Button(
                         onClick = { step = Step.IDENTITY },
-                        enabled = idle && (url.isNotBlank() || (kind == Kind.CREATE && !online)),
+                        enabled = idle && when (place) {
+                            Place.DRIVE -> if (kind == Kind.CREATE) state.driveVaults != null else driveFile != null
+                            Place.GIT -> url.isNotBlank()
+                            Place.PHONE -> kind == Kind.CREATE
+                        },
                     ) { Text(tr("Next")) }
                     Step.IDENTITY -> Button(
                         onClick = {
-                            when (kind) {
-                                Kind.CREATE -> model.createVault(
-                                    vaultName, fingerprint!!, url.takeIf { online }, username, token, author, email,
+                            when (kind to place) {
+                                Kind.CREATE to Place.DRIVE -> model.createDriveVault(vaultName, fingerprint!!, author, email)
+                                Kind.CREATE to Place.GIT -> model.createVault(
+                                    vaultName, fingerprint!!, url, username, token, author, email,
                                 )
+                                Kind.CREATE to Place.PHONE -> model.createVault(
+                                    vaultName, fingerprint!!, null, username, token, author, email,
+                                )
+                                Kind.DOWNLOAD to Place.DRIVE -> driveFile?.let { model.downloadDriveVault(it, vaultName, author, email) }
                                 else -> model.cloneVault(vaultName, url, username, token, author, email)
                             }
                         },
@@ -192,7 +224,7 @@ private fun WelcomePage(onStart: () -> Unit) {
     Text(tr("Welcome to Passel"), style = MaterialTheme.typography.headlineMedium)
     Text(
         tr(
-            "Passel keeps your passwords in a pass vault: one encrypted file per entry, with its whole history, in a git repository you choose. The same vault opens on your computers and phones.",
+            "Passel keeps your passwords in a pass vault: one encrypted file per entry, with its whole history. Keep it on your Google Drive, or in a git repository to open it with pass on your computers too.",
         ),
     )
     Text(tr("Setting it up takes a few steps: your key, then your vault."))
@@ -220,12 +252,14 @@ private fun KeyPage(state: VaultState, selected: String?, onSelect: (String) -> 
             KeyLine(key, model)
         }
     }
-    Text(if (state.keys.isEmpty()) tr("Get a key:") else tr("Or add another key:"), style = MaterialTheme.typography.titleSmall)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { pickKey.launch(arrayOf("*/*")) }, enabled = idle) { Text(tr("Import a key")) }
-        OutlinedButton(onClick = { creating = !creating }, enabled = idle) { Text(tr("Create a key")) }
-    }
-    if (creating) {
+    if (!creating) {
+        Text(if (state.keys.isEmpty()) tr("Get a key:") else tr("Or add another key:"), style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { pickKey.launch(arrayOf("*/*")) }, enabled = idle) { Text(tr("Import a key")) }
+            OutlinedButton(onClick = { creating = true }, enabled = idle) { Text(tr("Create a key")) }
+        }
+    } else {
+        Text(tr("Create a key"), style = MaterialTheme.typography.titleSmall)
         OutlinedTextField(name, { name = it }, label = { Text(tr("Your name")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(
             email,
@@ -235,8 +269,11 @@ private fun KeyPage(state: VaultState, selected: String?, onSelect: (String) -> 
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = { model.createKey(name, email); creating = false }, enabled = idle && name.isNotBlank()) {
-            Text(tr("Create"))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { model.createKey(name, email); creating = false }, enabled = idle && name.isNotBlank()) {
+                Text(tr("Create"))
+            }
+            TextButton(onClick = { creating = false }, enabled = idle) { Text(tr("Cancel")) }
         }
     }
 }
@@ -255,8 +292,10 @@ private fun KindPage(selected: Kind?, onSelect: (Kind) -> Unit) {
 @Composable
 private fun PlacePage(
     kind: Kind,
-    online: Boolean,
-    onOnline: (Boolean) -> Unit,
+    place: Place,
+    onPlace: (Place) -> Unit,
+    driveFileId: String?,
+    onDriveFile: (String) -> Unit,
     url: String,
     onUrl: (String) -> Unit,
     username: String,
@@ -289,28 +328,112 @@ private fun PlacePage(
 
     if (kind == Kind.DOWNLOAD) {
         PageTitle(tr("Where is your vault?"))
-        Text(
-            tr(
-                "The HTTPS address of its repository, and a personal access token allowed to read and write it (GitHub: a fine-grained token with Contents read and write).",
-            ),
-        )
-        remoteFields()
-    } else {
-        PageTitle(tr("Where to keep a copy?"))
-        Choice(selected = online, onClick = { onOnline(true) }) {
+        Choice(selected = place == Place.DRIVE, onClick = { onPlace(Place.DRIVE) }) {
+            ChoiceText(tr("Google Drive"), tr("A vault that Passel saved to your Google Drive."))
+        }
+        if (place == Place.DRIVE) DriveFields(kind, driveFileId, onDriveFile, state, model, onSwitchKind)
+        Choice(selected = place == Place.GIT, onClick = { onPlace(Place.GIT) }) {
             ChoiceText(
-                tr("Online, in an empty repository"),
+                tr("Git repository"),
                 tr(
-                    "Recommended: a private repository you created for it (GitHub, GitLab…). Your vault is backed up, and your other devices sync with it.",
+                    "The HTTPS address of its repository, and a personal access token allowed to read and write it (GitHub: a fine-grained token with Contents read and write).",
                 ),
+                // Translators: tag of a choice that needs some technical knowledge.
+                tag = tr("Advanced"),
             )
         }
-        if (online) remoteFields()
-        Choice(selected = !online, onClick = { onOnline(false) }) {
-            ChoiceText(tr("Only on this phone"), tr("No backup: losing this phone loses this vault."))
+        if (place == Place.GIT) remoteFields()
+    } else {
+        PageTitle(tr("Where to keep your vault?"))
+        Choice(selected = place == Place.DRIVE, onClick = { onPlace(Place.DRIVE) }) {
+            ChoiceText(
+                tr("Google Drive"),
+                tr("Saved on your Google account and synced with your other phones: just sign in. Passel only sees the files it makes there."),
+            )
+        }
+        if (place == Place.DRIVE) DriveFields(kind, driveFileId, onDriveFile, state, model, onSwitchKind)
+        Choice(selected = place == Place.GIT, onClick = { onPlace(Place.GIT) }) {
+            ChoiceText(
+                tr("Git repository"),
+                tr(
+                    "An empty private repository you created for it (GitHub, GitLab…). Your vault is backed up with its whole history, and opens with pass and Passel on your computers too.",
+                ),
+                // Translators: tag of the git choice: it needs some technical knowledge, but is the most capable.
+                tag = tr("Advanced · recommended"),
+            )
+        }
+        if (place == Place.GIT) remoteFields()
+        Choice(selected = place == Place.PHONE, onClick = { onPlace(Place.PHONE) }) {
+            ChoiceText(
+                tr("Only on this phone"),
+                tr("No backup: losing this phone loses this vault."),
+                // Translators: tag of the choice that keeps a vault without any backup.
+                tag = tr("Not recommended"),
+                warning = true,
+            )
         }
     }
 }
+
+/**
+ * The Google Drive connection (a sign-in button only when Google needs
+ * one), then the vault to download (or a hint when creating).
+ */
+@Composable
+private fun DriveFields(
+    kind: Kind,
+    driveFileId: String?,
+    onDriveFile: (String) -> Unit,
+    state: VaultState,
+    model: VaultViewModel,
+    onSwitchKind: (Kind) -> Unit,
+) {
+    val vaults = state.driveVaults
+    if (vaults == null) {
+        if (state.driveSignIn) {
+            Button(onClick = model::connectDrive, enabled = state.busy == null, modifier = Modifier.fillMaxWidth()) {
+                Text(tr("Sign in with Google"))
+            }
+        } else {
+            LaunchedEffect(Unit) { model.checkDrive() }
+            Text(tr("Connecting to Google Drive"), style = MaterialTheme.typography.bodyMedium)
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        return
+    }
+    Text(tr("Connected to Google Drive"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+    when {
+        kind == Kind.CREATE && vaults.isNotEmpty() -> Column {
+            Text(
+                trn(
+                    "This Google Drive already holds {n} vault.",
+                    "This Google Drive already holds {n} vaults.",
+                    vaults.size,
+                    "n" to vaults.size,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            TextButton(onClick = { onSwitchKind(Kind.DOWNLOAD) }) { Text(tr("Download it instead")) }
+        }
+        kind == Kind.DOWNLOAD && vaults.isEmpty() -> Column {
+            Text(tr("No Passel vault on this Google Drive"), color = MaterialTheme.colorScheme.error)
+            TextButton(onClick = { onSwitchKind(Kind.CREATE) }) { Text(tr("Create a new vault there")) }
+        }
+        kind == Kind.DOWNLOAD -> vaults.forEach { file ->
+            Choice(selected = file.id == driveFileId, onClick = { onDriveFile(file.id) }) {
+                ChoiceText(file.vaultName, file.modifiedTime?.let(::modifiedLabel).orEmpty())
+            }
+        }
+    }
+}
+
+/** `2026-11-27T10:58:18.000Z` → "Changed on 27 Nov 2026" (in the device's style). */
+private fun modifiedLabel(time: String): String = runCatching {
+    val instant = java.time.Instant.parse(time)
+    val date = java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+        .format(instant.atZone(java.time.ZoneId.systemDefault()))
+    tr("Changed on {date}", "date" to date)
+}.getOrDefault("")
 
 /** What "Check" found, with a way out when it is the other kind of vault. */
 @Composable
@@ -388,10 +511,26 @@ private fun Choice(selected: Boolean, onClick: () -> Unit, content: @Composable 
     }
 }
 
+/** A choice's title (with an optional [tag] beside it) and explanation. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChoiceText(title: String, detail: String) {
-    Text(title, style = MaterialTheme.typography.titleMedium)
-    Text(detail, style = MaterialTheme.typography.bodyMedium)
+private fun ChoiceText(title: String, detail: String, tag: String? = null, warning: Boolean = false) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        if (tag != null) {
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = if (warning) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = if (warning) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+            ) {
+                Text(tag, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
+            }
+        }
+    }
+    if (detail.isNotEmpty()) Text(detail, style = MaterialTheme.typography.bodyMedium)
 }
 
 @Composable

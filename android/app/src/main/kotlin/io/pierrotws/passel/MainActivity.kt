@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -70,6 +71,7 @@ class MainActivity : FragmentActivity() {
         setContent {
             PasselTheme {
                 PasselScreen(model)
+                DriveConsent(model)
                 val request by prompts.request.collectAsStateWithLifecycle()
                 when (val asked = request) {
                     null -> {}
@@ -95,6 +97,21 @@ class MainActivity : FragmentActivity() {
                         ) { model.finishEnrollment(enroll, it) }
                     }
                 }
+            }
+        }
+    }
+
+    /** Shows Google's account and consent screen when Drive access needs it. */
+    @Composable
+    private fun DriveConsent(model: VaultViewModel) {
+        val state by model.state.collectAsStateWithLifecycle()
+        val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
+            model.finishDriveConsent(it.data)
+        }
+        state.driveConsent?.let { intent ->
+            LaunchedEffect(intent) {
+                launcher.launch(IntentSenderRequest.Builder(intent).build())
+                model.driveConsentShown()
             }
         }
     }
